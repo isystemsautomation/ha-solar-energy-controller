@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Solar Energy Flow Controller",
+        "description": "Choose the input (process value), target (setpoint), and the entity to control (output).",
+        "data": {
+          "process_value_entity": "Process value sensor (PV)",
+          "setpoint_entity": "Setpoint entity (target)",
+          "output_entity": "Output control entity (actuator)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PID settings",
+        "description": "Tune the PID and control limits.",
+        "data": {
+          "enabled": "Enabled",
+          "kp": "Proportional gain (Kp)",
+          "ki": "Integral gain (Ki)",
+          "kd": "Derivative gain (Kd)",
+          "min_output": "Minimum output",
+          "max_output": "Maximum output",
+          "update_interval": "Update interval (seconds)"
+        }
+      }
+    }
+  }
+}
