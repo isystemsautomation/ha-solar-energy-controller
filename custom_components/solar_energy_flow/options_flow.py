@@ -4,20 +4,20 @@ import voluptuous as vol
 from homeassistant import config_entries
 
 from .const import (
+    CONF_ENABLED,
     CONF_KP,
     CONF_KI,
     CONF_KD,
     CONF_MIN_OUTPUT,
     CONF_MAX_OUTPUT,
     CONF_UPDATE_INTERVAL,
-    CONF_ENABLED,
+    DEFAULT_ENABLED,
     DEFAULT_KP,
     DEFAULT_KI,
     DEFAULT_KD,
     DEFAULT_MIN_OUTPUT,
     DEFAULT_MAX_OUTPUT,
     DEFAULT_UPDATE_INTERVAL,
-    DEFAULT_ENABLED,
 )
 
 
