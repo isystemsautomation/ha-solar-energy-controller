@@ -10,7 +10,7 @@ from .const import (
     CONF_SETPOINT_ENTITY,
     CONF_OUTPUT_ENTITY,
 )
-from .options_flow import SolarEnergyFlowOptionsFlow
+from .options_flow import SolarEnergyFlowOptionsFlowHandler
 
 
 class SolarEnergyFlowConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -36,4 +36,4 @@ class SolarEnergyFlowConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return SolarEnergyFlowOptionsFlow(config_entry)
+        return SolarEnergyFlowOptionsFlowHandler(config_entry)

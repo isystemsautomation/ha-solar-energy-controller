@@ -21,7 +21,9 @@ from .const import (
 )
 
 
-class SolarEnergyFlowOptionsFlow(config_entries.OptionsFlow):
+class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options (PID tuning) via the UI."""
+
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
 
