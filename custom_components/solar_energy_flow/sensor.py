@@ -27,10 +27,9 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
         self._entry = entry
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{unique_suffix}"
-        device_name = entry.title or DEFAULT_NAME
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=device_name,
+            name=entry.title,
             manufacturer="Solar Energy Flow",
             model="PID Controller",
         )

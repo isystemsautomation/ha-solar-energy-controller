@@ -4,7 +4,6 @@ CONF_PROCESS_VALUE_ENTITY = "process_value_entity"
 CONF_SETPOINT_ENTITY = "setpoint_entity"
 CONF_OUTPUT_ENTITY = "output_entity"
 CONF_NAME = "name"
-DEFAULT_NAME = "Solar Energy Flow Controller"
 
 # Options (PID tuning)
 CONF_KP = "kp"

@@ -32,12 +32,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
-            name = user_input.pop(CONF_NAME, DEFAULT_NAME) or DEFAULT_NAME
+            name = user_input.pop(CONF_NAME)
             return self.async_create_entry(title=name, data=user_input)
 
         schema = vol.Schema(
             {
-                vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_NAME): str,
                 vol.Required(CONF_PROCESS_VALUE_ENTITY): str,
                 vol.Required(CONF_SETPOINT_ENTITY): str,
                 vol.Required(CONF_OUTPUT_ENTITY): str,
