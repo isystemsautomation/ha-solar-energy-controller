@@ -41,5 +41,18 @@
       }
     },
     "error": {}
+  },
+  "entity": {
+    "switch": {
+      "solar_energy_flow_rate_limiter": {
+        "name": "Rate limiter"
+      }
+    },
+    "number": {
+      "solar_energy_flow_rate_limit": {
+        "name": "Rate limit",
+        "unit_of_measurement": "points/s"
+      }
+    }
   }
 }

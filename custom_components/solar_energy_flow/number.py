@@ -18,6 +18,7 @@ from .const import (
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
+    CONF_RATE_LIMIT,
     DEFAULT_ENABLED,
     DEFAULT_KD,
     DEFAULT_KI,
@@ -27,6 +28,7 @@ from .const import (
     DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
+    DEFAULT_RATE_LIMIT,
     DOMAIN,
 )
 from .coordinator import SolarEnergyFlowCoordinator
@@ -124,6 +126,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             2000.0,
             None,
         ),
+        SolarEnergyFlowNumber(
+            coordinator,
+            entry,
+            CONF_RATE_LIMIT,
+            "Rate limit",
+            DEFAULT_RATE_LIMIT,
+            0.1,
+            0.0,
+            10000.0,
+            EntityCategory.CONFIG,
+            "points/s",
+        ),
     ]
 
     async_add_entities(entities)
@@ -144,6 +158,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         min_value: float | None,
         max_value: float | None,
         entity_category: EntityCategory | None,
+        native_unit: str | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
@@ -155,6 +170,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         self._attr_native_min_value = min_value
         self._attr_native_max_value = max_value
         self._attr_entity_category = entity_category
+        self._attr_native_unit_of_measurement = native_unit
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
@@ -182,6 +198,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         options.setdefault(CONF_GRID_LIMITER_LIMIT_W, DEFAULT_GRID_LIMITER_LIMIT_W)
         options.setdefault(CONF_GRID_LIMITER_DEADBAND_W, DEFAULT_GRID_LIMITER_DEADBAND_W)
         options.setdefault(CONF_PID_DEADBAND, DEFAULT_PID_DEADBAND)
+        options.setdefault(CONF_RATE_LIMIT, DEFAULT_RATE_LIMIT)
 
         options[self._option_key] = value
 
