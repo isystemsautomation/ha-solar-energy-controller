@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -37,41 +37,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     entities: list[NumberEntity] = [
         SolarEnergyFlowNumber(
-            coordinator, entry, CONF_KP, "Solar Energy Flow Kp", DEFAULT_KP, 0.001, None, None, EntityCategory.CONFIG
+            coordinator,
+            entry,
+            CONF_KP,
+            "Kp",
+            DEFAULT_KP,
+            0.001,
+            0.0,
+            1000.0,
+            EntityCategory.CONFIG,
         ),
         SolarEnergyFlowNumber(
-            coordinator, entry, CONF_KI, "Solar Energy Flow Ki", DEFAULT_KI, 0.001, None, None, EntityCategory.CONFIG
+            coordinator,
+            entry,
+            CONF_KI,
+            "Ki",
+            DEFAULT_KI,
+            0.001,
+            0.0,
+            1000.0,
+            EntityCategory.CONFIG,
         ),
         SolarEnergyFlowNumber(
-            coordinator, entry, CONF_KD, "Solar Energy Flow Kd", DEFAULT_KD, 0.001, None, None, EntityCategory.CONFIG
+            coordinator,
+            entry,
+            CONF_KD,
+            "Kd",
+            DEFAULT_KD,
+            0.001,
+            0.0,
+            1000.0,
+            EntityCategory.CONFIG,
         ),
         SolarEnergyFlowNumber(
             coordinator,
             entry,
             CONF_MIN_OUTPUT,
-            "Solar Energy Flow Min Output",
+            "Min output",
             DEFAULT_MIN_OUTPUT,
             1.0,
-            None,
-            None,
+            -20000.0,
+            20000.0,
             EntityCategory.CONFIG,
         ),
         SolarEnergyFlowNumber(
             coordinator,
             entry,
             CONF_MAX_OUTPUT,
-            "Solar Energy Flow Max Output",
+            "Max output",
             DEFAULT_MAX_OUTPUT,
             1.0,
-            None,
-            None,
+            -20000.0,
+            20000.0,
             EntityCategory.CONFIG,
         ),
         SolarEnergyFlowNumber(
             coordinator,
             entry,
             CONF_GRID_LIMITER_LIMIT_W,
-            "Solar Energy Flow Grid Limiter Limit (W)",
+            "Grid limiter limit",
             DEFAULT_GRID_LIMITER_LIMIT_W,
             10.0,
             0.0,
@@ -82,7 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             coordinator,
             entry,
             CONF_GRID_LIMITER_DEADBAND_W,
-            "Solar Energy Flow Grid Limiter Deadband (W)",
+            "Grid limiter deadband",
             DEFAULT_GRID_LIMITER_DEADBAND_W,
             10.0,
             0.0,
@@ -93,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             coordinator,
             entry,
             CONF_PID_DEADBAND,
-            "Solar Energy Flow PID Deadband",
+            "PID deadband",
             DEFAULT_PID_DEADBAND,
             1.0,
             0.0,
@@ -106,6 +130,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.BOX
+
     def __init__(
         self,
         coordinator: SolarEnergyFlowCoordinator,

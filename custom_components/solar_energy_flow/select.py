@@ -35,7 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 coordinator,
                 entry,
                 CONF_GRID_LIMITER_TYPE,
-                "Solar Energy Flow Grid Limiter Type",
+                "Grid limiter type",
                 [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
                 DEFAULT_GRID_LIMITER_TYPE,
             ),
