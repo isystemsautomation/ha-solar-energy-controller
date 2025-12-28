@@ -47,5 +47,5 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
         options = dict(self._entry.options)
         options[CONF_ENABLED] = enabled
 
-        await self.hass.config_entries.async_update_entry(self._entry, options=options)
+        self.hass.config_entries.async_update_entry(self._entry, options=options)
         await self.coordinator.async_request_refresh()
