@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+import time
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Mapping, Any
 
@@ -38,6 +39,8 @@ from .const import (
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
+    CONF_RATE_LIMIT,
+    CONF_RATE_LIMITER_ENABLED,
     DEFAULT_INVERT_PV,
     DEFAULT_INVERT_SP,
     DEFAULT_GRID_POWER_INVERT,
@@ -47,6 +50,8 @@ from .const import (
     DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
+    DEFAULT_RATE_LIMIT,
+    DEFAULT_RATE_LIMITER_ENABLED,
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
     GRID_LIMITER_TYPE_EXPORT,
@@ -219,6 +224,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.pid = PID(cfg, entry_id=entry.entry_id)
         self._limiter_state = GRID_LIMITER_STATE_NORMAL
         self._last_output: float | None = None
+        self._last_output_time: float | None = None
         self._last_pv_for_pid: float | None = None
         self._last_sp_for_pid: float | None = None
 
@@ -262,6 +268,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         prev_pv_for_pid = self._last_pv_for_pid
 
         enabled = self.entry.options.get(CONF_ENABLED, DEFAULT_ENABLED)
+        min_output, max_output = _get_pid_limits_from_options(self.entry.options)
         invert_pv = self.entry.options.get(CONF_INVERT_PV, DEFAULT_INVERT_PV)
         invert_sp = self.entry.options.get(CONF_INVERT_SP, DEFAULT_INVERT_SP)
         grid_power_invert = self.entry.options.get(CONF_GRID_POWER_INVERT, DEFAULT_GRID_POWER_INVERT)
@@ -281,6 +288,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 DEFAULT_GRID_LIMITER_DEADBAND_W,
             ),
         )
+        rate_limiter_enabled = self.entry.options.get(CONF_RATE_LIMITER_ENABLED, DEFAULT_RATE_LIMITER_ENABLED)
+        rate_limit = max(0.0, _coerce_float(self.entry.options.get(CONF_RATE_LIMIT, DEFAULT_RATE_LIMIT), DEFAULT_RATE_LIMIT))
         pid_deadband = max(
             0.0, _coerce_float(self.entry.options.get(CONF_PID_DEADBAND, DEFAULT_PID_DEADBAND), DEFAULT_PID_DEADBAND)
         )
@@ -307,14 +316,19 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         if not enabled:
             self.pid.reset()
             self._limiter_state = GRID_LIMITER_STATE_NORMAL
-            self._last_output = None
+            safe_output = min_output
+            now = time.monotonic()
+            if out_ent:
+                await _set_output(self.hass, out_ent, safe_output)
+            self._last_output = safe_output
+            self._last_output_time = now
             self._last_pv_for_pid = None
             self._last_sp_for_pid = None
             return FlowState(
                 pv=pv,
                 sp=sp,
                 grid_power=grid_power,
-                out=None,
+                out=safe_output,
                 error=None,
                 enabled=False,
                 status="disabled",
@@ -363,6 +377,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             self.pid.reset()
             self._limiter_state = GRID_LIMITER_STATE_NORMAL
             self._last_output = None
+            self._last_output_time = None
             self._last_pv_for_pid = None
             self._last_sp_for_pid = None
             return FlowState(
@@ -397,14 +412,27 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self._limiter_state = new_limiter_state
 
         out, err = self.pid.step(pv=pv_for_pid, error=error)
-        self._last_output = out
-        self._last_pv_for_pid = pv_for_pid
-        self._last_sp_for_pid = sp_for_pid
+        now = time.monotonic()
+        if (
+            rate_limiter_enabled
+            and rate_limit > 0
+            and self._last_output is not None
+            and self._last_output_time is not None
+        ):
+            dt_seconds = max(1e-6, now - self._last_output_time)
+            max_delta = rate_limit * dt_seconds
+            out = max(min_output, min(max_output, out))
+            out = max(self._last_output - max_delta, min(self._last_output + max_delta, out))
 
         if out_ent:
             await _set_output(self.hass, out_ent, out)
         else:
             _LOGGER.warning("No output entity configured.")
+
+        self._last_output = out
+        self._last_output_time = now
+        self._last_pv_for_pid = pv_for_pid
+        self._last_sp_for_pid = sp_for_pid
 
         return FlowState(
             pv=pv_for_pid,
