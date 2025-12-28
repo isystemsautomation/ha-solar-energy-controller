@@ -24,6 +24,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+
     def __init__(self, coordinator, entry: ConfigEntry, name: str, unique_suffix: str) -> None:
         super().__init__(coordinator)
         self._entry = entry
@@ -41,7 +43,7 @@ class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
     _attr_icon = "mdi:tune-vertical"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Solar Energy Flow Output", "output")
+        super().__init__(coordinator, entry, "Output", "output")
 
     @property
     def native_value(self):
@@ -52,7 +54,7 @@ class SolarEnergyFlowErrorSensor(_BaseFlowSensor):
     _attr_icon = "mdi:delta"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Solar Energy Flow Error", "error")
+        super().__init__(coordinator, entry, "Error", "error")
 
     @property
     def native_value(self):
@@ -63,7 +65,7 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
     _attr_icon = "mdi:information-outline"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Solar Energy Flow Status", "status")
+        super().__init__(coordinator, entry, "Status", "status")
 
     @property
     def native_value(self):
@@ -75,7 +77,7 @@ class SolarEnergyFlowLimiterStateSensor(_BaseFlowSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Solar Energy Flow Limiter State", "limiter_state")
+        super().__init__(coordinator, entry, "Limiter state", "limiter_state")
 
     @property
     def native_value(self):
