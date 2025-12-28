@@ -3,10 +3,12 @@ from __future__ import annotations
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DEFAULT_NAME, DOMAIN
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -26,6 +28,14 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
         self._entry = entry
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{unique_suffix}"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._entry.entry_id)},
+            name=self._entry.title or DEFAULT_NAME,
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
 
 class SolarEnergyFlowOutputSensor(_BaseFlowSensor):

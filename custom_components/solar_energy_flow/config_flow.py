@@ -22,6 +22,8 @@ from .const import (
     DEFAULT_MIN_OUTPUT,
     DEFAULT_MAX_OUTPUT,
     DEFAULT_UPDATE_INTERVAL,
+    CONF_NAME,
+    DEFAULT_NAME,
 )
 
 
@@ -30,13 +32,15 @@ class SolarEnergyFlowConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
+            title = user_input.pop(CONF_NAME, DEFAULT_NAME)
             return self.async_create_entry(
-                title="Solar Energy Flow Controller",
+                title=title,
                 data=user_input,
             )
 
         schema = vol.Schema(
             {
+                vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_PROCESS_VALUE_ENTITY): str,
                 vol.Required(CONF_SETPOINT_ENTITY): str,
                 vol.Required(CONF_OUTPUT_ENTITY): str,
