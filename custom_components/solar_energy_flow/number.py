@@ -96,5 +96,5 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             if value < min_val:
                 options[CONF_MIN_OUTPUT] = value
 
-        await self.hass.config_entries.async_update_entry(self._entry, options=options)
+        self.hass.config_entries.async_update_entry(self._entry, options=options)
         await self.coordinator.async_request_refresh()
