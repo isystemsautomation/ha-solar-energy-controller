@@ -75,40 +75,67 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
         return max(min_value, int_val)
 
     @staticmethod
-    def _validate_output_range(data: dict) -> dict:
-        min_out = data.get(CONF_MIN_OUTPUT, DEFAULT_MIN_OUTPUT)
-        max_out = data.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT)
-        if min_out > max_out:
-            raise vol.Invalid("min_output must be less than or equal to max_output")
-        return data
+    def _build_schema(defaults: dict) -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Optional(CONF_ENABLED, default=defaults.get(CONF_ENABLED, DEFAULT_ENABLED)): bool,
+                vol.Optional(CONF_KP, default=defaults.get(CONF_KP, DEFAULT_KP)): vol.Coerce(float),
+                vol.Optional(CONF_KI, default=defaults.get(CONF_KI, DEFAULT_KI)): vol.Coerce(float),
+                vol.Optional(CONF_KD, default=defaults.get(CONF_KD, DEFAULT_KD)): vol.Coerce(float),
+                vol.Optional(CONF_MIN_OUTPUT, default=defaults.get(CONF_MIN_OUTPUT, DEFAULT_MIN_OUTPUT)): vol.Coerce(float),
+                vol.Optional(CONF_MAX_OUTPUT, default=defaults.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT)): vol.Coerce(float),
+                vol.Optional(
+                    CONF_UPDATE_INTERVAL,
+                    default=defaults.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            }
+        )
 
     async def async_step_init(self, user_input=None):
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
         o = self._config_entry.options
-        default_min_output = self._coerce_float(o.get(CONF_MIN_OUTPUT), DEFAULT_MIN_OUTPUT)
-        default_max_output = self._coerce_float(o.get(CONF_MAX_OUTPUT), DEFAULT_MAX_OUTPUT)
-        if default_max_output < default_min_output:
-            default_max_output = default_min_output
-        default_interval = self._coerce_int(o.get(CONF_UPDATE_INTERVAL), DEFAULT_UPDATE_INTERVAL, min_value=1)
+        errors: dict[str, str] = {}
 
-        schema = vol.All(
-            vol.Schema(
-                {
-                    vol.Optional(CONF_ENABLED, default=o.get(CONF_ENABLED, DEFAULT_ENABLED)): bool,
-                    vol.Optional(CONF_KP, default=o.get(CONF_KP, DEFAULT_KP)): vol.Coerce(float),
-                    vol.Optional(CONF_KI, default=o.get(CONF_KI, DEFAULT_KI)): vol.Coerce(float),
-                    vol.Optional(CONF_KD, default=o.get(CONF_KD, DEFAULT_KD)): vol.Coerce(float),
-                    vol.Optional(CONF_MIN_OUTPUT, default=default_min_output): vol.Coerce(float),
-                    vol.Optional(CONF_MAX_OUTPUT, default=default_max_output): vol.Coerce(float),
-                    vol.Optional(CONF_UPDATE_INTERVAL, default=default_interval): vol.All(vol.Coerce(int), vol.Range(min=1)),
-                }
+        defaults = {
+            CONF_ENABLED: o.get(CONF_ENABLED, DEFAULT_ENABLED),
+            CONF_KP: self._coerce_float(o.get(CONF_KP), DEFAULT_KP),
+            CONF_KI: self._coerce_float(o.get(CONF_KI), DEFAULT_KI),
+            CONF_KD: self._coerce_float(o.get(CONF_KD), DEFAULT_KD),
+            CONF_MIN_OUTPUT: self._coerce_float(o.get(CONF_MIN_OUTPUT), DEFAULT_MIN_OUTPUT),
+            CONF_MAX_OUTPUT: self._coerce_float(o.get(CONF_MAX_OUTPUT), DEFAULT_MAX_OUTPUT),
+            CONF_UPDATE_INTERVAL: self._coerce_int(
+                o.get(CONF_UPDATE_INTERVAL),
+                DEFAULT_UPDATE_INTERVAL,
+                min_value=1,
             ),
-            self._validate_output_range,
-        )
+        }
+
+        if defaults[CONF_MAX_OUTPUT] < defaults[CONF_MIN_OUTPUT]:
+            defaults[CONF_MAX_OUTPUT] = defaults[CONF_MIN_OUTPUT]
+
+        if user_input is not None:
+            cleaned = {
+                CONF_ENABLED: user_input.get(CONF_ENABLED, DEFAULT_ENABLED),
+                CONF_KP: self._coerce_float(user_input.get(CONF_KP), defaults[CONF_KP]),
+                CONF_KI: self._coerce_float(user_input.get(CONF_KI), defaults[CONF_KI]),
+                CONF_KD: self._coerce_float(user_input.get(CONF_KD), defaults[CONF_KD]),
+                CONF_MIN_OUTPUT: self._coerce_float(user_input.get(CONF_MIN_OUTPUT), defaults[CONF_MIN_OUTPUT]),
+                CONF_MAX_OUTPUT: self._coerce_float(user_input.get(CONF_MAX_OUTPUT), defaults[CONF_MAX_OUTPUT]),
+                CONF_UPDATE_INTERVAL: self._coerce_int(
+                    user_input.get(CONF_UPDATE_INTERVAL),
+                    defaults[CONF_UPDATE_INTERVAL],
+                    min_value=1,
+                ),
+            }
+
+            if cleaned[CONF_MIN_OUTPUT] > cleaned[CONF_MAX_OUTPUT]:
+                errors["base"] = "min_output_gt_max"
+            else:
+                return self.async_create_entry(title="", data=cleaned)
+
+            defaults = cleaned
 
         return self.async_show_form(
             step_id="init",
-            data_schema=schema,
+            data_schema=self._build_schema(defaults),
+            errors=errors,
         )

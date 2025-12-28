@@ -28,6 +28,9 @@
           "update_interval": "Update interval (seconds)"
         }
       }
+    },
+    "error": {
+      "min_output_gt_max": "Minimum output must be less than or equal to maximum output."
     }
   }
 }
