@@ -5,6 +5,7 @@ from homeassistant import config_entries
 
 from .const import (
     DOMAIN,
+    CONF_NAME,
     CONF_PROCESS_VALUE_ENTITY,
     CONF_SETPOINT_ENTITY,
     CONF_OUTPUT_ENTITY,
@@ -25,18 +26,20 @@ from .const import (
 )
 
 
-class SolarEnergyFlowConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(
-                title="Solar Energy Flow Controller",
-                data=user_input,
-            )
+            unique_id = f"{user_input[CONF_PROCESS_VALUE_ENTITY]}::{user_input[CONF_SETPOINT_ENTITY]}::{user_input[CONF_OUTPUT_ENTITY]}"
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+            name = user_input.pop(CONF_NAME)
+            return self.async_create_entry(title=name, data=user_input)
 
         schema = vol.Schema(
             {
+                vol.Required(CONF_NAME): str,
                 vol.Required(CONF_PROCESS_VALUE_ENTITY): str,
                 vol.Required(CONF_SETPOINT_ENTITY): str,
                 vol.Required(CONF_OUTPUT_ENTITY): str,
