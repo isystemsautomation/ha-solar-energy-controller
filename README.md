@@ -44,7 +44,9 @@ Designed for **energy flow control** scenarios such as inverter power limiting, 
 
 During setup you must select the entities used by the controller.
 
-![Initial configuration](images/Configuration1.png)
+<p align="center">
+  <img src="images/Configuration1.png" width="200">
+</p>
 
 | Item | Description | Supported Domains |
 |---|---|---|
@@ -61,7 +63,9 @@ Invalid entity domains are rejected during setup.
 
 After installation, you can configure signal interpretation and controller behavior.
 
-![PID wiring and mode](images/Configuration2.png)
+<p align="center">
+  <img src="images/Configuration2.png" width="200">
+</p>
 
 ### Options
 - **Invert PV** – flips the sign of the process value if your meter reports the opposite direction
@@ -78,7 +82,9 @@ After installation, you can configure signal interpretation and controller behav
 
 Runtime controls allow switching modes and manually overriding behavior.
 
-![Runtime controls](images/Configuration3.png)
+<p align="center">
+  <img src="images/Configuration3.png" width="200">
+</p>
 
 ### Runtime Modes
 
@@ -97,7 +103,9 @@ Mode transitions use **bumpless transfer** to avoid output jumps.
 
 The integration exposes detailed runtime sensors for transparency and tuning.
 
-![Sensors](images/Configuration4.png)
+<p align="center">
+  <img src="images/Configuration4.png" width="200">
+</p>
 
 ### Sensors
 - Effective SP
@@ -116,7 +124,9 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 
 All tuning and limiter parameters are available as number and switch entities.
 
-![Configuration parameters](images/Configuration5.png)
+<p align="center">
+  <img src="images/Configuration5.png" width="200">
+</p>
 
 ### PID & Limits
 - Kp, Ki, Kd
@@ -140,7 +150,9 @@ All tuning and limiter parameters are available as number and switch entities.
 
 Additional diagnostic entities help understand controller behavior.
 
-![Diagnostics](images/Configuration6.png)
+<p align="center">
+  <img src="images/Configuration6.png" width="200">
+</p>
 
 ### Diagnostic Entities
 - Limiter state
@@ -189,4 +201,3 @@ These reflect internal controller state and error conditions.
 
 - Issues: https://github.com/isystemsautomation/ha-solar-energy-flow/issues
 - Documentation: https://github.com/isystemsautomation/ha-solar-energy-flow/
-
