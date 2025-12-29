@@ -258,6 +258,23 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         )
         self._previous_runtime_mode = self._runtime_mode
 
+    def _get_normal_setpoint_value(self) -> float | None:
+        """Return the current external setpoint with inversion applied (no limiter)."""
+        sp_ent = _get_entity_id(self.entry, CONF_SETPOINT_ENTITY)
+        sp = _state_to_float(self.hass.states.get(sp_ent)) if sp_ent else None
+        if sp is not None and self.entry.options.get(CONF_INVERT_SP, DEFAULT_INVERT_SP):
+            sp = -sp
+        return sp
+
+    def set_manual_sp_from_normal_setpoint(self, sp: float | None = None) -> float | None:
+        """Set the manual SP to the current AUTO SP value for bumpless transfer."""
+        value = sp if sp is not None else self._get_normal_setpoint_value()
+        if value is None:
+            return None
+        self._manual_sp_value = value
+        self._manual_sp_initialized = True
+        return value
+
     def _build_pid_config_from_options(self, options: Mapping[str, Any]) -> PIDConfig:
         min_output, max_output = _get_pid_limits_from_options(options)
         return PIDConfig(
@@ -306,7 +323,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         enabled = self.entry.options.get(CONF_ENABLED, DEFAULT_ENABLED)
         min_output, max_output = _get_pid_limits_from_options(self.entry.options)
         invert_pv = self.entry.options.get(CONF_INVERT_PV, DEFAULT_INVERT_PV)
-        invert_sp = self.entry.options.get(CONF_INVERT_SP, DEFAULT_INVERT_SP)
         grid_power_invert = self.entry.options.get(CONF_GRID_POWER_INVERT, DEFAULT_GRID_POWER_INVERT)
         limiter_enabled = self.entry.options.get(CONF_GRID_LIMITER_ENABLED, DEFAULT_GRID_LIMITER_ENABLED)
         limiter_type = _get_limiter_type(self.entry)
@@ -353,19 +369,16 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             )
 
         pv_ent = _get_entity_id(self.entry, CONF_PROCESS_VALUE_ENTITY)
-        sp_ent = _get_entity_id(self.entry, CONF_SETPOINT_ENTITY)
         out_ent = _get_entity_id(self.entry, CONF_OUTPUT_ENTITY)
         grid_ent = _get_entity_id(self.entry, CONF_GRID_POWER_ENTITY)
 
         pv = _state_to_float(self.hass.states.get(pv_ent)) if pv_ent else None
-        sp = _state_to_float(self.hass.states.get(sp_ent)) if sp_ent else None
         grid_power = _state_to_float(self.hass.states.get(grid_ent)) if grid_ent else None
 
         if pv is not None and invert_pv:
             pv = -pv
 
-        if sp is not None and invert_sp:
-            sp = -sp
+        sp = self._get_normal_setpoint_value()
 
         if grid_power is not None and grid_power_invert:
             grid_power = -grid_power
@@ -379,22 +392,26 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 sp,
             )
 
-        if runtime_mode == RUNTIME_MODE_MANUAL_SP and self._manual_sp_value is None and sp is not None:
-            self._manual_sp_value = sp
-            self._manual_sp_initialized = True
-            _LOGGER.debug(
-                "Initialized manual SP on entering MANUAL SP entry=%s sp=%s",
-                self.entry.entry_id,
-                sp,
-            )
+        mode_changed = runtime_mode != prev_runtime_mode
+
+        if runtime_mode == RUNTIME_MODE_MANUAL_SP and (mode_changed or self._manual_sp_value is None):
+            if sp is not None:
+                new_manual_sp = self.set_manual_sp_from_normal_setpoint(sp)
+                if new_manual_sp is not None:
+                    _LOGGER.debug(
+                        "Updated manual SP on entering MANUAL SP entry=%s sp=%s",
+                        self.entry.entry_id,
+                        new_manual_sp,
+                    )
+            elif mode_changed:
+                self._manual_sp_value = None
+                self._manual_sp_initialized = False
 
         manual_sp_display_value: float | None = self._manual_sp_value
         if runtime_mode == RUNTIME_MODE_AUTO_SP and sp is not None:
             manual_sp_display_value = sp
         elif runtime_mode == RUNTIME_MODE_MANUAL_SP and self._manual_sp_value is None:
             manual_sp_display_value = sp
-
-        mode_changed = runtime_mode != prev_runtime_mode
 
         def _log_mode_change() -> None:
             if not mode_changed:
