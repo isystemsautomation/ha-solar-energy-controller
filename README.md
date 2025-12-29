@@ -45,7 +45,7 @@ Designed for **energy flow control** scenarios such as inverter power limiting, 
 During setup you must select the entities used by the controller.
 
 <p align="center">
-  <img src="images/Configuration1.png" width="200">
+  <img src="images/Configuration1.png" width="300">
 </p>
 
 | Item | Description | Supported Domains |
@@ -64,7 +64,7 @@ Invalid entity domains are rejected during setup.
 After installation, you can configure signal interpretation and controller behavior.
 
 <p align="center">
-  <img src="images/Configuration2.png" width="200">
+  <img src="images/Configuration2.png" width="300">
 </p>
 
 ### Options
