@@ -15,7 +15,7 @@ Designed for **energy flow control** scenarios such as inverter power limiting, 
 
 - PID controller (Kp / Ki / Kd)
 - **Internal 0–100% normalized control**
-- Percent-based PID tuning (device-independent)
+- **Percent-based PID tuning** (unit- and device-independent)
 - Anti-windup with tracking
 - Derivative on measurement
 - Multiple runtime modes:
@@ -30,24 +30,23 @@ Designed for **energy flow control** scenarios such as inverter power limiting, 
 
 ---
 
-## How the Controller Works (Important)
+## How the Controller Works
 
-Internally, the controller **normalizes all control signals to a 0–100% range**:
+The controller internally **normalizes PV, SP, and Grid Power to a 0–100% range** using configured raw min/max values:
 
-- Process Value (PV) → 0–100%
-- Setpoint (SP) → 0–100%
-- PID Output → 0–100%
-
-This normalization is done using user-configured **minimum and maximum values** for each signal.
+- **PV (Process Value)** → 0–100%
+- **SP (Setpoint)** → 0–100%
+- **GRID (Grid Power)** → 0–100% (used only when limiter is enabled)
+- **PID OUT** → 0–100%
 
 The PID algorithm **always operates in percent**, while:
 - Sensors continue to display **raw, real-world values**
-- The output entity receives **scaled real-world values**
+- The output entity receives **scaled real-world values** (based on your output min/max)
 
-This design provides:
-- Stable tuning across different devices
-- Predictable PID behavior
-- Independence from sensor units (W, A, V, %, etc.)
+This makes the controller:
+- stable across different sensors and units (W, A, V, %, etc.)
+- predictable to tune
+- resilient when changing devices (only ranges change)
 
 ---
 
@@ -56,9 +55,11 @@ This design provides:
 **Kp, Ki, and Kd are tuned in percent space.**
 
 What this means:
-- A PID output of **100%** represents the maximum configured output
-- PID gains are **independent of the physical units** of PV, SP, or output
-- Changing sensors or ranges does not require re-scaling PID gains
+- **100% PID output** represents your configured *maximum output*
+- PV/SP/Grid units do not matter (because values are normalized before PID)
+- Gains do **not** need re-scaling when you change sensor ranges or units
+
+> ⚠️ Changing PV/SP/Grid min/max ranges changes PID behavior and may require retuning.
 
 ---
 
@@ -75,7 +76,7 @@ What this means:
 
 ## Initial Configuration
 
-During setup you must select the entities used by the controller and define their operating ranges.
+During setup you select the entities used by the controller and define their operating ranges for normalization.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration1.png" width="300">
@@ -87,6 +88,13 @@ During setup you must select the entities used by the controller and define thei
 | Setpoint (SP) | Target value | `number`, `input_number` |
 | Output | Controlled output | `number`, `input_number` |
 | Grid Power | Grid power measurement (optional) | `sensor`, `number`, `input_number` |
+
+You will also configure:
+- **PV min / max** (raw units)
+- **SP min / max** (raw units)
+- **Grid min / max** (raw units)
+
+These ranges are used only to scale signals internally to 0–100%.
 
 Invalid entity domains are rejected during setup.
 
@@ -101,6 +109,7 @@ After installation, you can configure signal interpretation and controller behav
 </p>
 
 ### Options
+
 - **Invert PV** – flips the sign of the process value if your meter reports the opposite direction
 - **Invert SP** – flips the setpoint sign
 - **Invert Grid Power** – flips grid power sign to match hardware conventions
@@ -108,6 +117,7 @@ After installation, you can configure signal interpretation and controller behav
   - **Direct** – increasing error increases output
   - **Reverse** – increasing error decreases output
 - **Update interval** – control loop execution interval (seconds)
+- **PV/SP/Grid min/max (raw units)** – scaling ranges used for 0–100% normalization
 
 ---
 
@@ -123,7 +133,7 @@ Runtime controls allow switching modes and manually overriding behavior.
 
 | Mode | Description |
 |---|---|
-| **AUTO SP** | PID controls output using normalized percent setpoint |
+| **AUTO SP** | PID controls output using normalized percent PV/SP |
 | **MANUAL SP** | User sets setpoint manually (raw units), PID remains active |
 | **MANUAL OUT** | User directly controls output (raw units) |
 | **HOLD** | Output frozen at last value |
@@ -141,6 +151,7 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 </p>
 
 ### Sensors
+
 - Effective SP (raw units)
 - PV value (raw units)
 - Output (raw units)
@@ -150,6 +161,8 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 - P / I / D terms (percent domain)
 - Limiter state (diagnostic)
 - Status
+
+> Note: PV/SP/Output sensors show raw values. PID calculations are performed internally in percent.
 
 ---
 
@@ -162,18 +175,21 @@ All tuning and limiter parameters are available as number and switch entities.
 </p>
 
 ### PID & Limits
+
 - Kp, Ki, Kd (**percent-based tuning**)
 - PID deadband (percent)
 - Min output (raw units)
 - Max output (raw units)
 
 ### Grid Limiter
+
 - Grid limiter enabled
 - Grid limiter type (import / export)
 - Grid limiter limit (raw units)
 - Grid limiter deadband
 
 ### Rate Limiter
+
 - Rate limiter enabled
 - Rate limit (output units per second)
 
@@ -188,6 +204,7 @@ Additional diagnostic entities help understand controller behavior.
 </p>
 
 ### Diagnostic Entities
+
 - Limiter state
 - Output (pre rate limit)
 
