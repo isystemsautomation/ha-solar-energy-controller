@@ -33,6 +33,7 @@ from .helpers import (
     RUNTIME_FIELD_IS_ON,
     RUNTIME_FIELD_START_TIMER_S,
     RUNTIME_FIELD_STOP_TIMER_S,
+    RUNTIME_FIELD_REASON,
     consumer_runtime_updated_signal,
     get_consumer_runtime,
     get_entry_coordinator,
@@ -61,6 +62,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         EnergyDividerActiveConsumerSensor(coordinator, entry),
         EnergyDividerActivePrioritySensor(coordinator, entry),
         EnergyDividerConsumersSummarySensor(coordinator, entry, consumers),
+        EnergyDividerStateSensor(coordinator, entry),
+        EnergyDividerReasonSensor(coordinator, entry),
     ]
 
     if CONF_BATTERY_SOC_ENTITY in entry.options:
@@ -80,6 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(ConsumerStateSensor(entry, consumer))
         entities.append(ConsumerStartTimerSensor(entry, consumer))
         entities.append(ConsumerStopTimerSensor(entry, consumer))
+        entities.append(ConsumerReasonSensor(entry, consumer))
         if consumer.get(CONSUMER_TYPE) == CONSUMER_TYPE_CONTROLLED:
             entities.append(ConsumerCommandedPowerSensor(entry, consumer))
 
@@ -332,6 +336,28 @@ class EnergyDividerActivePrioritySensor(_BaseDividerSensor):
     @property
     def native_value(self):
         return getattr(self.coordinator, "active_controlled_consumer_priority", None)
+
+
+class EnergyDividerStateSensor(_BaseDividerSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "Divider state", "divider_state", EntityCategory.DIAGNOSTIC)
+
+    @property
+    def native_value(self):
+        return getattr(self.coordinator, "divider_state", None)
+
+
+class EnergyDividerReasonSensor(_BaseDividerSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "Divider reason", "divider_reason", EntityCategory.DIAGNOSTIC)
+
+    @property
+    def native_value(self):
+        return getattr(self.coordinator, "divider_reason", None)
 
 
 class EnergyDividerConsumersSummarySensor(_BaseDividerSensor):
@@ -589,3 +615,13 @@ class ConsumerStopTimerSensor(_BaseConsumerRuntimeSensor):
     def native_value(self):
         runtime = self._runtime()
         return runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)
+
+
+class ConsumerReasonSensor(_BaseConsumerRuntimeSensor):
+    def __init__(self, entry: ConfigEntry, consumer: dict) -> None:
+        super().__init__(entry, consumer, "Reason", "reason")
+
+    @property
+    def native_value(self):
+        runtime = self._runtime()
+        return runtime.get(RUNTIME_FIELD_REASON, "")
