@@ -30,6 +30,7 @@ from .const import (
 from .coordinator import SolarEnergyFlowCoordinator
 from .helpers import (
     RUNTIME_FIELD_CMD_W,
+    RUNTIME_FIELD_IS_ON,
     RUNTIME_FIELD_START_TIMER_S,
     RUNTIME_FIELD_STOP_TIMER_S,
     consumer_runtime_updated_signal,
@@ -74,16 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 ConsumerDeltaWSensor(coordinator, entry, consumer),
             ]
         )
-        if consumer.get(CONSUMER_TYPE) != CONSUMER_TYPE_CONTROLLED:
-            continue
-        entities.extend(
-            [
-                ConsumerCommandedPowerSensor(entry, consumer),
-                ConsumerStateSensor(entry, consumer),
-                ConsumerStartTimerSensor(entry, consumer),
-                ConsumerStopTimerSensor(entry, consumer),
-            ]
-        )
+        entities.append(ConsumerStateSensor(entry, consumer))
+        entities.append(ConsumerStartTimerSensor(entry, consumer))
+        entities.append(ConsumerStopTimerSensor(entry, consumer))
+        if consumer.get(CONSUMER_TYPE) == CONSUMER_TYPE_CONTROLLED:
+            entities.append(ConsumerCommandedPowerSensor(entry, consumer))
 
     async_add_entities(entities)
 
@@ -340,8 +336,9 @@ class EnergyDividerConsumersSummarySensor(_BaseDividerSensor):
         display_value: str
         if consumer_type == CONSUMER_TYPE_CONTROLLED:
             display_value = f"{round(cmd_w)}W"
-        elif cmd_w is not None and abs(cmd_w) > 0:
-            display_value = f"{round(cmd_w)}W"
+        elif consumer_type == CONSUMER_TYPE_BINARY:
+            is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+            display_value = "RUNNING" if is_on else "OFF"
         else:
             binding = get_consumer_binding(self.hass, self._entry.entry_id, consumer)
             enabled_state = binding.get_effective_enabled(self.hass) if binding is not None else None
@@ -516,10 +513,14 @@ class ConsumerCommandedPowerSensor(_BaseConsumerRuntimeSensor):
 class ConsumerStateSensor(_BaseConsumerRuntimeSensor):
     def __init__(self, entry: ConfigEntry, consumer: dict) -> None:
         super().__init__(entry, consumer, "State", "state")
+        self._consumer_type = consumer.get(CONSUMER_TYPE)
 
     @property
     def native_value(self):
         runtime = self._runtime()
+        if self._consumer_type == CONSUMER_TYPE_BINARY:
+            is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+            return "RUNNING" if is_on else "OFF"
         cmd_w = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
         return "OFF" if abs(cmd_w) < 1e-6 else "RUNNING"
 
