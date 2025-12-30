@@ -107,12 +107,20 @@ from .const import (
     CONSUMER_DEFAULT_THRESHOLD_W,
     CONSUMER_NAME,
     CONSUMER_PRIORITY,
+    CONF_DIVIDER_ENABLED,
+    DEFAULT_DIVIDER_ENABLED,
+    DIVIDER_STATE_ACTIVE,
+    DIVIDER_STATE_DISABLED,
+    DIVIDER_STATE_IDLE,
+    DIVIDER_STATE_WAITING_START_TIMER,
+    DIVIDER_STATE_WAITING_STOP_TIMER,
 )
 from .consumer_bindings import get_consumer_binding
 from .helpers import (
     ENTRY_DATA_CONSUMER_RUNTIME,
     RUNTIME_FIELD_CMD_W,
     RUNTIME_FIELD_IS_ON,
+    RUNTIME_FIELD_REASON,
     RUNTIME_FIELD_START_TIMER_S,
     RUNTIME_FIELD_STOP_TIMER_S,
     async_dispatch_consumer_runtime_update,
@@ -149,6 +157,8 @@ class FlowState:
     active_controlled_consumer_id: str | None
     active_controlled_consumer_name: str | None
     active_controlled_consumer_priority: float | None
+    divider_state: str | None
+    divider_reason: str | None
 
 
 @dataclass
@@ -447,6 +457,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.active_controlled_consumer_id: str | None = None
         self.active_controlled_consumer_name: str | None = None
         self.active_controlled_consumer_priority: float | None = None
+        self._divider_enabled = entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
+        self._previous_divider_enabled = self._divider_enabled
+        self.divider_state: str | None = None
+        self.divider_reason: str | None = None
 
     def _get_normal_setpoint_value(self) -> float | None:
         """Return the current external setpoint with inversion applied (no limiter)."""
@@ -559,6 +573,14 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         if enabled_state is None:
             return True
         return bool(enabled_state)
+
+    @staticmethod
+    def _format_timer_remaining(total: float, elapsed: float) -> float:
+        return max(0.0, total - elapsed)
+
+    def _set_consumer_reason(self, consumer_id: str, reason: str | None) -> None:
+        runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
+        runtime[RUNTIME_FIELD_REASON] = reason or ""
 
     def _compute_dt(self) -> float:
         now = time.monotonic()
@@ -692,6 +714,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
             prev_cmd = cmd_w
             step = 0.0
+            reason: str | None = None
             if active is not None and consumer_id == active["consumer_id"] and cmd_w > 0.0:
                 step = self._compute_controlled_consumer_step(pid_pct, pid_deadband_pct, step_w)
 
@@ -699,22 +722,29 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 cmd_w = 0.0
                 start_timer = 0.0
                 stop_timer = 0.0
+                reason = "Unavailable" if not available else "Disabled"
             elif cmd_w <= 0.0:
                 stop_timer = 0.0
                 if delta_w >= min_power:
                     start_timer += dt
+                    remaining = self._format_timer_remaining(start_delay, start_timer)
+                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w)}W)"
                 else:
                     start_timer = 0.0
+                    reason = f"Waiting for surplus >= {round(min_power)}W (delta={round(delta_w)}W)"
                 if start_timer >= start_delay and start_delay >= 0.0:
                     cmd_w = min_power
                     start_timer = 0.0
                     stop_timer = 0.0
+                    reason = f"Starting at {round(cmd_w)}W"
             else:
                 start_timer = 0.0
                 cmd_w = max(min_power, min(max_power, cmd_w + step))
 
                 if cmd_w > 0.0 and math.isclose(cmd_w, min_power, abs_tol=0.5) and delta_w < 0.0:
                     stop_timer += dt
+                    remaining = self._format_timer_remaining(stop_delay, stop_timer)
+                    reason = f"Stopping in {round(remaining)}s (delta={round(delta_w)}W)"
                 else:
                     stop_timer = 0.0
 
@@ -722,10 +752,16 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                     cmd_w = 0.0
                     stop_timer = 0.0
                     start_timer = 0.0
+                    reason = "Stopped after stop delay"
+                elif stop_timer > 0.0:
+                    reason = f"Stopping in {round(self._format_timer_remaining(stop_delay, stop_timer))}s (delta={round(delta_w)}W)"
+                else:
+                    reason = f"Running at {round(cmd_w)}W"
 
             runtime[RUNTIME_FIELD_CMD_W] = cmd_w
             runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
             runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
+            self._set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
 
             if not math.isclose(prev_cmd, cmd_w, abs_tol=1e-6):
@@ -754,40 +790,149 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             available = self._consumer_available(consumer)
             prev_is_on = is_on
             force_off_command = False
+            reason: str | None = None
 
             if not enabled or not available:
                 is_on = False
                 start_timer = 0.0
                 stop_timer = 0.0
                 force_off_command = True
+                reason = "Unavailable" if not available else "Disabled"
             elif not is_on:
                 if delta_w >= threshold_w:
                     start_timer += dt
+                    remaining = self._format_timer_remaining(start_delay, start_timer)
+                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w)}W)"
                 else:
                     start_timer = 0.0
+                    reason = f"Waiting for surplus >= {round(threshold_w)}W (delta={round(delta_w)}W)"
 
                 if start_timer >= start_delay:
                     is_on = True
                     start_timer = 0.0
                     stop_timer = 0.0
+                    reason = "Starting"
             else:
                 if delta_w < 0.0:
                     stop_timer += dt
+                    remaining = self._format_timer_remaining(stop_delay, stop_timer)
+                    reason = f"Stopping in {round(remaining)}s (delta={round(delta_w)}W)"
                 else:
                     stop_timer = 0.0
+                    reason = "Running"
 
                 if stop_timer >= stop_delay:
                     is_on = False
                     stop_timer = 0.0
                     start_timer = 0.0
+                    reason = "Stopped after stop delay"
 
             runtime[RUNTIME_FIELD_IS_ON] = is_on
             runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
             runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
+            self._set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
 
             if force_off_command or prev_is_on != is_on:
                 await self._async_command_consumer_enabled(consumer, is_on)
+
+    async def _async_disable_divider_consumers(self, consumers: list[Mapping[str, Any]]) -> None:
+        for consumer in consumers:
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                continue
+            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
+            consumer_type = consumer.get(CONSUMER_TYPE)
+            reason = "Divider disabled"
+            runtime[RUNTIME_FIELD_START_TIMER_S] = 0.0
+            runtime[RUNTIME_FIELD_STOP_TIMER_S] = 0.0
+            runtime[RUNTIME_FIELD_REASON] = reason
+            if consumer_type == CONSUMER_TYPE_CONTROLLED:
+                previous_cmd = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
+                runtime[RUNTIME_FIELD_CMD_W] = 0.0
+                async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
+                if not math.isclose(previous_cmd, 0.0, abs_tol=1e-6):
+                    await self._async_command_consumer_power(consumer, 0.0)
+            elif consumer_type == CONSUMER_TYPE_BINARY:
+                was_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+                runtime[RUNTIME_FIELD_IS_ON] = False
+                async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
+                if was_on:
+                    await self._async_command_consumer_enabled(consumer, False)
+            else:
+                async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
+
+    def _update_divider_observability(self, consumers: list[Mapping[str, Any]]) -> None:
+        if not self._divider_enabled:
+            self.divider_state = DIVIDER_STATE_DISABLED
+            self.divider_reason = "Divider disabled"
+            return
+
+        running = False
+        waiting_start = False
+        waiting_stop = False
+        reason = None
+
+        for consumer in consumers:
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                continue
+            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
+            name = consumer.get(CONSUMER_NAME, consumer_id)
+            consumer_type = consumer.get(CONSUMER_TYPE)
+            start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
+            stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
+            if consumer_type == CONSUMER_TYPE_CONTROLLED:
+                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+                if cmd_w > 0.0:
+                    running = True
+                if start_timer > 0.0 and cmd_w <= 0.0:
+                    waiting_start = True
+                    remaining = self._format_timer_remaining(
+                        self._get_consumer_delay_seconds(consumer_id, True), start_timer
+                    )
+                    reason = reason or f"Starting {name} in {round(remaining)}s"
+                if stop_timer > 0.0 and cmd_w > 0.0:
+                    waiting_stop = True
+                    remaining = self._format_timer_remaining(
+                        self._get_consumer_delay_seconds(consumer_id, False), stop_timer
+                    )
+                    reason = reason or f"Stopping {name} in {round(remaining)}s"
+            elif consumer_type == CONSUMER_TYPE_BINARY:
+                is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+                if is_on:
+                    running = True
+                if start_timer > 0.0 and not is_on:
+                    waiting_start = True
+                    remaining = self._format_timer_remaining(
+                        self._get_consumer_delay_seconds(consumer_id, True), start_timer
+                    )
+                    reason = reason or f"Starting {name} in {round(remaining)}s"
+                if stop_timer > 0.0 and is_on:
+                    waiting_stop = True
+                    remaining = self._format_timer_remaining(
+                        self._get_consumer_delay_seconds(consumer_id, False), stop_timer
+                    )
+                    reason = reason or f"Stopping {name} in {round(remaining)}s"
+
+        if waiting_stop:
+            self.divider_state = DIVIDER_STATE_WAITING_STOP_TIMER
+        elif waiting_start:
+            self.divider_state = DIVIDER_STATE_WAITING_START_TIMER
+        elif running:
+            self.divider_state = DIVIDER_STATE_ACTIVE
+        else:
+            self.divider_state = DIVIDER_STATE_IDLE
+
+        if self.divider_state == DIVIDER_STATE_ACTIVE:
+            if self.active_controlled_consumer_name:
+                reason = f"Running {self.active_controlled_consumer_name}"
+            else:
+                reason = reason or "Running"
+        elif self.divider_state == DIVIDER_STATE_IDLE:
+            reason = "Idle"
+
+        self.divider_reason = reason
 
     def _build_runtime_options(self) -> RuntimeOptions:
         enabled = self.entry.options.get(CONF_ENABLED, DEFAULT_ENABLED)
@@ -1148,6 +1293,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             self._runtime_mode = options[CONF_RUNTIME_MODE]
         if CONF_MANUAL_OUT_VALUE in options:
             self._manual_out_value = _coerce_float(options.get(CONF_MANUAL_OUT_VALUE), self._manual_out_value)
+        self._divider_enabled = options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
         self.pid.apply_options(self._build_pid_config_from_options(options))
 
     def _calculate_output_plan(
@@ -1350,6 +1496,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         consumers = self.entry.options.get(CONF_CONSUMERS, [])
         if not isinstance(consumers, list):
             consumers = []
+        self._divider_enabled = self.entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
 
         options = self._build_runtime_options()
         inputs = self._read_inputs(options)
@@ -1370,9 +1517,17 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 self._invalid_output_reported = True
             self._previous_runtime_mode = setpoint_context.runtime_mode
             self._log_runtime_mode_change(prev_runtime_mode, setpoint_context.runtime_mode, prev_manual_sp_value, setpoint_context.manual_sp_display_value)
-            await self._async_update_controlled_consumers(consumers, delta_w, self.pid_output_pct, dt)
-            await self._async_update_binary_consumers(consumers, delta_w, dt)
+            if self._divider_enabled:
+                await self._async_update_controlled_consumers(consumers, delta_w, self.pid_output_pct, dt)
+                await self._async_update_binary_consumers(consumers, delta_w, dt)
+            else:
+                await self._async_disable_divider_consumers(consumers)
+                self.active_controlled_consumer_id = None
+                self.active_controlled_consumer_name = None
+                self.active_controlled_consumer_priority = None
             self.pid_output_pct = self._last_output_pct
+            self._update_divider_observability(consumers)
+            self._previous_divider_enabled = self._divider_enabled
             return FlowState(
                 pv=limiter_result.pv_for_pid,
                 sp=limiter_result.sp_for_pid,
@@ -1395,6 +1550,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 active_controlled_consumer_id=self.active_controlled_consumer_id,
                 active_controlled_consumer_name=self.active_controlled_consumer_name,
                 active_controlled_consumer_priority=self.active_controlled_consumer_priority,
+                divider_state=self.divider_state,
+                divider_reason=self.divider_reason,
             )
 
         output_plan = self._calculate_output_plan(
@@ -1413,8 +1570,17 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.pid_output_pct = self._last_output_pct
         pid_pct = self.pid_output_pct
 
-        await self._async_update_controlled_consumers(consumers, delta_w, pid_pct, dt)
-        await self._async_update_binary_consumers(consumers, delta_w, dt)
+        if self._divider_enabled:
+            await self._async_update_controlled_consumers(consumers, delta_w, pid_pct, dt)
+            await self._async_update_binary_consumers(consumers, delta_w, dt)
+        else:
+            await self._async_disable_divider_consumers(consumers)
+            self.active_controlled_consumer_id = None
+            self.active_controlled_consumer_name = None
+            self.active_controlled_consumer_priority = None
+
+        self._update_divider_observability(consumers)
+        self._previous_divider_enabled = self._divider_enabled
 
         return FlowState(
             pv=limiter_result.pv_for_pid,
@@ -1438,6 +1604,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             active_controlled_consumer_id=self.active_controlled_consumer_id,
             active_controlled_consumer_name=self.active_controlled_consumer_name,
             active_controlled_consumer_priority=self.active_controlled_consumer_priority,
+            divider_state=self.divider_state,
+            divider_reason=self.divider_reason,
         )
 
 # Manual test checklist:
