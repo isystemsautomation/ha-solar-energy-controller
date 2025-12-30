@@ -19,11 +19,13 @@ from .const import (
     CONSUMER_NAME,
     CONSUMER_TYPE,
     CONSUMER_TYPE_CONTROLLED,
+    CONSUMER_TYPE_BINARY,
     DIVIDER_DEVICE_SUFFIX,
     DOMAIN,
 )
 from .helpers import (
     RUNTIME_FIELD_CMD_W,
+    RUNTIME_FIELD_IS_ON,
     async_dispatch_consumer_runtime_update,
     consumer_runtime_updated_signal,
     get_consumer_runtime,
@@ -35,16 +37,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities: list[BinarySensorEntity] = []
 
     for consumer in consumers:
-        if consumer.get(CONSUMER_TYPE) != CONSUMER_TYPE_CONTROLLED:
-            continue
-        entities.append(ConsumerAtMinBinarySensor(entry, consumer))
-        entities.append(ConsumerAtMaxBinarySensor(entry, consumer))
+        if consumer.get(CONSUMER_TYPE) == CONSUMER_TYPE_CONTROLLED:
+            entities.append(ConsumerAtMinBinarySensor(entry, consumer))
+            entities.append(ConsumerAtMaxBinarySensor(entry, consumer))
+        elif consumer.get(CONSUMER_TYPE) == CONSUMER_TYPE_BINARY:
+            entities.append(BinaryConsumerActiveBinarySensor(entry, consumer))
 
     async_add_entities(entities)
 
     for consumer in consumers:
-        if consumer.get(CONSUMER_TYPE) != CONSUMER_TYPE_CONTROLLED:
-            continue
         async_dispatch_consumer_runtime_update(hass, entry.entry_id, consumer[CONSUMER_ID])
 
 
@@ -110,3 +111,15 @@ class ConsumerAtMaxBinarySensor(_BaseConsumerRuntimeBinarySensor):
         cmd_w = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
         max_power = float(self._consumer.get(CONSUMER_MAX_POWER_W, 0.0))
         return math.isclose(cmd_w, max_power)
+
+
+class BinaryConsumerActiveBinarySensor(_BaseConsumerRuntimeBinarySensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, entry: ConfigEntry, consumer: dict) -> None:
+        super().__init__(entry, consumer, "Active", "active")
+
+    @property
+    def is_on(self) -> bool:
+        runtime = self._runtime()
+        return bool(runtime.get(RUNTIME_FIELD_IS_ON, False))

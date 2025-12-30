@@ -98,14 +98,18 @@ from .const import (
     CONSUMER_POWER_TARGET_ENTITY_ID,
     CONSUMER_TYPE,
     CONSUMER_TYPE_CONTROLLED,
+    CONSUMER_TYPE_BINARY,
     CONSUMER_STEP_W,
     CONSUMER_PID_DEADBAND_PCT,
     CONSUMER_DEFAULT_STEP_W,
     CONSUMER_DEFAULT_PID_DEADBAND_PCT,
+    CONSUMER_THRESHOLD_W,
+    CONSUMER_DEFAULT_THRESHOLD_W,
 )
 from .consumer_bindings import get_consumer_binding
 from .helpers import (
     RUNTIME_FIELD_CMD_W,
+    RUNTIME_FIELD_IS_ON,
     RUNTIME_FIELD_START_TIMER_S,
     RUNTIME_FIELD_STOP_TIMER_S,
     async_dispatch_consumer_runtime_update,
@@ -512,6 +516,11 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         default = float(consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT))
         return self._read_number_entity_value(entity_id, default)
 
+    def _get_consumer_threshold_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
+        entity_id = self._get_consumer_number_entity_id(consumer_id, CONSUMER_THRESHOLD_W)
+        default = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
+        return self._read_number_entity_value(entity_id, default)
+
     @staticmethod
     def _compute_controlled_consumer_step(pid_pct: float, pid_deadband_pct: float, max_step_w: float) -> float:
         d = (pid_pct - 50.0) / 50.0
@@ -567,6 +576,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         binding = get_consumer_binding(self.hass, self.entry.entry_id, consumer)
         binding.set_desired_power(value)
         await binding.async_push_power(self.hass)
+
+    async def _async_command_consumer_enabled(self, consumer: Mapping[str, Any], enabled: bool) -> None:
+        binding = get_consumer_binding(self.hass, self.entry.entry_id, consumer)
+        await binding.async_set_enabled(self.hass, enabled)
 
     async def _async_update_controlled_consumers(
         self, consumers: list[Mapping[str, Any]], delta_w: float | None, pid_pct: float | None, dt: float
@@ -632,6 +645,64 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
             if not math.isclose(prev_cmd, cmd_w, abs_tol=1e-6):
                 await self._async_command_consumer_power(consumer, cmd_w)
+
+    async def _async_update_binary_consumers(
+        self, consumers: list[Mapping[str, Any]], delta_w: float | None, dt: float
+    ) -> None:
+        if delta_w is None:
+            return
+        for consumer in consumers:
+            if consumer.get(CONSUMER_TYPE) != CONSUMER_TYPE_BINARY:
+                continue
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                continue
+            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
+            is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+            start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
+            stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
+            threshold_w = self._get_consumer_threshold_w(consumer_id, consumer)
+            start_delay = self._get_consumer_delay_seconds(consumer_id, True)
+            stop_delay = self._get_consumer_delay_seconds(consumer_id, False)
+
+            enabled = self._consumer_enabled(consumer)
+            available = self._consumer_available(consumer)
+            prev_is_on = is_on
+            force_off_command = False
+
+            if not enabled or not available:
+                is_on = False
+                start_timer = 0.0
+                stop_timer = 0.0
+                force_off_command = True
+            elif not is_on:
+                if delta_w >= threshold_w:
+                    start_timer += dt
+                else:
+                    start_timer = 0.0
+
+                if start_timer >= start_delay:
+                    is_on = True
+                    start_timer = 0.0
+                    stop_timer = 0.0
+            else:
+                if delta_w < 0.0:
+                    stop_timer += dt
+                else:
+                    stop_timer = 0.0
+
+                if stop_timer >= stop_delay:
+                    is_on = False
+                    stop_timer = 0.0
+                    start_timer = 0.0
+
+            runtime[RUNTIME_FIELD_IS_ON] = is_on
+            runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
+            runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
+            async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
+
+            if force_off_command or prev_is_on != is_on:
+                await self._async_command_consumer_enabled(consumer, is_on)
 
     def _build_runtime_options(self) -> RuntimeOptions:
         enabled = self.entry.options.get(CONF_ENABLED, DEFAULT_ENABLED)
@@ -1215,6 +1286,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             self._previous_runtime_mode = setpoint_context.runtime_mode
             self._log_runtime_mode_change(prev_runtime_mode, setpoint_context.runtime_mode, prev_manual_sp_value, setpoint_context.manual_sp_display_value)
             await self._async_update_controlled_consumers(consumers, delta_w, self.pid_output_pct, dt)
+            await self._async_update_binary_consumers(consumers, delta_w, dt)
             self.pid_output_pct = self._last_output_pct
             return FlowState(
                 pv=limiter_result.pv_for_pid,
@@ -1254,6 +1326,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         pid_pct = self.pid_output_pct
 
         await self._async_update_controlled_consumers(consumers, delta_w, pid_pct, dt)
+        await self._async_update_binary_consumers(consumers, delta_w, dt)
 
         return FlowState(
             pv=limiter_result.pv_for_pid,

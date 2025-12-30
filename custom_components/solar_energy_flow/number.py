@@ -49,6 +49,7 @@ from .const import (
     CONF_CONSUMERS,
     CONSUMER_TYPE,
     CONSUMER_TYPE_CONTROLLED,
+    CONSUMER_TYPE_BINARY,
     CONSUMER_DEVICE_SUFFIX,
     CONSUMER_ID,
     CONSUMER_NAME,
@@ -65,6 +66,10 @@ from .const import (
     CONSUMER_DEFAULT_PID_DEADBAND_PCT,
     CONSUMER_MIN_PID_DEADBAND_PCT,
     CONSUMER_MAX_PID_DEADBAND_PCT,
+    CONSUMER_DEFAULT_THRESHOLD_W,
+    CONSUMER_THRESHOLD_W,
+    CONSUMER_MIN_THRESHOLD_W,
+    CONSUMER_MAX_THRESHOLD_W,
 )
 from .consumer_bindings import ConsumerBinding, get_consumer_binding
 from .coordinator import SolarEnergyFlowCoordinator
@@ -206,11 +211,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     consumers = entry.options.get(CONF_CONSUMERS, [])
     for consumer in consumers:
-        if consumer.get(CONSUMER_TYPE) != CONSUMER_TYPE_CONTROLLED:
-            continue
-        entities.append(SolarEnergyFlowConsumerNumber(entry, consumer))
-        entities.append(SolarEnergyFlowConsumerStepNumber(entry, consumer))
-        entities.append(SolarEnergyFlowConsumerPidDeadbandNumber(entry, consumer))
+        if consumer.get(CONSUMER_TYPE) == CONSUMER_TYPE_CONTROLLED:
+            entities.append(SolarEnergyFlowConsumerNumber(entry, consumer))
+            entities.append(SolarEnergyFlowConsumerStepNumber(entry, consumer))
+            entities.append(SolarEnergyFlowConsumerPidDeadbandNumber(entry, consumer))
+        else:
+            entities.append(SolarEnergyFlowBinaryConsumerThresholdNumber(entry, consumer))
         entities.append(SolarEnergyFlowConsumerDelayNumber(entry, consumer, True))
         entities.append(SolarEnergyFlowConsumerDelayNumber(entry, consumer, False))
 
@@ -420,6 +426,17 @@ class SolarEnergyFlowConsumerPidDeadbandNumber(_BaseConsumerConfigNumber):
         self._current_value = float(
             consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT)
         )
+
+
+class SolarEnergyFlowBinaryConsumerThresholdNumber(_BaseConsumerConfigNumber):
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_native_step = 10.0
+    _attr_native_min_value = CONSUMER_MIN_THRESHOLD_W
+    _attr_native_max_value = CONSUMER_MAX_THRESHOLD_W
+
+    def __init__(self, entry: ConfigEntry, consumer: dict[str, Any]) -> None:
+        super().__init__(entry, consumer, "Threshold (W)", CONSUMER_THRESHOLD_W)
+        self._current_value = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
 
 
 class SolarEnergyFlowConsumerDelayNumber(RestoreNumber):
