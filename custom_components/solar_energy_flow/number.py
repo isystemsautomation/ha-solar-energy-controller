@@ -329,7 +329,7 @@ class SolarEnergyFlowConsumerNumber(RestoreNumber):
             self._binding.set_desired_power(self._current_value)
         last = await self.async_get_last_number_data()
         if last is not None and last.native_value is not None:
-            self._current_value = float(last.native_value)
+            self._current_value = round(float(last.native_value), 1)
             if self._binding is not None:
                 self._binding.set_desired_power(self._current_value)
         if self._binding is not None and self._consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID):
@@ -344,13 +344,13 @@ class SolarEnergyFlowConsumerNumber(RestoreNumber):
         if self.hass is None:
             return
         runtime = get_consumer_runtime(self.hass, self._entry.entry_id, self._consumer_id)
-        runtime[RUNTIME_FIELD_CMD_W] = float(self._current_value)
+        runtime[RUNTIME_FIELD_CMD_W] = round(float(self._current_value), 1)
         runtime.setdefault(RUNTIME_FIELD_START_TIMER_S, 0.0)
         runtime.setdefault(RUNTIME_FIELD_STOP_TIMER_S, 0.0)
         async_dispatch_consumer_runtime_update(self.hass, self._entry.entry_id, self._consumer_id)
 
     async def async_set_native_value(self, value: float) -> None:
-        self._current_value = float(value)
+        self._current_value = round(float(value), 1)
         if self._binding is None:
             self._update_consumer_runtime()
             self.async_write_ha_state()
@@ -392,7 +392,7 @@ class _BaseConsumerConfigNumber(RestoreNumber):
         await super().async_added_to_hass()
         last = await self.async_get_last_number_data()
         if last is not None and last.native_value is not None:
-            self._current_value = float(last.native_value)
+            self._current_value = round(float(last.native_value), 1)
         self.async_write_ha_state()
 
     @property
@@ -400,7 +400,7 @@ class _BaseConsumerConfigNumber(RestoreNumber):
         return self._current_value
 
     async def async_set_native_value(self, value: float) -> None:
-        self._current_value = float(value)
+        self._current_value = round(float(value), 1)
         self.async_write_ha_state()
 
 
@@ -412,7 +412,7 @@ class SolarEnergyFlowConsumerStepNumber(_BaseConsumerConfigNumber):
 
     def __init__(self, entry: ConfigEntry, consumer: dict[str, Any]) -> None:
         super().__init__(entry, consumer, "Step (W)", "step_w")
-        self._current_value = float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
+        self._current_value = round(float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W)), 1)
 
 
 class SolarEnergyFlowConsumerPidDeadbandNumber(_BaseConsumerConfigNumber):
@@ -423,9 +423,9 @@ class SolarEnergyFlowConsumerPidDeadbandNumber(_BaseConsumerConfigNumber):
 
     def __init__(self, entry: ConfigEntry, consumer: dict[str, Any]) -> None:
         super().__init__(entry, consumer, "PID deadband (%)", "pid_deadband_pct")
-        self._current_value = float(
+        self._current_value = round(float(
             consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT)
-        )
+        ), 1)
 
 
 class SolarEnergyFlowBinaryConsumerThresholdNumber(_BaseConsumerConfigNumber):
@@ -436,7 +436,7 @@ class SolarEnergyFlowBinaryConsumerThresholdNumber(_BaseConsumerConfigNumber):
 
     def __init__(self, entry: ConfigEntry, consumer: dict[str, Any]) -> None:
         super().__init__(entry, consumer, "Threshold (W)", CONSUMER_THRESHOLD_W)
-        self._current_value = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
+        self._current_value = round(float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W)), 1)
 
 
 class SolarEnergyFlowConsumerDelayNumber(RestoreNumber):
@@ -472,7 +472,7 @@ class SolarEnergyFlowConsumerDelayNumber(RestoreNumber):
         await super().async_added_to_hass()
         last = await self.async_get_last_number_data()
         if last is not None and last.native_value is not None:
-            self._current_value = float(last.native_value)
+            self._current_value = round(float(last.native_value), 1)
         self.async_write_ha_state()
 
     @property
@@ -480,7 +480,7 @@ class SolarEnergyFlowConsumerDelayNumber(RestoreNumber):
         return self._current_value
 
     async def async_set_native_value(self, value: float) -> None:
-        self._current_value = float(value)
+        self._current_value = round(float(value), 1)
         self.async_write_ha_state()
 
 

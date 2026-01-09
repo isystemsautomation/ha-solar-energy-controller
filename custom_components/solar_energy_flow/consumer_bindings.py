@@ -148,7 +148,7 @@ class ConsumerBinding:
         return True
 
     def set_desired_power(self, value: float) -> None:
-        self._desired_power = value
+        self._desired_power = round(value, 1)
 
     async def async_push_power(self, hass: HomeAssistant) -> bool:
         if not self.power_target_entity_id:
@@ -157,7 +157,7 @@ class ConsumerBinding:
         if desired is None:
             return False
         enabled_state = self.get_effective_enabled(hass)
-        target_power = 0.0 if enabled_state is False else desired
+        target_power = round(0.0 if enabled_state is False else desired, 1)
 
         if self._last_power_value is not None and abs(target_power - self._last_power_value) < CONSUMER_POWER_DEADBAND_W:
             return False

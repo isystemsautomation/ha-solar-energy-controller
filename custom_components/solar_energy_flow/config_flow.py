@@ -466,7 +466,13 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             errors = self._validate_consumer_input(user_input, consumer_type)
             if not errors:
-                consumer = self._build_consumer(user_input, consumer_type, uuid.uuid4().hex)
+                # Generate new consumer ID and check for duplicates
+                new_consumer_id = uuid.uuid4().hex
+                existing_ids = {c.get(CONSUMER_ID) for c in self._consumers}
+                # Ensure uniqueness (shouldn't happen with UUID, but safety check)
+                while new_consumer_id in existing_ids:
+                    new_consumer_id = uuid.uuid4().hex
+                consumer = self._build_consumer(user_input, consumer_type, new_consumer_id)
                 self._consumers.append(consumer)
                 return self._create_entry_with_consumers()
 

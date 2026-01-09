@@ -96,8 +96,8 @@ class ConsumerAtMinBinarySensor(_BaseConsumerRuntimeBinarySensor):
     @property
     def is_on(self) -> bool:
         runtime = self._runtime()
-        cmd_w = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
-        min_power = float(self._consumer.get(CONSUMER_MIN_POWER_W, 0.0))
+        cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
+        min_power = round(float(self._consumer.get(CONSUMER_MIN_POWER_W, 0.0)), 1)
         return math.isclose(cmd_w, min_power) and cmd_w > 0.0
 
 
@@ -108,8 +108,8 @@ class ConsumerAtMaxBinarySensor(_BaseConsumerRuntimeBinarySensor):
     @property
     def is_on(self) -> bool:
         runtime = self._runtime()
-        cmd_w = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
-        max_power = float(self._consumer.get(CONSUMER_MAX_POWER_W, 0.0))
+        cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
+        max_power = round(float(self._consumer.get(CONSUMER_MAX_POWER_W, 0.0)), 1)
         return math.isclose(cmd_w, max_power)
 
 

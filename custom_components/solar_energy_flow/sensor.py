@@ -483,7 +483,7 @@ class EnergyDividerConsumersSummarySensor(_BaseDividerRuntimeSensor):
             elif consumer_type == CONSUMER_TYPE_BINARY:
                 is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
                 if is_on:
-                    assumed_power = round(self._assumed_power_w(consumer))
+                    assumed_power = round(self._assumed_power_w(consumer), 1)
                     display_value = f"ON {assumed_power}W"
                 else:
                     display_value = "OFF"
@@ -545,20 +545,20 @@ class EnergyDividerTotalPowerSensor(_BaseDividerRuntimeSensor):
                 consumer_type = consumer.get(CONSUMER_TYPE)
                 runtime = get_consumer_runtime(self.hass, self._entry.entry_id, consumer_id)
                 if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                    total += self._safe_float(runtime.get(RUNTIME_FIELD_CMD_W))
+                    total += round(self._safe_float(runtime.get(RUNTIME_FIELD_CMD_W)), 1)
                 elif consumer_type == CONSUMER_TYPE_BINARY:
                     is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
                     if is_on:
-                        total += self._safe_float(
+                        total += round(self._safe_float(
                             consumer.get(CONSUMER_ASSUMED_POWER_W, CONSUMER_DEFAULT_ASSUMED_POWER_W)
-                        )
+                        ), 1)
                 else:
                     total += 0.0
             except Exception as err:  # pragma: no cover - defensive
                 _LOGGER.exception(
                     "Failed to compute total power for consumer %s on %s: %s", consumer_id, self._entry.entry_id, err
                 )
-        return total
+        return round(total, 1)
 
     @property
     def native_value(self) -> float:
@@ -607,11 +607,11 @@ class EnergyDividerPriorityListSensor(_BaseDividerRuntimeSensor):
             if consumer_type == CONSUMER_TYPE_CONTROLLED:
                 cmd_w = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
                 try:
-                    cmd_w_value = float(cmd_w or 0.0)
+                    cmd_w_value = round(float(cmd_w or 0.0), 1)
                 except (TypeError, ValueError):
                     cmd_w_value = 0.0
                 state = "RUNNING" if cmd_w_value > 0 else "OFF"
-                cmd_part = f" {round(cmd_w_value)}W"
+                cmd_part = f" {round(cmd_w_value, 1)}W"
                 type_label = "controlled"
             else:
                 is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
@@ -619,12 +619,12 @@ class EnergyDividerPriorityListSensor(_BaseDividerRuntimeSensor):
                 assumed_power = 0.0
                 if is_on:
                     try:
-                        assumed_power = float(
+                        assumed_power = round(float(
                             consumer.get(CONSUMER_ASSUMED_POWER_W, CONSUMER_DEFAULT_ASSUMED_POWER_W) or 0.0
-                        )
+                        ), 1)
                     except (TypeError, ValueError):
-                        assumed_power = CONSUMER_DEFAULT_ASSUMED_POWER_W
-                cmd_part = f" {round(assumed_power)}W" if is_on else ""
+                        assumed_power = round(CONSUMER_DEFAULT_ASSUMED_POWER_W, 1)
+                cmd_part = f" {round(assumed_power, 1)}W" if is_on else ""
                 type_label = "binary" if consumer_type == CONSUMER_TYPE_BINARY else "other"
 
             return f"{priority}: {name} ({type_label}) {state}{cmd_part}".strip()
@@ -802,7 +802,7 @@ class ConsumerCommandedPowerSensor(_BaseConsumerRuntimeSensor):
     @property
     def native_value(self):
         runtime = self._runtime()
-        return runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
+        return round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
 
 
 class ConsumerStateSensor(_BaseConsumerRuntimeSensor):
@@ -860,7 +860,7 @@ class ConsumerStateSensor(_BaseConsumerRuntimeSensor):
         # Fallback to runtime state for controlled consumers
         runtime = self._runtime()
         try:
-            cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W) or 0.0)
+            cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W) or 0.0), 1)
         except (TypeError, ValueError):
             cmd_w = 0.0
         return "RUNNING" if cmd_w > 0 else "OFF"
@@ -875,7 +875,7 @@ class ConsumerStartTimerSensor(_BaseConsumerRuntimeSensor):
     @property
     def native_value(self):
         runtime = self._runtime()
-        return runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0)
+        return round(float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0)), 1)
 
 
 class ConsumerStopTimerSensor(_BaseConsumerRuntimeSensor):
@@ -887,7 +887,7 @@ class ConsumerStopTimerSensor(_BaseConsumerRuntimeSensor):
     @property
     def native_value(self):
         runtime = self._runtime()
-        return runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)
+        return round(float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)), 1)
 
 
 class ConsumerReasonSensor(_BaseConsumerRuntimeSensor):

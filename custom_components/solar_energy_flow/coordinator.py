@@ -244,7 +244,8 @@ def _state_to_float(state, entity_id: str | None = None) -> float | None:
     if state is None:
         return None
     try:
-        return float(state.state)
+        value = float(state.state)
+        return round(value, 1)
     except (TypeError, ValueError) as err:
         _LOGGER.warning(
             "Could not convert state for %s to float (raw=%s): %s",
@@ -309,9 +310,9 @@ def _get_pid_limits(entry: ConfigEntry) -> tuple[float, float]:
 
 def _coerce_float(value, default: float) -> float:
     try:
-        return float(value)
+        return round(float(value), 1)
     except (TypeError, ValueError):
-        return default
+        return round(default, 1)
 
 
 def _get_pid_limits_from_options(options: Mapping[str, Any]) -> tuple[float, float]:
@@ -526,14 +527,14 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
     def _read_number_entity_value(self, entity_id: str | None, default: float) -> float:
         if not entity_id:
-            return default
+            return round(default, 1)
         state = self.hass.states.get(entity_id)
         if state is None or state.state in ("unknown", "unavailable"):
-            return default
+            return round(default, 1)
         try:
-            return float(state.state)
+            return round(float(state.state), 1)
         except (TypeError, ValueError):
-            return default
+            return round(default, 1)
 
     def _get_consumer_delay_seconds(self, consumer_id: str, is_start: bool) -> float:
         suffix = "start_delay_s" if is_start else "stop_delay_s"
@@ -543,17 +544,17 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
     def _get_consumer_step_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
         entity_id = self._get_consumer_number_entity_id(consumer_id, "step_w")
-        default = float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
+        default = round(float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W)), 1)
         return self._read_number_entity_value(entity_id, default)
 
     def _get_consumer_pid_deadband_pct(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
         entity_id = self._get_consumer_number_entity_id(consumer_id, "pid_deadband_pct")
-        default = float(consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT))
+        default = round(float(consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT)), 1)
         return self._read_number_entity_value(entity_id, default)
 
     def _get_consumer_threshold_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
         entity_id = self._get_consumer_number_entity_id(consumer_id, CONSUMER_THRESHOLD_W)
-        default = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
+        default = round(float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W)), 1)
         return self._read_number_entity_value(entity_id, default)
 
     @staticmethod
@@ -565,7 +566,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         step = raw if d > 0 else -raw
         if 0 < abs(step) < 1.0:
             step = 1.0 if d > 0 else -1.0
-        return step
+        return round(step, 1)
 
     def _consumer_available(self, consumer: Mapping[str, Any]) -> bool:
         power_target = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
@@ -585,7 +586,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
     @staticmethod
     def _format_timer_remaining(total: float, elapsed: float) -> float:
-        return max(0.0, total - elapsed)
+        return round(max(0.0, total - elapsed), 1)
 
     def _set_consumer_reason(self, consumer_id: str, reason: str | None) -> None:
         runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
@@ -674,7 +675,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             return None
         
         try:
-            return float(state_obj.state)
+            return round(float(state_obj.state), 1)
         except (TypeError, ValueError):
             return None
 
@@ -695,8 +696,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
             
             if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
-                max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
+                cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
+                max_power = round(float(consumer.get(CONSUMER_MAX_POWER_W, 0.0)), 1)
                 return self._is_at_max(cmd_w, max_power)
             else:  # binary
                 return bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
@@ -707,7 +708,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         if consumer_type == CONSUMER_TYPE_CONTROLLED:
             # For controlled consumers, also check if at max power
             actual_power = self._read_physical_device_power(consumer)
-            max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
+            max_power = round(float(consumer.get(CONSUMER_MAX_POWER_W, 0.0)), 1)
             if actual_power is not None and max_power > 0:
                 return self._is_at_max(actual_power, max_power)
             # Fallback to runtime cmd_w if power entity unavailable
@@ -715,7 +716,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             if consumer_id is None:
                 return False
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+            cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
             return self._is_at_max(cmd_w, max_power)
         
         # Binary consumer is ON
@@ -737,7 +738,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             consumer_type = consumer.get(CONSUMER_TYPE)
             
             if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+                cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
                 return cmd_w <= 0.0
             else:  # binary
                 return not bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
@@ -755,7 +756,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         
         Returns True if all higher-priority consumers are finished or if there are none.
         """
-        for consumer in consumers:
+        for index, consumer in enumerate(consumers):
             consumer_id = consumer.get(CONSUMER_ID)
             if consumer_id is None:
                 continue
@@ -766,9 +767,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             if not enabled or not available:
                 continue
             
-            priority = _coerce_float(consumer.get(CONSUMER_PRIORITY), 999.0)
-            # Get index from consumers list for tie-breaking
-            index = consumers.index(consumer)
+            priority = self.consumer_manager.get_priority(consumer)
             
             # Only check consumers with higher priority (lower priority number)
             # If priority matches, use index for tie-breaking (lower index = higher priority)
@@ -792,7 +791,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         For the lowest-priority consumer (highest priority number), this always returns True
         because there are no lower-priority consumers to wait for.
         """
-        for consumer in consumers:
+        found_lower_priority = False
+        for index, consumer in enumerate(consumers):
             consumer_id = consumer.get(CONSUMER_ID)
             if consumer_id is None:
                 continue
@@ -804,14 +804,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 continue
             
             priority = self.consumer_manager.get_priority(consumer)
-            # Get index from consumers list for tie-breaking
-            index = consumers.index(consumer)
             
             # Only check consumers with lower priority (higher priority number)
             # If priority matches, use index for tie-breaking (higher index = lower priority)
             if priority < current_priority or (priority == current_priority and index <= current_index):
                 continue
             
+            found_lower_priority = True
             # Check if this lower-priority consumer has finished stopping (using physical device state)
             if not self._is_consumer_finished_stopping(consumer):
                 return False  # This lower-priority consumer has not finished stopping
@@ -1009,7 +1008,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 continue
             
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            priority = _coerce_float(consumer.get(CONSUMER_PRIORITY), 999.0)
+            priority = self.consumer_manager.get_priority(consumer)
             is_active = bool(runtime.get(RUNTIME_FIELD_IS_ACTIVE, False))
             step_request = runtime.get(RUNTIME_FIELD_STEP_CHANGE_REQUEST)
             
@@ -1056,7 +1055,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         Consumers receive active/inactive status from divider.
         Only active consumers can ramp and send step change signals.
         """
-        import time
         start_time = time.monotonic()
         
         if pid_pct is None or delta_w is None:
@@ -1092,15 +1090,15 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
             is_active = bool(runtime.get(RUNTIME_FIELD_IS_ACTIVE, False))
-            cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
-            start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
-            stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
-            min_power = float(consumer.get(CONSUMER_MIN_POWER_W, 0.0))
-            max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
-            start_delay = self._get_consumer_delay_seconds(consumer_id, True)
-            stop_delay = self._get_consumer_delay_seconds(consumer_id, False)
-            step_w = self._get_consumer_step_w(consumer_id, consumer)
-            pid_deadband_pct = self._get_consumer_pid_deadband_pct(consumer_id, consumer)
+            cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
+            start_timer = round(float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0)), 1)
+            stop_timer = round(float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)), 1)
+            min_power = round(float(consumer.get(CONSUMER_MIN_POWER_W, 0.0)), 1)
+            max_power = round(float(consumer.get(CONSUMER_MAX_POWER_W, 0.0)), 1)
+            start_delay = round(self._get_consumer_delay_seconds(consumer_id, True), 1)
+            stop_delay = round(self._get_consumer_delay_seconds(consumer_id, False), 1)
+            step_w = round(self._get_consumer_step_w(consumer_id, consumer), 1)
+            pid_deadband_pct = round(self._get_consumer_pid_deadband_pct(consumer_id, consumer), 1)
             enabled = self._consumer_enabled(consumer)
             available = self._consumer_available(consumer)
             
@@ -1122,42 +1120,42 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 start_timer = 0.0
                 stop_timer = 0.0
                 if cmd_w <= 0.0:
-                    reason = f"Waiting for turn (inactive, delta={round(delta_w)}W)"
+                    reason = f"Waiting for turn (inactive, delta={round(delta_w, 1)}W)"
                 else:
-                    reason = f"Holding at {round(cmd_w)}W (inactive)"
+                    reason = f"Holding at {round(cmd_w, 1)}W (inactive)"
             elif cmd_w <= 0.0:
                 # Consumer is OFF and ACTIVE, check start timer
                 stop_timer = 0.0
                 if delta_w >= min_power:
                     # Condition met: count timer
-                    start_timer += dt
-                    remaining = self._format_timer_remaining(start_delay, start_timer)
-                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w)}W)"
+                    start_timer = round(start_timer + dt, 1)
+                    remaining = round(self._format_timer_remaining(start_delay, start_timer), 1)
+                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w, 1)}W)"
                 else:
                     # Condition not met: reset timer
                     start_timer = 0.0
-                    reason = f"Waiting for surplus >= {round(min_power)}W (delta={round(delta_w)}W)"
+                    reason = f"Waiting for surplus >= {round(min_power, 1)}W (delta={round(delta_w, 1)}W)"
                 
                 if start_timer >= start_delay and start_delay >= 0.0:
-                    cmd_w = min_power
+                    cmd_w = round(min_power, 1)
                     start_timer = 0.0
                     stop_timer = 0.0
-                    reason = f"Starting at {round(cmd_w)}W"
+                    reason = f"Starting at {round(cmd_w, 1)}W"
                     await self._async_command_consumer_enabled(consumer, True)
             else:
                 # Consumer is running (cmd_w > 0)
                 start_timer = 0.0
                 
                 # Only active consumer can ramp
-                step = self._compute_controlled_consumer_step(pid_pct, pid_deadband_pct, step_w)
+                step = round(self._compute_controlled_consumer_step(pid_pct, pid_deadband_pct, step_w), 1)
                 prev_cmd_w = cmd_w
-                cmd_w = max(min_power, min(max_power, cmd_w + step))
+                cmd_w = round(max(min_power, min(max_power, cmd_w + step)), 1)
                 
                 # Check if at max power (send "next step" signal)
                 if _is_at_max(cmd_w, max_power):
                     # At max, send "next step" signal to divider
                     runtime[RUNTIME_FIELD_STEP_CHANGE_REQUEST] = "next"
-                    reason = f"Running at {round(cmd_w)}W (max reached, requesting next step)"
+                    reason = f"Running at {round(cmd_w, 1)}W (max reached, requesting next step)"
                     stop_timer = 0.0  # Reset stop timer when at max
                 else:
                     # Not at max, check stop timer conditions
@@ -1165,16 +1163,16 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                     at_min = math.isclose(cmd_w, min_power, abs_tol=0.5) or cmd_w <= min_power
                     if at_min and delta_w < 0.0:
                         # All conditions met: count timer
-                        stop_timer += dt
-                        remaining = self._format_timer_remaining(stop_delay, stop_timer)
-                        reason = f"Stopping in {round(remaining)}s (delta={round(delta_w)}W)"
+                        stop_timer = round(stop_timer + dt, 1)
+                        remaining = round(self._format_timer_remaining(stop_delay, stop_timer), 1)
+                        reason = f"Stopping in {round(remaining)}s (delta={round(delta_w, 1)}W)"
                     else:
                         # Conditions not met: reset timer
                         stop_timer = 0.0
                         if not at_min:
-                            reason = f"Running at {round(cmd_w)}W"
+                            reason = f"Running at {round(cmd_w, 1)}W"
                         else:
-                            reason = f"Running at {round(cmd_w)}W (waiting for delta_w < 0)"
+                            reason = f"Running at {round(cmd_w, 1)}W (waiting for delta_w < 0)"
                     
                     if stop_timer >= stop_delay and stop_delay >= 0.0:
                         # Stop timer expired, shutdown consumer and send "previous step" signal
@@ -1185,9 +1183,9 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                         runtime[RUNTIME_FIELD_STEP_CHANGE_REQUEST] = "previous"
                         await self._async_command_consumer_enabled(consumer, False)
 
-            runtime[RUNTIME_FIELD_CMD_W] = cmd_w
-            runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
-            runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
+            runtime[RUNTIME_FIELD_CMD_W] = round(cmd_w, 1)
+            runtime[RUNTIME_FIELD_START_TIMER_S] = round(start_timer, 1)
+            runtime[RUNTIME_FIELD_STOP_TIMER_S] = round(stop_timer, 1)
             self._set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
 
@@ -1202,7 +1200,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         Consumers receive active/inactive status from divider.
         Only active consumers can change state and send step change signals.
         """
-        import time
         start_time = time.monotonic()
         
         if delta_w is None:
@@ -1235,11 +1232,11 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 continue
             
             is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
-            start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
-            stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
-            threshold_w = self._get_consumer_threshold_w(consumer_id, consumer)
-            start_delay = self._get_consumer_delay_seconds(consumer_id, True)
-            stop_delay = self._get_consumer_delay_seconds(consumer_id, False)
+            start_timer = round(float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0)), 1)
+            stop_timer = round(float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)), 1)
+            threshold_w = round(self._get_consumer_threshold_w(consumer_id, consumer), 1)
+            start_delay = round(self._get_consumer_delay_seconds(consumer_id, True), 1)
+            stop_delay = round(self._get_consumer_delay_seconds(consumer_id, False), 1)
             
             reason: str | None = None
             
@@ -1253,13 +1250,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 stop_timer = 0.0
                 if delta_w >= threshold_w:
                     # Condition met: count timer
-                    start_timer += dt
-                    remaining = self._format_timer_remaining(start_delay, start_timer)
-                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w)}W)"
+                    start_timer = round(start_timer + dt, 1)
+                    remaining = round(self._format_timer_remaining(start_delay, start_timer), 1)
+                    reason = f"Starting in {round(remaining)}s (delta={round(delta_w, 1)}W)"
                 else:
                     # Condition not met: reset timer
                     start_timer = 0.0
-                    reason = f"Waiting for surplus >= {round(threshold_w)}W (delta={round(delta_w)}W)"
+                    reason = f"Waiting for surplus >= {round(threshold_w, 1)}W (delta={round(delta_w, 1)}W)"
                 
                 if start_timer >= start_delay and start_delay >= 0.0:
                     # Start timer expired, turn ON and send "next step" signal
@@ -1275,9 +1272,9 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 
                 if delta_w < 0.0:
                     # Condition met: count timer
-                    stop_timer += dt
-                    remaining = self._format_timer_remaining(stop_delay, stop_timer)
-                    reason = f"Stopping in {round(remaining)}s (delta={round(delta_w)}W)"
+                    stop_timer = round(stop_timer + dt, 1)
+                    remaining = round(self._format_timer_remaining(stop_delay, stop_timer), 1)
+                    reason = f"Stopping in {round(remaining)}s (delta={round(delta_w, 1)}W)"
                 else:
                     # Condition not met: reset timer
                     stop_timer = 0.0
@@ -1293,8 +1290,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                     await self._async_command_consumer_enabled(consumer, False)
 
             runtime[RUNTIME_FIELD_IS_ON] = is_on
-            runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
-            runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
+            runtime[RUNTIME_FIELD_START_TIMER_S] = round(start_timer, 1)
+            runtime[RUNTIME_FIELD_STOP_TIMER_S] = round(stop_timer, 1)
             self._set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
         
@@ -1320,7 +1317,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             runtime[RUNTIME_FIELD_STOP_TIMER_S] = 0.0
             runtime[RUNTIME_FIELD_REASON] = reason
             if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                previous_cmd = runtime.get(RUNTIME_FIELD_CMD_W, 0.0)
+                previous_cmd = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
                 runtime[RUNTIME_FIELD_CMD_W] = 0.0
                 async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
                 if not math.isclose(previous_cmd, 0.0, abs_tol=1e-6):
@@ -1354,10 +1351,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
             name = consumer.get(CONSUMER_NAME, consumer_id)
             consumer_type = consumer.get(CONSUMER_TYPE)
-            start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
-            stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
+            start_timer = round(float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0)), 1)
+            stop_timer = round(float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0)), 1)
             if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+                cmd_w = round(float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0)), 1)
                 if cmd_w > 0.0:
                     running = True
                 if start_timer > 0.0 and cmd_w <= 0.0:
