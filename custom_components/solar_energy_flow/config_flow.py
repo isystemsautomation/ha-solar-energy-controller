@@ -122,7 +122,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             sp_domain = _extract_domain(user_input[CONF_SETPOINT_ENTITY])
             output_domain = _extract_domain(user_input[CONF_OUTPUT_ENTITY])
             grid_domain = _extract_domain(user_input[CONF_GRID_POWER_ENTITY])
-            battery_soc_domain = _extract_domain(user_input.get(CONF_BATTERY_SOC_ENTITY))
 
             if pv_domain not in _PV_DOMAINS:
                 errors[CONF_PROCESS_VALUE_ENTITY] = "invalid_pv_domain"
@@ -132,8 +131,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_OUTPUT_ENTITY] = "invalid_output_domain"
             if grid_domain not in _GRID_DOMAINS:
                 errors[CONF_GRID_POWER_ENTITY] = "invalid_grid_domain"
-            if user_input.get(CONF_BATTERY_SOC_ENTITY) and battery_soc_domain not in _BATTERY_SOC_DOMAINS:
-                errors[CONF_BATTERY_SOC_ENTITY] = "invalid_battery_soc_domain"
+            
+            # Only validate battery_soc_entity if it's provided and not empty
+            battery_soc_entity_value = user_input.get(CONF_BATTERY_SOC_ENTITY)
+            if battery_soc_entity_value and isinstance(battery_soc_entity_value, str) and battery_soc_entity_value.strip():
+                battery_soc_domain = _extract_domain(battery_soc_entity_value.strip())
+                if battery_soc_domain and battery_soc_domain not in _BATTERY_SOC_DOMAINS:
+                    errors[CONF_BATTERY_SOC_ENTITY] = "invalid_battery_soc_domain"
 
             range_valid = True
             try:
@@ -169,6 +173,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
             name = user_input.pop(CONF_NAME)
+            # Remove battery_soc_entity from data if it's empty or None
+            battery_soc_value = user_input.get(CONF_BATTERY_SOC_ENTITY)
+            if not battery_soc_value or (isinstance(battery_soc_value, str) and not battery_soc_value.strip()):
+                user_input.pop(CONF_BATTERY_SOC_ENTITY, None)
+            else:
+                # Ensure it's a clean string value
+                user_input[CONF_BATTERY_SOC_ENTITY] = battery_soc_value.strip() if isinstance(battery_soc_value, str) else battery_soc_value
             return self.async_create_entry(title=name, data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=self._build_user_schema(), errors=errors)
@@ -195,7 +206,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain=list(_GRID_DOMAINS))
                 ),
                 vol.Optional(CONF_BATTERY_SOC_ENTITY): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))
+                    selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS), allow_custom_entity=True)
                 ),
                 vol.Required(CONF_PV_MIN, default=DEFAULT_PV_MIN): vol.Coerce(float),
                 vol.Required(CONF_PV_MAX, default=DEFAULT_PV_MAX): vol.Coerce(float),
@@ -257,8 +268,11 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                     selector.EntitySelectorConfig(domain=list(_GRID_DOMAINS))
                 ),
                 vol.Optional(
-                    CONF_BATTERY_SOC_ENTITY, default=defaults.get(CONF_BATTERY_SOC_ENTITY)
-                ): selector.EntitySelector(selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))),
+                    CONF_BATTERY_SOC_ENTITY, 
+                    default=defaults.get(CONF_BATTERY_SOC_ENTITY) or ""
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))
+                ),
                 vol.Optional(CONF_INVERT_PV, default=defaults.get(CONF_INVERT_PV, DEFAULT_INVERT_PV)): bool,
                 vol.Optional(CONF_INVERT_SP, default=defaults.get(CONF_INVERT_SP, DEFAULT_INVERT_SP)): bool,
                 vol.Optional(
@@ -321,8 +335,10 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_GRID_POWER_ENTITY: o.get(
                 CONF_GRID_POWER_ENTITY, self._config_entry.data.get(CONF_GRID_POWER_ENTITY, "")
             ),
-            CONF_BATTERY_SOC_ENTITY: o.get(
-                CONF_BATTERY_SOC_ENTITY, self._config_entry.data.get(CONF_BATTERY_SOC_ENTITY)
+            CONF_BATTERY_SOC_ENTITY: (
+                (value := o.get(CONF_BATTERY_SOC_ENTITY, self._config_entry.data.get(CONF_BATTERY_SOC_ENTITY)))
+                if value and isinstance(value, str) and value.strip()
+                else ""
             ),
             CONF_INVERT_PV: o.get(CONF_INVERT_PV, DEFAULT_INVERT_PV),
             CONF_INVERT_SP: o.get(CONF_INVERT_SP, DEFAULT_INVERT_SP),
@@ -347,9 +363,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_SETPOINT_ENTITY: user_input.get(CONF_SETPOINT_ENTITY, defaults[CONF_SETPOINT_ENTITY]),
                 CONF_OUTPUT_ENTITY: user_input.get(CONF_OUTPUT_ENTITY, defaults[CONF_OUTPUT_ENTITY]),
                 CONF_GRID_POWER_ENTITY: user_input.get(CONF_GRID_POWER_ENTITY, defaults[CONF_GRID_POWER_ENTITY]),
-                CONF_BATTERY_SOC_ENTITY: user_input.get(
-                    CONF_BATTERY_SOC_ENTITY, defaults.get(CONF_BATTERY_SOC_ENTITY)
-                ),
                 CONF_INVERT_PV: user_input.get(CONF_INVERT_PV, defaults[CONF_INVERT_PV]),
                 CONF_INVERT_SP: user_input.get(CONF_INVERT_SP, defaults[CONF_INVERT_SP]),
                 CONF_GRID_POWER_INVERT: user_input.get(CONF_GRID_POWER_INVERT, defaults[CONF_GRID_POWER_INVERT]),
@@ -366,12 +379,29 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_GRID_MIN: round(float(user_input.get(CONF_GRID_MIN, defaults[CONF_GRID_MIN])), 1),
                 CONF_GRID_MAX: round(float(user_input.get(CONF_GRID_MAX, defaults[CONF_GRID_MAX])), 1),
             }
+            
+            # Handle battery_soc_entity separately - it's optional, so only include if it has a valid non-empty value
+            battery_soc_value = user_input.get(CONF_BATTERY_SOC_ENTITY, defaults.get(CONF_BATTERY_SOC_ENTITY, ""))
+            # Handle None, empty string, or the string "None" - treat all as empty
+            if (
+                battery_soc_value is None
+                or battery_soc_value == "None"
+                or (isinstance(battery_soc_value, str) and not battery_soc_value.strip())
+            ):
+                # Don't include it in cleaned - it's optional
+                pass
+            elif isinstance(battery_soc_value, str) and battery_soc_value.strip():
+                # Only include if it's a valid non-empty string
+                cleaned[CONF_BATTERY_SOC_ENTITY] = battery_soc_value.strip()
+                # Validate the domain
+                battery_soc_domain = _extract_domain(battery_soc_value.strip())
+                if battery_soc_domain and battery_soc_domain not in _BATTERY_SOC_DOMAINS:
+                    errors[CONF_BATTERY_SOC_ENTITY] = "invalid_battery_soc_domain"
 
             pv_domain = _extract_domain(cleaned[CONF_PROCESS_VALUE_ENTITY])
             sp_domain = _extract_domain(cleaned[CONF_SETPOINT_ENTITY])
             output_domain = _extract_domain(cleaned[CONF_OUTPUT_ENTITY])
             grid_domain = _extract_domain(cleaned[CONF_GRID_POWER_ENTITY])
-            battery_soc_domain = _extract_domain(cleaned.get(CONF_BATTERY_SOC_ENTITY))
 
             if pv_domain not in _PV_DOMAINS:
                 errors[CONF_PROCESS_VALUE_ENTITY] = "invalid_pv_domain"
@@ -381,8 +411,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 errors[CONF_OUTPUT_ENTITY] = "invalid_output_domain"
             if grid_domain not in _GRID_DOMAINS:
                 errors[CONF_GRID_POWER_ENTITY] = "invalid_grid_domain"
-            if cleaned.get(CONF_BATTERY_SOC_ENTITY) and battery_soc_domain not in _BATTERY_SOC_DOMAINS:
-                errors[CONF_BATTERY_SOC_ENTITY] = "invalid_battery_soc_domain"
 
             max_output_step = preserved.get(CONF_MAX_OUTPUT_STEP, DEFAULT_MAX_OUTPUT_STEP)
             output_epsilon = preserved.get(CONF_OUTPUT_EPSILON, DEFAULT_OUTPUT_EPSILON)
@@ -420,6 +448,14 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 )
 
             options = {**preserved, **cleaned}
+            # Remove battery_soc_entity from options if it's empty, None, or "None"
+            battery_soc_in_options = options.get(CONF_BATTERY_SOC_ENTITY)
+            if (
+                not battery_soc_in_options
+                or battery_soc_in_options == "None"
+                or (isinstance(battery_soc_in_options, str) and not battery_soc_in_options.strip())
+            ):
+                options.pop(CONF_BATTERY_SOC_ENTITY, None)
             options[CONF_CONSUMERS] = self._consumers
             return self.async_create_entry(title="", data=options)
 
