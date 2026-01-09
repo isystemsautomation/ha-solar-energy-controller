@@ -137,17 +137,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             range_valid = True
             try:
-                pv_min = float(user_input[CONF_PV_MIN])
-                pv_max = float(user_input[CONF_PV_MAX])
-                sp_min = float(user_input[CONF_SP_MIN])
-                sp_max = float(user_input[CONF_SP_MAX])
-                grid_min = float(user_input[CONF_GRID_MIN])
-                grid_max = float(user_input[CONF_GRID_MAX])
+                pv_min = round(float(user_input[CONF_PV_MIN]), 1)
+                pv_max = round(float(user_input[CONF_PV_MAX]), 1)
+                sp_min = round(float(user_input[CONF_SP_MIN]), 1)
+                sp_max = round(float(user_input[CONF_SP_MAX]), 1)
+                grid_min = round(float(user_input[CONF_GRID_MIN]), 1)
+                grid_max = round(float(user_input[CONF_GRID_MAX]), 1)
             except (TypeError, ValueError):
                 range_valid = False
             else:
                 if pv_max <= pv_min or sp_max <= sp_min or grid_max <= grid_min:
                     range_valid = False
+                else:
+                    # Update user_input with rounded values
+                    user_input[CONF_PV_MIN] = pv_min
+                    user_input[CONF_PV_MAX] = pv_max
+                    user_input[CONF_SP_MIN] = sp_min
+                    user_input[CONF_SP_MAX] = sp_max
+                    user_input[CONF_GRID_MIN] = grid_min
+                    user_input[CONF_GRID_MAX] = grid_max
 
             if not range_valid:
                 errors["base"] = "invalid_range"
@@ -325,12 +333,12 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 DEFAULT_UPDATE_INTERVAL,
                 min_value=1,
             ),
-            CONF_PV_MIN: o.get(CONF_PV_MIN, self._config_entry.data.get(CONF_PV_MIN, DEFAULT_PV_MIN)),
-            CONF_PV_MAX: o.get(CONF_PV_MAX, self._config_entry.data.get(CONF_PV_MAX, DEFAULT_PV_MAX)),
-            CONF_SP_MIN: o.get(CONF_SP_MIN, self._config_entry.data.get(CONF_SP_MIN, DEFAULT_SP_MIN)),
-            CONF_SP_MAX: o.get(CONF_SP_MAX, self._config_entry.data.get(CONF_SP_MAX, DEFAULT_SP_MAX)),
-            CONF_GRID_MIN: o.get(CONF_GRID_MIN, self._config_entry.data.get(CONF_GRID_MIN, DEFAULT_GRID_MIN)),
-            CONF_GRID_MAX: o.get(CONF_GRID_MAX, self._config_entry.data.get(CONF_GRID_MAX, DEFAULT_GRID_MAX)),
+            CONF_PV_MIN: round(float(o.get(CONF_PV_MIN, self._config_entry.data.get(CONF_PV_MIN, DEFAULT_PV_MIN))), 1),
+            CONF_PV_MAX: round(float(o.get(CONF_PV_MAX, self._config_entry.data.get(CONF_PV_MAX, DEFAULT_PV_MAX))), 1),
+            CONF_SP_MIN: round(float(o.get(CONF_SP_MIN, self._config_entry.data.get(CONF_SP_MIN, DEFAULT_SP_MIN))), 1),
+            CONF_SP_MAX: round(float(o.get(CONF_SP_MAX, self._config_entry.data.get(CONF_SP_MAX, DEFAULT_SP_MAX))), 1),
+            CONF_GRID_MIN: round(float(o.get(CONF_GRID_MIN, self._config_entry.data.get(CONF_GRID_MIN, DEFAULT_GRID_MIN))), 1),
+            CONF_GRID_MAX: round(float(o.get(CONF_GRID_MAX, self._config_entry.data.get(CONF_GRID_MAX, DEFAULT_GRID_MAX))), 1),
         }
 
         if user_input is not None:
@@ -351,12 +359,12 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                     defaults[CONF_UPDATE_INTERVAL],
                     min_value=1,
                 ),
-                CONF_PV_MIN: user_input.get(CONF_PV_MIN, defaults[CONF_PV_MIN]),
-                CONF_PV_MAX: user_input.get(CONF_PV_MAX, defaults[CONF_PV_MAX]),
-                CONF_SP_MIN: user_input.get(CONF_SP_MIN, defaults[CONF_SP_MIN]),
-                CONF_SP_MAX: user_input.get(CONF_SP_MAX, defaults[CONF_SP_MAX]),
-                CONF_GRID_MIN: user_input.get(CONF_GRID_MIN, defaults[CONF_GRID_MIN]),
-                CONF_GRID_MAX: user_input.get(CONF_GRID_MAX, defaults[CONF_GRID_MAX]),
+                CONF_PV_MIN: round(float(user_input.get(CONF_PV_MIN, defaults[CONF_PV_MIN])), 1),
+                CONF_PV_MAX: round(float(user_input.get(CONF_PV_MAX, defaults[CONF_PV_MAX])), 1),
+                CONF_SP_MIN: round(float(user_input.get(CONF_SP_MIN, defaults[CONF_SP_MIN])), 1),
+                CONF_SP_MAX: round(float(user_input.get(CONF_SP_MAX, defaults[CONF_SP_MAX])), 1),
+                CONF_GRID_MIN: round(float(user_input.get(CONF_GRID_MIN, defaults[CONF_GRID_MIN])), 1),
+                CONF_GRID_MAX: round(float(user_input.get(CONF_GRID_MAX, defaults[CONF_GRID_MAX])), 1),
             }
 
             pv_domain = _extract_domain(cleaned[CONF_PROCESS_VALUE_ENTITY])
