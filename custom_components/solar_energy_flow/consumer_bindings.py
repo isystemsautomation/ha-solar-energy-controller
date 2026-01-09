@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+import time
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -73,8 +73,8 @@ def cleanup_consumer_bindings(hass: HomeAssistant, entry_id: str) -> None:
 
 class ConsumerBinding:
     def __init__(self, consumer: dict[str, Any]) -> None:
-        self._last_enable_command_at: datetime | None = None
-        self._last_power_command_at: datetime | None = None
+        self._last_enable_command_at: float | None = None
+        self._last_power_command_at: float | None = None
         self._last_power_value: float | None = None
         self._assumed_enabled: bool | None = None
         self._desired_power: float | None = None
@@ -87,10 +87,10 @@ class ConsumerBinding:
         self.state_entity_id = consumer.get(CONSUMER_STATE_ENTITY_ID)
         self.power_target_entity_id = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
 
-    def _rate_limited(self, last_time: datetime | None) -> bool:
+    def _rate_limited(self, last_time: float | None) -> bool:
         if last_time is None:
             return False
-        return (datetime.utcnow() - last_time).total_seconds() < CONSUMER_MIN_RATE_LIMIT_SEC
+        return (time.monotonic() - last_time) < CONSUMER_MIN_RATE_LIMIT_SEC
 
     def _get_actual_enabled(self, hass: HomeAssistant) -> bool | None:
         state_from = self.state_entity_id
@@ -144,7 +144,7 @@ class ConsumerBinding:
             return False
 
         self._assumed_enabled = desired_enabled
-        self._last_enable_command_at = datetime.utcnow()
+        self._last_enable_command_at = time.monotonic()
         return True
 
     def set_desired_power(self, value: float) -> None:
@@ -180,5 +180,5 @@ class ConsumerBinding:
             return False
 
         self._last_power_value = target_power
-        self._last_power_command_at = datetime.utcnow()
+        self._last_power_command_at = time.monotonic()
         return True

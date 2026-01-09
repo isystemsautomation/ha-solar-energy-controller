@@ -6,12 +6,11 @@ import math
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Mapping, Any, Tuple
+from typing import Mapping, Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -438,7 +437,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.delta_w: float | None = None
         self._last_pv_pct: float | None = None
         self._last_sp_pct: float | None = None
-        self._consumer_power_entities: dict[str, str | None] = {}
         self._last_consumer_update = time.monotonic()
         manual_sp_opt = entry.options.get(CONF_MANUAL_SP_VALUE)
         self._manual_sp_value: float | None = None
@@ -468,7 +466,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.divider_state: str | None = None
         self.divider_reason: str | None = None
         # Initialize ConsumerManager for consumer operations
-        self.consumer_manager = ConsumerManager(hass, entry.entry_id)
+        self.consumer_manager = ConsumerManager(hass, entry)
 
     def _get_normal_setpoint_value(self) -> float | None:
         """Return the current external setpoint with inversion applied (no limiter)."""
@@ -519,42 +517,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             return 0.0
         return deadband_raw * 100.0 / span
 
-    def _get_consumer_number_entity_id(self, consumer_id: str, suffix: str) -> str | None:
-        unique_id = f"{DOMAIN}_{self.entry.entry_id}_{consumer_id}_{suffix}"
-        entity_registry = er.async_get(self.hass)
-        return entity_registry.async_get_entity_id("number", DOMAIN, unique_id)
-
-    def _read_number_entity_value(self, entity_id: str | None, default: float) -> float:
-        if not entity_id:
-            return default
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in ("unknown", "unavailable"):
-            return default
-        try:
-            return float(state.state)
-        except (TypeError, ValueError):
-            return default
-
-    def _get_consumer_delay_seconds(self, consumer_id: str, is_start: bool) -> float:
-        suffix = "start_delay_s" if is_start else "stop_delay_s"
-        default = CONSUMER_DEFAULT_START_DELAY_S if is_start else CONSUMER_DEFAULT_STOP_DELAY_S
-        entity_id = self._get_consumer_number_entity_id(consumer_id, suffix)
-        return self._read_number_entity_value(entity_id, default)
-
-    def _get_consumer_step_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
-        entity_id = self._get_consumer_number_entity_id(consumer_id, "step_w")
-        default = float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
-        return self._read_number_entity_value(entity_id, default)
-
-    def _get_consumer_pid_deadband_pct(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
-        entity_id = self._get_consumer_number_entity_id(consumer_id, "pid_deadband_pct")
-        default = float(consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT))
-        return self._read_number_entity_value(entity_id, default)
-
-    def _get_consumer_threshold_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
-        entity_id = self._get_consumer_number_entity_id(consumer_id, CONSUMER_THRESHOLD_W)
-        default = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
-        return self._read_number_entity_value(entity_id, default)
 
     @staticmethod
     def _compute_controlled_consumer_step(pid_pct: float, pid_deadband_pct: float, max_step_w: float) -> float:
@@ -567,29 +529,11 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             step = 1.0 if d > 0 else -1.0
         return step
 
-    def _consumer_available(self, consumer: Mapping[str, Any]) -> bool:
-        power_target = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
-        if power_target:
-            state = self.hass.states.get(power_target)
-            if state is None or state.state in ("unavailable", "unknown"):
-                return False
-        return True
-
-    def _consumer_enabled(self, consumer: Mapping[str, Any]) -> bool:
-        """Check if consumer is enabled (internal control, not physical device state)."""
-        consumer_id = consumer.get(CONSUMER_ID)
-        if consumer_id is None:
-            return False
-        runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-        return bool(runtime.get(RUNTIME_FIELD_ENABLED, True))
 
     @staticmethod
     def _format_timer_remaining(total: float, elapsed: float) -> float:
         return max(0.0, total - elapsed)
 
-    def _set_consumer_reason(self, consumer_id: str, reason: str | None) -> None:
-        runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-        runtime[RUNTIME_FIELD_REASON] = reason or ""
 
     def _compute_dt(self) -> float:
         now = time.monotonic()
@@ -598,25 +542,12 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         return dt
 
     async def _async_command_consumer_power(self, consumer: Mapping[str, Any], value: float) -> None:
-        consumer_id = consumer.get(CONSUMER_ID)
-        if consumer_id is None:
-            return
-
-        if consumer_id not in self._consumer_power_entities:
-            self._consumer_power_entities[consumer_id] = self._get_consumer_number_entity_id(consumer_id, "power")
-        power_entity_id = self._consumer_power_entities.get(consumer_id)
-
-        if power_entity_id:
-            try:
-                await self.hass.services.async_call(
-                    "number", "set_value", {"entity_id": power_entity_id, "value": value}, blocking=True
-                )
-                return
-            except (HomeAssistantError, asyncio.TimeoutError, ValueError) as err:
-                _LOGGER.warning(
-                    "Failed to update consumer power entity %s for %s: %s", power_entity_id, consumer_id, err
-                )
-
+        """Command consumer power by writing directly to the device entity.
+        
+        Uses ConsumerBinding to write to consumer.power_target_entity_id, which is
+        the single source of truth for device control. The integration's number entity
+        (if it exists) is for manual user control only.
+        """
         binding = get_consumer_binding(self.hass, self.entry.entry_id, consumer)
         binding.set_desired_power(value)
         await binding.async_push_power(self.hass)
@@ -629,196 +560,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
     def _is_at_max(cmd: float, maximum: float) -> bool:
         """Check if command value is at maximum."""
         return cmd >= maximum or math.isclose(cmd, maximum, abs_tol=0.5)
-
-    def _read_physical_device_state(self, consumer: Mapping[str, Any]) -> bool | None:
-        """Read the actual physical device state from state_entity_id.
-        
-        Returns:
-            True if device is ON/RUNNING, False if OFF, None if unavailable/not configured.
-        """
-        state_entity_id = consumer.get(CONSUMER_STATE_ENTITY_ID)
-        if not state_entity_id:
-            return None
-        
-        state_obj = self.hass.states.get(state_entity_id)
-        if state_obj is None or state_obj.state in ("unknown", "unavailable"):
-            return None
-        
-        value = state_obj.state
-        if isinstance(value, str):
-            lowered = value.lower()
-            if lowered in ("on", "true", "home", "open", "1", "enabled"):
-                return True
-            if lowered in ("off", "false", "not_home", "closed", "0", "disabled"):
-                return False
-        
-        # For numeric values, treat > 0 as ON
-        try:
-            num = float(value)
-            return num > 0
-        except (TypeError, ValueError):
-            return None
-
-    def _read_physical_device_power(self, consumer: Mapping[str, Any]) -> float | None:
-        """Read the actual physical device power from power_target_entity_id.
-        
-        Returns:
-            Power in watts, or None if unavailable/not configured.
-        """
-        power_entity_id = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
-        if not power_entity_id:
-            return None
-        
-        state_obj = self.hass.states.get(power_entity_id)
-        if state_obj is None or state_obj.state in ("unknown", "unavailable"):
-            return None
-        
-        try:
-            return float(state_obj.state)
-        except (TypeError, ValueError):
-            return None
-
-    def _is_consumer_finished_starting(self, consumer: Mapping[str, Any]) -> bool:
-        """Check if consumer has finished starting based on physical device state.
-        
-        For controlled consumers: device must be ON and at MAX power.
-        For binary consumers: device must be ON.
-        """
-        consumer_type = consumer.get(CONSUMER_TYPE)
-        device_on = self._read_physical_device_state(consumer)
-        
-        if device_on is None:
-            # Fallback to runtime state if physical state unavailable
-            consumer_id = consumer.get(CONSUMER_ID)
-            if consumer_id is None:
-                return False
-            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            
-            if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
-                max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
-                return self._is_at_max(cmd_w, max_power)
-            else:  # binary
-                return bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
-        
-        if not device_on:
-            return False  # Device is OFF, not finished starting
-        
-        if consumer_type == CONSUMER_TYPE_CONTROLLED:
-            # For controlled consumers, also check if at max power
-            actual_power = self._read_physical_device_power(consumer)
-            max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
-            if actual_power is not None and max_power > 0:
-                return self._is_at_max(actual_power, max_power)
-            # Fallback to runtime cmd_w if power entity unavailable
-            consumer_id = consumer.get(CONSUMER_ID)
-            if consumer_id is None:
-                return False
-            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
-            return self._is_at_max(cmd_w, max_power)
-        
-        # Binary consumer is ON
-        return True
-
-    def _is_consumer_finished_stopping(self, consumer: Mapping[str, Any]) -> bool:
-        """Check if consumer has finished stopping based on physical device state.
-        
-        Device must be OFF.
-        """
-        device_on = self._read_physical_device_state(consumer)
-        
-        if device_on is None:
-            # Fallback to runtime state if physical state unavailable
-            consumer_id = consumer.get(CONSUMER_ID)
-            if consumer_id is None:
-                return True  # Assume finished if can't determine
-            runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            consumer_type = consumer.get(CONSUMER_TYPE)
-            
-            if consumer_type == CONSUMER_TYPE_CONTROLLED:
-                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
-                return cmd_w <= 0.0
-            else:  # binary
-                return not bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
-        
-        # Device is OFF, finished stopping
-        return not device_on
-
-    def _are_all_higher_priority_consumers_finished(
-        self, consumers: list[Mapping[str, Any]], current_priority: float, current_index: int
-    ) -> bool:
-        """Check if all higher-priority consumers (both controlled and binary) are finished.
-        
-        For controlled consumers: "finished" means at MAX power.
-        For binary consumers: "finished" means started (ON).
-        
-        Returns True if all higher-priority consumers are finished or if there are none.
-        """
-        for consumer in consumers:
-            consumer_id = consumer.get(CONSUMER_ID)
-            if consumer_id is None:
-                continue
-            
-            # Skip if disabled or unavailable (don't block)
-            enabled = self._consumer_enabled(consumer)
-            available = self._consumer_available(consumer)
-            if not enabled or not available:
-                continue
-            
-            priority = _coerce_float(consumer.get(CONSUMER_PRIORITY), 999.0)
-            # Get index from consumers list for tie-breaking
-            index = consumers.index(consumer)
-            
-            # Only check consumers with higher priority (lower priority number)
-            # If priority matches, use index for tie-breaking (lower index = higher priority)
-            if priority > current_priority or (priority == current_priority and index >= current_index):
-                continue
-            
-            # Check if this higher-priority consumer has finished starting (using physical device state)
-            if not self._is_consumer_finished_starting(consumer):
-                return False  # This higher-priority consumer has not finished starting
-        
-        return True  # All higher-priority consumers are finished
-
-    def _are_all_lower_priority_consumers_finished_stopping(
-        self, consumers: list[Mapping[str, Any]], current_priority: float, current_index: int
-    ) -> bool:
-        """Check if all lower-priority consumers have finished stopping (device is OFF).
-        
-        Used for reverse shutdown sequence (N→1).
-        
-        Returns True if all lower-priority consumers have finished stopping or if there are none.
-        For the lowest-priority consumer (highest priority number), this always returns True
-        because there are no lower-priority consumers to wait for.
-        """
-        for consumer in consumers:
-            consumer_id = consumer.get(CONSUMER_ID)
-            if consumer_id is None:
-                continue
-            
-            # Skip if disabled or unavailable (don't block)
-            enabled = self._consumer_enabled(consumer)
-            available = self._consumer_available(consumer)
-            if not enabled or not available:
-                continue
-            
-            priority = self.consumer_manager.get_priority(consumer)
-            # Get index from consumers list for tie-breaking
-            index = consumers.index(consumer)
-            
-            # Only check consumers with lower priority (higher priority number)
-            # If priority matches, use index for tie-breaking (higher index = lower priority)
-            if priority < current_priority or (priority == current_priority and index <= current_index):
-                continue
-            
-            # Check if this lower-priority consumer has finished stopping (using physical device state)
-            if not self._is_consumer_finished_stopping(consumer):
-                return False  # This lower-priority consumer has not finished stopping
-        
-        # If no lower-priority consumers found, this is the lowest-priority consumer
-        # It doesn't need to wait for anyone, so return True
-        return True  # All lower-priority consumers have finished stopping (or there are none)
 
     def _get_next_priority(
         self, consumers: list[Mapping[str, Any]], current_priority: float | None
@@ -991,8 +732,9 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             
             runtime[RUNTIME_FIELD_IS_ACTIVE] = is_active
             
-            # Clear step change request (will be set by consumer if needed)
-            runtime[RUNTIME_FIELD_STEP_CHANGE_REQUEST] = None
+            # Note: Step change requests are NOT cleared here - they persist until
+            # processed by _process_step_change_requests() to avoid race conditions
+            # where requests set by consumers could be lost if clearing happens too early.
 
     async def _process_step_change_requests(
         self, consumers: list[Mapping[str, Any]]
@@ -1009,7 +751,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 continue
             
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
-            priority = _coerce_float(consumer.get(CONSUMER_PRIORITY), 999.0)
+            priority = self.consumer_manager.get_priority(consumer)
             is_active = bool(runtime.get(RUNTIME_FIELD_IS_ACTIVE, False))
             step_request = runtime.get(RUNTIME_FIELD_STEP_CHANGE_REQUEST)
             
@@ -1097,12 +839,12 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
             min_power = float(consumer.get(CONSUMER_MIN_POWER_W, 0.0))
             max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
-            start_delay = self._get_consumer_delay_seconds(consumer_id, True)
-            stop_delay = self._get_consumer_delay_seconds(consumer_id, False)
-            step_w = self._get_consumer_step_w(consumer_id, consumer)
-            pid_deadband_pct = self._get_consumer_pid_deadband_pct(consumer_id, consumer)
-            enabled = self._consumer_enabled(consumer)
-            available = self._consumer_available(consumer)
+            start_delay = self.consumer_manager.get_consumer_delay_seconds(consumer_id, True)
+            stop_delay = self.consumer_manager.get_consumer_delay_seconds(consumer_id, False)
+            step_w = self.consumer_manager.get_consumer_step_w(consumer_id, consumer)
+            pid_deadband_pct = self.consumer_manager.get_consumer_pid_deadband_pct(consumer_id, consumer)
+            enabled = self.consumer_manager.is_enabled(consumer)
+            available = self.consumer_manager.is_available(consumer)
             
             prev_cmd = cmd_w
             step = 0.0
@@ -1188,7 +930,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             runtime[RUNTIME_FIELD_CMD_W] = cmd_w
             runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
             runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
-            self._set_consumer_reason(consumer_id, reason)
+            self.consumer_manager.set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
 
             if not math.isclose(prev_cmd, cmd_w, abs_tol=1e-6):
@@ -1217,8 +959,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             
             runtime = get_consumer_runtime(self.hass, self.entry.entry_id, consumer_id)
             is_active = bool(runtime.get(RUNTIME_FIELD_IS_ACTIVE, False))
-            enabled = self._consumer_enabled(consumer)
-            available = self._consumer_available(consumer)
+            enabled = self.consumer_manager.is_enabled(consumer)
+            available = self.consumer_manager.is_available(consumer)
             
             # Check disabled/unavailable first
             if not enabled or not available:
@@ -1229,7 +971,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 runtime[RUNTIME_FIELD_IS_ON] = False
                 runtime[RUNTIME_FIELD_START_TIMER_S] = 0.0
                 runtime[RUNTIME_FIELD_STOP_TIMER_S] = 0.0
-                self._set_consumer_reason(consumer_id, reason)
+                self.consumer_manager.set_consumer_reason(consumer_id, reason)
                 async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
                 await self._async_command_consumer_enabled(consumer, False)
                 continue
@@ -1237,9 +979,9 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             is_on = bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
             start_timer = float(runtime.get(RUNTIME_FIELD_START_TIMER_S, 0.0))
             stop_timer = float(runtime.get(RUNTIME_FIELD_STOP_TIMER_S, 0.0))
-            threshold_w = self._get_consumer_threshold_w(consumer_id, consumer)
-            start_delay = self._get_consumer_delay_seconds(consumer_id, True)
-            stop_delay = self._get_consumer_delay_seconds(consumer_id, False)
+            threshold_w = self.consumer_manager.get_consumer_threshold_w(consumer_id, consumer)
+            start_delay = self.consumer_manager.get_consumer_delay_seconds(consumer_id, True)
+            stop_delay = self.consumer_manager.get_consumer_delay_seconds(consumer_id, False)
             
             reason: str | None = None
             
@@ -1295,7 +1037,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             runtime[RUNTIME_FIELD_IS_ON] = is_on
             runtime[RUNTIME_FIELD_START_TIMER_S] = start_timer
             runtime[RUNTIME_FIELD_STOP_TIMER_S] = stop_timer
-            self._set_consumer_reason(consumer_id, reason)
+            self.consumer_manager.set_consumer_reason(consumer_id, reason)
             async_dispatch_consumer_runtime_update(self.hass, self.entry.entry_id, consumer_id)
         
         # Log performance metrics
@@ -1363,13 +1105,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 if start_timer > 0.0 and cmd_w <= 0.0:
                     waiting_start = True
                     remaining = self._format_timer_remaining(
-                        self._get_consumer_delay_seconds(consumer_id, True), start_timer
+                        self.consumer_manager.get_consumer_delay_seconds(consumer_id, True), start_timer
                     )
                     reason = reason or f"Starting {name} in {round(remaining)}s"
                 if stop_timer > 0.0 and cmd_w > 0.0:
                     waiting_stop = True
                     remaining = self._format_timer_remaining(
-                        self._get_consumer_delay_seconds(consumer_id, False), stop_timer
+                        self.consumer_manager.get_consumer_delay_seconds(consumer_id, False), stop_timer
                     )
                     reason = reason or f"Stopping {name} in {round(remaining)}s"
             elif consumer_type == CONSUMER_TYPE_BINARY:
@@ -1379,13 +1121,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 if start_timer > 0.0 and not is_on:
                     waiting_start = True
                     remaining = self._format_timer_remaining(
-                        self._get_consumer_delay_seconds(consumer_id, True), start_timer
+                        self.consumer_manager.get_consumer_delay_seconds(consumer_id, True), start_timer
                     )
                     reason = reason or f"Starting {name} in {round(remaining)}s"
                 if stop_timer > 0.0 and is_on:
                     waiting_stop = True
                     remaining = self._format_timer_remaining(
-                        self._get_consumer_delay_seconds(consumer_id, False), stop_timer
+                        self.consumer_manager.get_consumer_delay_seconds(consumer_id, False), stop_timer
                     )
                     reason = reason or f"Stopping {name} in {round(remaining)}s"
 
@@ -1612,7 +1354,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             limiter_state=new_limiter_state,
         )
 
-    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> Tuple[float, bool]:
+    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> tuple[float, bool]:
         if not math.isfinite(desired_output):
             _LOGGER.warning(
                 "Invalid (non-finite) desired output %s for %s; skipping write",
@@ -1757,9 +1499,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 return True
         return False
 
-    def _invalidate_consumer_cache(self) -> None:
-        """Invalidate cached consumer data when consumers change."""
-        self.consumer_manager.invalidate_cache()
     
     def apply_options(self, options: Mapping[str, Any]) -> None:
         """Apply runtime tuning without resetting PID state."""
@@ -1774,7 +1513,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self._divider_enabled = options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
         self.pid.apply_options(self._build_pid_config_from_options(options))
         # Invalidate cache when options change (consumers may have changed)
-        self._invalidate_consumer_cache()
+        self.consumer_manager.invalidate_cache()
 
     def _calculate_output_plan(
         self,

@@ -11,19 +11,36 @@ import time
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    DOMAIN,
     CONSUMER_ID,
     CONSUMER_NAME,
     CONSUMER_PRIORITY,
     CONSUMER_TYPE,
     CONSUMER_TYPE_BINARY,
     CONSUMER_TYPE_CONTROLLED,
+    CONSUMER_POWER_TARGET_ENTITY_ID,
+    CONSUMER_STATE_ENTITY_ID,
+    CONSUMER_MAX_POWER_W,
+    CONSUMER_STEP_W,
+    CONSUMER_PID_DEADBAND_PCT,
+    CONSUMER_THRESHOLD_W,
+    CONSUMER_DEFAULT_START_DELAY_S,
+    CONSUMER_DEFAULT_STOP_DELAY_S,
+    CONSUMER_DEFAULT_STEP_W,
+    CONSUMER_DEFAULT_PID_DEADBAND_PCT,
+    CONSUMER_DEFAULT_THRESHOLD_W,
 )
 from .helpers import (
     RUNTIME_FIELD_ENABLED,
     RUNTIME_FIELD_IS_ACTIVE,
     RUNTIME_FIELD_STEP_CHANGE_REQUEST,
+    RUNTIME_FIELD_CMD_W,
+    RUNTIME_FIELD_IS_ON,
+    RUNTIME_FIELD_REASON,
     get_consumer_runtime,
 )
 
@@ -41,10 +58,11 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
 class ConsumerManager:
     """Manages consumer operations including state, priorities, and validation."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the ConsumerManager."""
         self.hass = hass
-        self.entry_id = entry_id
+        self.entry = entry
+        self.entry_id = entry.entry_id
         self._cached_enabled_priorities: list[float] | None = None
         self._cached_consumers_hash: int | None = None
         self._cached_consumer_lookups: dict[str, dict[str, Any]] = {}
@@ -61,14 +79,187 @@ class ConsumerManager:
 
     def is_available(self, consumer: Mapping[str, Any]) -> bool:
         """Check if consumer's power target entity is available."""
-        from .const import CONSUMER_POWER_TARGET_ENTITY_ID
-        
         power_target = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
         if power_target:
             state = self.hass.states.get(power_target)
             if state is None or state.state in ("unavailable", "unknown"):
                 return False
         return True
+
+    def get_consumer_number_entity_id(self, consumer_id: str, suffix: str) -> str | None:
+        """Get consumer number entity ID from entity registry."""
+        unique_id = f"{DOMAIN}_{self.entry_id}_{consumer_id}_{suffix}"
+        entity_registry = er.async_get(self.hass)
+        return entity_registry.async_get_entity_id("number", DOMAIN, unique_id)
+
+    def _read_number_entity_value(self, entity_id: str | None, default: float) -> float:
+        """Read number entity value, returning default if unavailable."""
+        if not entity_id:
+            return default
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return default
+        try:
+            return float(state.state)
+        except (TypeError, ValueError):
+            return default
+
+    def get_consumer_delay_seconds(self, consumer_id: str, is_start: bool) -> float:
+        """Get consumer start or stop delay in seconds."""
+        suffix = "start_delay_s" if is_start else "stop_delay_s"
+        default = CONSUMER_DEFAULT_START_DELAY_S if is_start else CONSUMER_DEFAULT_STOP_DELAY_S
+        entity_id = self.get_consumer_number_entity_id(consumer_id, suffix)
+        return self._read_number_entity_value(entity_id, default)
+
+    def get_consumer_step_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
+        """Get consumer step size in watts."""
+        entity_id = self.get_consumer_number_entity_id(consumer_id, "step_w")
+        default = float(consumer.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
+        return self._read_number_entity_value(entity_id, default)
+
+    def get_consumer_pid_deadband_pct(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
+        """Get consumer PID deadband in percent."""
+        entity_id = self.get_consumer_number_entity_id(consumer_id, "pid_deadband_pct")
+        default = float(consumer.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT))
+        return self._read_number_entity_value(entity_id, default)
+
+    def get_consumer_threshold_w(self, consumer_id: str, consumer: Mapping[str, Any]) -> float:
+        """Get consumer threshold in watts (for binary consumers)."""
+        entity_id = self.get_consumer_number_entity_id(consumer_id, CONSUMER_THRESHOLD_W)
+        default = float(consumer.get(CONSUMER_THRESHOLD_W, CONSUMER_DEFAULT_THRESHOLD_W))
+        return self._read_number_entity_value(entity_id, default)
+
+    def read_physical_device_state(self, consumer: Mapping[str, Any]) -> bool | None:
+        """Read the actual physical device state from state_entity_id.
+        
+        Returns:
+            True if device is ON/RUNNING, False if OFF, None if unavailable/not configured.
+        """
+        state_entity_id = consumer.get(CONSUMER_STATE_ENTITY_ID)
+        if not state_entity_id:
+            return None
+        
+        state_obj = self.hass.states.get(state_entity_id)
+        if state_obj is None or state_obj.state in ("unknown", "unavailable"):
+            return None
+        
+        value = state_obj.state
+        if isinstance(value, str):
+            lowered = value.lower()
+            if lowered in ("on", "true", "home", "open", "1", "enabled"):
+                return True
+            if lowered in ("off", "false", "not_home", "closed", "0", "disabled"):
+                return False
+        
+        # For numeric values, treat > 0 as ON
+        try:
+            num = float(value)
+            return num > 0
+        except (TypeError, ValueError):
+            return None
+
+    def read_physical_device_power(self, consumer: Mapping[str, Any]) -> float | None:
+        """Read the actual physical device power from power_target_entity_id.
+        
+        Returns:
+            Power in watts, or None if unavailable/not configured.
+        """
+        power_entity_id = consumer.get(CONSUMER_POWER_TARGET_ENTITY_ID)
+        if not power_entity_id:
+            return None
+        
+        state_obj = self.hass.states.get(power_entity_id)
+        if state_obj is None or state_obj.state in ("unknown", "unavailable"):
+            return None
+        
+        try:
+            return float(state_obj.state)
+        except (TypeError, ValueError):
+            return None
+
+    def is_consumer_finished_starting(
+        self, consumer: Mapping[str, Any], is_at_max
+    ) -> bool:
+        """Check if consumer has finished starting based on physical device state.
+        
+        For controlled consumers: device must be ON and at MAX power.
+        For binary consumers: device must be ON.
+        
+        Args:
+            consumer: Consumer configuration dict
+            is_at_max: Function(cmd: float, maximum: float) -> bool to check if at max
+            
+        Returns:
+            True if consumer has finished starting, False otherwise
+        """
+        consumer_type = consumer.get(CONSUMER_TYPE)
+        device_on = self.read_physical_device_state(consumer)
+        
+        if device_on is None:
+            # Fallback to runtime state if physical state unavailable
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                return False
+            runtime = get_consumer_runtime(self.hass, self.entry_id, consumer_id)
+            
+            if consumer_type == CONSUMER_TYPE_CONTROLLED:
+                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+                max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
+                return is_at_max(cmd_w, max_power)
+            else:  # binary
+                return bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+        
+        if not device_on:
+            return False  # Device is OFF, not finished starting
+        
+        if consumer_type == CONSUMER_TYPE_CONTROLLED:
+            # For controlled consumers, also check if at max power
+            actual_power = self.read_physical_device_power(consumer)
+            max_power = float(consumer.get(CONSUMER_MAX_POWER_W, 0.0))
+            if actual_power is not None and max_power > 0:
+                return is_at_max(actual_power, max_power)
+            # Fallback to runtime cmd_w if power entity unavailable
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                return False
+            runtime = get_consumer_runtime(self.hass, self.entry_id, consumer_id)
+            cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+            return is_at_max(cmd_w, max_power)
+        
+        # Binary consumer is ON
+        return True
+
+    def is_consumer_finished_stopping(self, consumer: Mapping[str, Any]) -> bool:
+        """Check if consumer has finished stopping based on physical device state.
+        
+        Device must be OFF.
+        
+        Returns:
+            True if consumer has finished stopping, False otherwise
+        """
+        device_on = self.read_physical_device_state(consumer)
+        
+        if device_on is None:
+            # Fallback to runtime state if physical state unavailable
+            consumer_id = consumer.get(CONSUMER_ID)
+            if consumer_id is None:
+                return True  # Assume finished if can't determine
+            runtime = get_consumer_runtime(self.hass, self.entry_id, consumer_id)
+            consumer_type = consumer.get(CONSUMER_TYPE)
+            
+            if consumer_type == CONSUMER_TYPE_CONTROLLED:
+                cmd_w = float(runtime.get(RUNTIME_FIELD_CMD_W, 0.0))
+                return cmd_w <= 0.0
+            else:  # binary
+                return not bool(runtime.get(RUNTIME_FIELD_IS_ON, False))
+        
+        # Device is OFF, finished stopping
+        return not device_on
+
+    def set_consumer_reason(self, consumer_id: str, reason: str | None) -> None:
+        """Set consumer reason string in runtime data."""
+        runtime = get_consumer_runtime(self.hass, self.entry_id, consumer_id)
+        runtime[RUNTIME_FIELD_REASON] = reason or ""
 
     def get_priority(self, consumer: Mapping[str, Any]) -> float:
         """Get consumer priority, defaulting to 999.0 if not set."""
@@ -213,7 +404,6 @@ class ConsumerManager:
             Tuple of (all_accessible, list_of_warnings)
         """
         warnings: list[str] = []
-        from .const import CONSUMER_POWER_TARGET_ENTITY_ID, CONSUMER_STATE_ENTITY_ID
 
         for consumer in consumers:
             consumer_id = consumer.get(CONSUMER_ID)

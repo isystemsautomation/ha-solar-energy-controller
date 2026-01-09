@@ -669,7 +669,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             CONSUMER_ID: consumer_id,
             CONSUMER_NAME: user_input[CONSUMER_NAME],
             CONSUMER_TYPE: consumer_type,
-            CONSUMER_PRIORITY: int(user_input[CONSUMER_PRIORITY]),
+            CONSUMER_PRIORITY: float(user_input[CONSUMER_PRIORITY]),
             CONSUMER_ENABLE_CONTROL_MODE: user_input.get(
                 CONSUMER_ENABLE_CONTROL_MODE, CONSUMER_CONTROL_MODE_ONOFF
             ),
