@@ -258,7 +258,6 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         self._attr_native_unit_of_measurement = native_unit
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",
@@ -515,7 +514,6 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
         self._attr_native_max_value = max_value
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",

@@ -38,18 +38,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     pid_identifier = (DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")
     divider_identifier = (DOMAIN, f"{entry.entry_id}_{DIVIDER_DEVICE_SUFFIX}")
 
-    device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={hub_identifier},
-        name="Solar Energy Flow",
-        manufacturer="Solar Energy Flow",
-        model="Hub",
-    )
-
+    # Don't create hub device - it serves only as a reference for sub-devices but shouldn't appear in UI
+    # PID Controller is created as a direct child of the config entry (no via_device)
     device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={pid_identifier},
-        via_device=hub_identifier,
         name=f"{entry.title} PID Controller",
         manufacturer="Solar Energy Flow",
         model="PID Controller",
@@ -62,7 +55,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
             identifiers={divider_identifier},
-            via_device=hub_identifier,
             name=f"{entry.title} Energy Divider",
             manufacturer="Solar Energy Flow",
             model="Energy Divider",
@@ -72,6 +64,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         divider_device = device_registry.async_get_device(identifiers={divider_identifier})
         if divider_device and entry.entry_id in divider_device.config_entries:
             device_registry.async_remove_device(divider_device.id)
+    
+    # Remove hub device if it exists (it shouldn't appear in UI since no entities attach to it directly)
+    # PID and Divider devices are now direct children of the config entry, not the hub
+    hub_device = device_registry.async_get_device(identifiers={hub_identifier})
+    if hub_device and entry.entry_id in hub_device.config_entries:
+        # Remove hub device if it exists (from old setup)
+        # It will be automatically cleaned up when we reload
+        try:
+            device_registry.async_remove_device(hub_device.id)
+        except Exception:
+            # Device might still have references, will be cleaned up on next reload
+            _LOGGER.debug("Could not remove hub device %s, will be cleaned up later", hub_device.id)
 
     await coordinator.async_config_entry_first_refresh()
 

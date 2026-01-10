@@ -90,7 +90,6 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
         self._attr_entity_category = entity_category
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",

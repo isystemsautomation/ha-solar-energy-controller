@@ -80,7 +80,6 @@ class EnergyDividerEnabledSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_divider_enabled"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{DIVIDER_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} Energy Divider",
             manufacturer="Solar Energy Flow",
             model="Energy Divider",
@@ -116,7 +115,6 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_enabled"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",
@@ -226,7 +224,6 @@ class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_rate_limiter"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",
@@ -263,7 +260,6 @@ class SolarEnergyFlowGridLimiterSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_grid_limiter"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{PID_DEVICE_SUFFIX}")},
-            via_device=(DOMAIN, f"{entry.entry_id}_{HUB_DEVICE_SUFFIX}"),
             name=f"{entry.title} PID Controller",
             manufacturer="Solar Energy Flow",
             model="PID Controller",
