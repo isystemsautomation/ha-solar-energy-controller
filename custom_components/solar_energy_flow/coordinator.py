@@ -1747,6 +1747,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             CONF_INVERT_PV,
             CONF_INVERT_SP,
             CONF_GRID_POWER_INVERT,
+            CONF_DIVIDER_ENABLED,  # Reload needed to add/remove divider device and entities
+            CONF_CONSUMERS,  # Reload needed to add/remove consumer entities
         }
 
         for key in wiring_keys:

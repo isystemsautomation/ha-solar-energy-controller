@@ -57,7 +57,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Only create Divider device if divider is enabled, otherwise remove it if it exists
     divider_enabled = entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
-    divider_device = device_registry.async_get_device(identifiers={divider_identifier})
     
     if divider_enabled:
         device_registry.async_get_or_create(
@@ -68,9 +67,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             manufacturer="Solar Energy Flow",
             model="Energy Divider",
         )
-    elif divider_device:
+    else:
         # Remove Divider device if it exists but divider is disabled
-        device_registry.async_remove_device(divider_device.id)
+        divider_device = device_registry.async_get_device(identifiers={divider_identifier})
+        if divider_device and entry.entry_id in divider_device.config_entries:
+            device_registry.async_remove_device(divider_device.id)
 
     await coordinator.async_config_entry_first_refresh()
 
