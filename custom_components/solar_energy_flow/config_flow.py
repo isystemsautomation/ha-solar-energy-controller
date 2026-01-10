@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     DOMAIN,
@@ -264,6 +267,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
 
     @staticmethod
     def _build_schema(defaults: dict) -> vol.Schema:
+        # Build schema dictionary
         schema_dict = {
             vol.Required(CONF_PROCESS_VALUE_ENTITY, default=defaults[CONF_PROCESS_VALUE_ENTITY]): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=list(_PV_DOMAINS))
@@ -277,20 +281,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_GRID_POWER_ENTITY, default=defaults[CONF_GRID_POWER_ENTITY]): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=list(_GRID_DOMAINS))
             ),
-        }
-        
-        # Only add default for battery_soc_entity if we have a valid value
-        battery_soc_default = defaults.get(CONF_BATTERY_SOC_ENTITY)
-        if battery_soc_default:
-            schema_dict[CONF_BATTERY_SOC_ENTITY] = vol.Optional(
-                CONF_BATTERY_SOC_ENTITY, default=battery_soc_default
-            )(selector.EntitySelector(selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))))
-        else:
-            schema_dict[CONF_BATTERY_SOC_ENTITY] = vol.Optional(CONF_BATTERY_SOC_ENTITY)(
-                selector.EntitySelector(selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS)))
-            )
-        
-        schema_dict.update({
             vol.Optional(CONF_INVERT_PV, default=defaults.get(CONF_INVERT_PV, DEFAULT_INVERT_PV)): bool,
             vol.Optional(CONF_INVERT_SP, default=defaults.get(CONF_INVERT_SP, DEFAULT_INVERT_SP)): bool,
             vol.Optional(
@@ -311,7 +301,20 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_SP_MAX, default=defaults[CONF_SP_MAX]): vol.Coerce(float),
             vol.Required(CONF_GRID_MIN, default=defaults[CONF_GRID_MIN]): vol.Coerce(float),
             vol.Required(CONF_GRID_MAX, default=defaults[CONF_GRID_MAX]): vol.Coerce(float),
-        })
+        }
+        
+        # Add battery_soc_entity - only include default if we have a valid non-empty string value
+        battery_soc_default = defaults.get(CONF_BATTERY_SOC_ENTITY)
+        if battery_soc_default and isinstance(battery_soc_default, str) and battery_soc_default.strip():
+            schema_dict[vol.Optional(CONF_BATTERY_SOC_ENTITY, default=battery_soc_default.strip())] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))
+            )
+        else:
+            # No default - EntitySelector handles empty/None values correctly without a default
+            schema_dict[vol.Optional(CONF_BATTERY_SOC_ENTITY)] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=list(_BATTERY_SOC_DOMAINS))
+            )
+        
         return vol.Schema(schema_dict)
 
     async def async_step_init_settings(self, user_input=None):
@@ -466,9 +469,37 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             options[CONF_CONSUMERS] = self._consumers
             return self.async_create_entry(title="", data=options)
 
+        try:
+            schema = self._build_schema(defaults)
+        except Exception as e:
+            _LOGGER.exception("Error building schema in async_step_init_settings: %s", e)
+            errors["base"] = "schema_error"
+            # Fallback: remove battery_soc_entity from defaults and rebuild
+            defaults_fallback = defaults.copy()
+            defaults_fallback.pop(CONF_BATTERY_SOC_ENTITY, None)
+            try:
+                schema = self._build_schema(defaults_fallback)
+            except Exception as e2:
+                _LOGGER.exception("Error building fallback schema: %s", e2)
+                # Last resort: return basic schema
+                schema = vol.Schema({
+                    vol.Required(CONF_PROCESS_VALUE_ENTITY, default=defaults.get(CONF_PROCESS_VALUE_ENTITY, "")): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=list(_PV_DOMAINS))
+                    ),
+                    vol.Required(CONF_SETPOINT_ENTITY, default=defaults.get(CONF_SETPOINT_ENTITY, "")): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=list(_SETPOINT_DOMAINS))
+                    ),
+                    vol.Required(CONF_OUTPUT_ENTITY, default=defaults.get(CONF_OUTPUT_ENTITY, "")): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=list(_OUTPUT_DOMAINS))
+                    ),
+                    vol.Required(CONF_GRID_POWER_ENTITY, default=defaults.get(CONF_GRID_POWER_ENTITY, "")): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=list(_GRID_DOMAINS))
+                    ),
+                })
+        
         return self.async_show_form(
             step_id="init_settings",
-            data_schema=self._build_schema(defaults),
+            data_schema=schema,
             errors=errors,
         )
 
