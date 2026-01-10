@@ -21,7 +21,6 @@ from .const import (
     DEFAULT_RATE_LIMITER_ENABLED,
     DEFAULT_DIVIDER_ENABLED,
     DOMAIN,
-    HUB_DEVICE_SUFFIX,
     PID_DEVICE_SUFFIX,
     DIVIDER_DEVICE_SUFFIX,
     CONF_CONSUMERS,
@@ -48,9 +47,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         SolarEnergyFlowRateLimiterSwitch(coordinator, entry),
     ]
 
-    # Only create divider switch and consumer switches if divider is enabled
+    # Only create consumer switches if divider is enabled
     if divider_enabled:
-        entities.append(EnergyDividerEnabledSwitch(coordinator, entry))
         for consumer in consumers:
             entities.append(SolarEnergyFlowConsumerSwitch(entry, consumer))
 
@@ -68,41 +66,6 @@ def _async_reload_on_consumer_change(initial_consumers: list[dict[str, Any]]):
             await hass.config_entries.async_reload(updated_entry.entry_id)
 
     return _reload_if_needed
-
-
-class EnergyDividerEnabledSwitch(CoordinatorEntity, SwitchEntity):
-    _attr_has_entity_name = True
-    _attr_name = "Divider enabled"
-
-    def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator)
-        self._entry = entry
-        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_divider_enabled"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_{DIVIDER_DEVICE_SUFFIX}")},
-            name=f"{entry.title} Energy Divider",
-            manufacturer="Solar Energy Flow",
-            model="Energy Divider",
-        )
-
-    @property
-    def is_on(self) -> bool:
-        return bool(self._entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED))
-
-    async def async_turn_on(self, **kwargs) -> None:
-        await self._async_update_enabled(True)
-
-    async def async_turn_off(self, **kwargs) -> None:
-        await self._async_update_enabled(False)
-
-    async def _async_update_enabled(self, enabled: bool) -> None:
-        options = dict(self._entry.options)
-        options[CONF_DIVIDER_ENABLED] = enabled
-        options.setdefault(CONF_ENABLED, DEFAULT_ENABLED)
-
-        self.coordinator.apply_options(options)
-        self.hass.config_entries.async_update_entry(self._entry, options=options)
-        await self.coordinator.async_request_refresh()
 
 
 class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):

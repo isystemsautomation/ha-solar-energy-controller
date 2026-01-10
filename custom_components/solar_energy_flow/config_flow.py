@@ -514,14 +514,18 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         # Only show consumer menu items if divider is enabled
         divider_enabled = self._config_entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
-        menu_options = {"configure": "configure"}
+        menu_options = {"configure": "Configure"}
         
+        # Add divider toggle option - show opposite of current state
         if divider_enabled:
+            menu_options["disable_divider"] = "Disable Energy Divider"
             menu_options.update({
-                "add_consumer": "add_consumer",
-                "edit_consumer": "edit_consumer",
-                "remove_consumer": "remove_consumer",
+                "add_consumer": "Add Consumer",
+                "edit_consumer": "Edit Consumer",
+                "remove_consumer": "Remove Consumer",
             })
+        else:
+            menu_options["enable_divider"] = "Enable Energy Divider"
         
         return self.async_show_menu(
             step_id="init",
@@ -530,6 +534,27 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_configure(self, user_input=None):
         return await self.async_step_init_settings(user_input)
+
+    async def async_step_enable_divider(self, user_input=None):
+        """Enable the Energy Divider."""
+        options = dict(self._config_entry.options)
+        options[CONF_DIVIDER_ENABLED] = True
+        options.setdefault(CONF_CONSUMERS, [])
+        self.hass.config_entries.async_update_entry(self._config_entry, options=options)
+        # Reload is required to add divider device and entities
+        # The reload will abort this flow automatically
+        await self.hass.config_entries.async_reload(self._config_entry.entry_id)
+        return self.async_abort(reason="reload_required")
+
+    async def async_step_disable_divider(self, user_input=None):
+        """Disable the Energy Divider."""
+        options = dict(self._config_entry.options)
+        options[CONF_DIVIDER_ENABLED] = False
+        self.hass.config_entries.async_update_entry(self._config_entry, options=options)
+        # Reload is required to remove divider device and entities
+        # The reload will abort this flow automatically
+        await self.hass.config_entries.async_reload(self._config_entry.entry_id)
+        return self.async_abort(reason="reload_required")
 
     async def async_step_add_consumer(self, user_input=None):
         errors: dict[str, str] = {}

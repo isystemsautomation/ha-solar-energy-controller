@@ -50,7 +50,8 @@
           "sp_min": "SP min (raw units)",
           "sp_max": "SP max (raw units)",
           "grid_min": "Grid min (raw units)",
-          "grid_max": "Grid max (raw units)"
+          "grid_max": "Grid max (raw units)",
+          "divider_enabled": "Energy Divider enabled"
         },
         "data_description": {
           "pid_mode": {
