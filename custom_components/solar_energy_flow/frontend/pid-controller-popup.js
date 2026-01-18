@@ -117,6 +117,24 @@ class PIDControllerPopup extends LitElement {
     this._edited = {};
     this._editingFields = new Set();
     this._savedFields = new Map();
+    this._updateInterval = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._updateInterval = setInterval(() => {
+      if (this.hass && this.config) {
+        this._updateReadOnlyValues();
+      }
+    }, 1000);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._updateInterval) {
+      clearInterval(this._updateInterval);
+      this._updateInterval = null;
+    }
   }
 
   setConfig(config) {
@@ -143,7 +161,7 @@ class PIDControllerPopup extends LitElement {
     const data = { ...this._data };
     const SAVE_TIMEOUT = 3000;
 
-    if (state && state.attributes) {
+    if (state?.attributes) {
       const attrs = state.attributes;
       const now = Date.now();
       
@@ -204,6 +222,27 @@ class PIDControllerPopup extends LitElement {
     this.requestUpdate();
   }
 
+  _updateReadOnlyValues() {
+    if (!this.hass || !this.config) return;
+
+    const state = this.hass.states[this.config.pid_entity];
+    if (state?.attributes) {
+      const attrs = state.attributes;
+      this._data.pv_value = attrs.pv_value ?? null;
+      this._data.effective_sp = attrs.effective_sp ?? null;
+      this._data.error = attrs.error ?? null;
+      this._data.output = attrs.output ?? null;
+      this._data.p_term = attrs.p_term ?? null;
+      this._data.i_term = attrs.i_term ?? null;
+      this._data.d_term = attrs.d_term ?? null;
+      this._data.grid_power = attrs.grid_power ?? null;
+      this._data.status = attrs.status || "unknown";
+      this._data.limiter_state = attrs.limiter_state ?? null;
+      this._data.output_pre_rate_limit = attrs.output_pre_rate_limit ?? null;
+      this.requestUpdate();
+    }
+  }
+
   _hasEdits() {
     return Object.keys(this._edited).length > 0;
   }
@@ -220,6 +259,7 @@ class PIDControllerPopup extends LitElement {
 
   _onModeChanged(ev) {
     ev.stopPropagation();
+    ev.preventDefault();
     const value = ev.detail?.value || ev.target.value;
     this._edited.runtime_mode = value;
     this._save();
@@ -359,7 +399,6 @@ class PIDControllerPopup extends LitElement {
           <div class="title">PID Controller Editor</div>
         </div>
 
-        <!-- Control Settings -->
         <div class="section">
           <div class="section-title">Control</div>
           <div class="grid grid-2">
@@ -388,7 +427,6 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <!-- Manual Values -->
         <div class="section">
           <div class="section-title">Manual Values</div>
           <div class="grid grid-2">
@@ -416,7 +454,6 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <!-- PID Tuning -->
         <div class="section">
           <div class="section-title">PID Tuning</div>
           <div class="grid grid-2">
@@ -470,7 +507,6 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <!-- Output Limits -->
         <div class="section">
           <div class="section-title">Output Limits</div>
           <div class="grid grid-2">
@@ -498,7 +534,6 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <!-- Sensor Values (Read-only) -->
         <div class="section">
           <div class="section-title">Current Values</div>
           <div class="sensor-grid">
@@ -545,7 +580,6 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <!-- Actions -->
         <div class="actions">
           <mwc-button
             outlined
