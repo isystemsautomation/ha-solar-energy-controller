@@ -465,16 +465,12 @@ class PIDControllerPopup extends LitElement {
   }
 
   _getValue(key) {
-    // Priority: edited value > data value
-    // If field is being edited and has an edited value, always use that
     if (this._editingFields.has(key) && this._edited[key] !== undefined) {
       return this._edited[key];
     }
-    // If field is being edited but no edited value yet, use data value or empty string
     if (this._editingFields.has(key)) {
       return this._data[key] ?? "";
     }
-    // Otherwise return edited value if exists, else data value
     return this._edited[key] !== undefined ? this._edited[key] : this._data[key];
   }
 
@@ -653,7 +649,7 @@ class PIDControllerPopup extends LitElement {
       try {
         this.hass.callService("browser_mod", "close_popup", {});
       } catch (e) {
-        // Ignore
+        // Ignore browser_mod errors
       }
     }
   }

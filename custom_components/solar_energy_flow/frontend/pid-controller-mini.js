@@ -148,27 +148,19 @@ class PIDControllerMini extends LitElement {
   }
 
   getCardSize() {
-    return 6; // Increased to accommodate graph
+    return 6;
   }
 
   updated(changedProperties) {
     if (changedProperties.has("hass") || changedProperties.has("config")) {
       this._updateData();
-    }
-    // Update graph after a short delay to ensure DOM is ready
-    if (changedProperties.has("hass") || changedProperties.has("config")) {
       setTimeout(() => this._updateGraph(), 100);
     }
   }
 
   firstUpdated() {
-    // Create graph after first render
     setTimeout(() => this._updateGraph(), 200);
-    
-    // Refresh graph every 30 seconds
-    this._graphInterval = setInterval(() => {
-      this._updateGraph();
-    }, 30000);
+    this._graphInterval = setInterval(() => this._updateGraph(), 30000);
   }
 
   disconnectedCallback() {
@@ -200,10 +192,6 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    // Always fetch fresh data and redraw
-    const existingCanvas = container.querySelector("canvas");
-
-    // Clear existing graph
     container.innerHTML = "";
 
     // Create canvas for line chart
@@ -218,24 +206,20 @@ class PIDControllerMini extends LitElement {
 
     // Fetch history data
     try {
-      const endTime = new Date();
-      const startTime = new Date(endTime.getTime() - 3600000); // 1 hour ago
-      
-      // Build query string for history API
+      const startTime = new Date(Date.now() - 3600000);
       const entityList = `${entityIds.pv},${entityIds.sp},${entityIds.output}`;
       const url = `history/period/${startTime.toISOString()}?filter_entity_id=${encodeURIComponent(entityList)}&minimal_response=false&significant_changes_only=false`;
       
-      // Use correct Home Assistant history API format
+      console.log("PID Mini: Fetching history for entities:", entityIds);
       const history = await this.hass.callApi("GET", url);
+      console.log("PID Mini: History response:", history?.length, "entity histories");
 
       if (!history || !Array.isArray(history)) {
         throw new Error("Invalid history data format");
       }
 
-      this._graphData = history;
       this._drawChart(canvas, history, entityIds);
       
-      // Redraw on resize
       const resizeObserver = new ResizeObserver(() => {
         if (canvas.parentElement) {
           const newWidth = canvas.parentElement.offsetWidth;
@@ -248,7 +232,6 @@ class PIDControllerMini extends LitElement {
       resizeObserver.observe(container);
       this._resizeObserver = resizeObserver;
     } catch (err) {
-      console.error("PID Mini: Failed to fetch history:", err);
       const errorMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
       container.innerHTML = `<div style='padding: 8px; color: var(--error-color, red); font-size: 12px;'>Graph error: ${errorMsg}</div>`;
     }
@@ -260,7 +243,6 @@ class PIDControllerMini extends LitElement {
     const height = canvas.height;
     const padding = 40;
 
-    // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
     if (!history || history.length === 0) {
@@ -271,23 +253,15 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    // Parse history data
-    const data = {
-      pv: [],
-      sp: [],
-      output: []
-    };
-
+    const data = { pv: [], sp: [], output: [] };
     const allTimes = new Set();
     
-    // History API returns array of entity histories
     if (Array.isArray(history)) {
       history.forEach((entityHistory) => {
         if (!Array.isArray(entityHistory) || entityHistory.length === 0) return;
         
-        // First state has entity_id
         const firstState = entityHistory[0];
-        if (!firstState || !firstState.entity_id) return;
+        if (!firstState?.entity_id) return;
         
         const entityId = firstState.entity_id;
         
@@ -312,6 +286,10 @@ class PIDControllerMini extends LitElement {
         });
       });
     }
+    
+    if (data.pv.length === 0 && data.sp.length > 0) {
+      console.warn("PID Mini: No PV data found. Expected entity:", entityIds.pv);
+    }
 
     if (allTimes.size === 0) {
       ctx.fillStyle = "var(--secondary-text-color, #888)";
@@ -321,18 +299,15 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    // Sort times
     const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
     const timeRange = sortedTimes[sortedTimes.length - 1] - sortedTimes[0];
     if (timeRange === 0) return;
 
-    // Find value ranges
     const allValues = [...data.pv, ...data.sp, ...data.output].map(d => d.value);
     const minValue = Math.min(...allValues);
     const maxValue = Math.max(...allValues);
     const valueRange = maxValue - minValue || 1;
 
-    // Draw axes
     ctx.strokeStyle = "var(--divider-color, #ddd)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -341,7 +316,6 @@ class PIDControllerMini extends LitElement {
     ctx.lineTo(width - padding, height - padding);
     ctx.stroke();
 
-    // Draw grid lines
     ctx.strokeStyle = "var(--divider-color, #ddd)";
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 5; i++) {
@@ -352,7 +326,6 @@ class PIDControllerMini extends LitElement {
       ctx.stroke();
     }
 
-    // Draw time labels
     ctx.fillStyle = "var(--secondary-text-color, #888)";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
@@ -364,7 +337,6 @@ class PIDControllerMini extends LitElement {
       ctx.fillText(timeStr, x, height - padding + 20);
     }
 
-    // Draw value labels
     ctx.textAlign = "right";
     for (let i = 0; i <= 5; i++) {
       const value = minValue + valueRange * (1 - i / 5);
@@ -372,15 +344,13 @@ class PIDControllerMini extends LitElement {
       ctx.fillText(value.toFixed(0), padding - 5, y + 4);
     }
 
-    // Draw lines
-    const colors = {
-      pv: "#2196F3",      // Blue
-      sp: "#FF9800",      // Orange
-      output: "#9C27B0"   // Purple
-    };
+    const colors = { pv: "#2196F3", sp: "#FF9800", output: "#9C27B0" };
 
-    Object.keys(data).forEach((key) => {
-      if (data[key].length === 0) return;
+    Object.keys(colors).forEach((key) => {
+      if (data[key].length === 0) {
+        console.warn(`PID Mini: No data points for ${key.toUpperCase()}`);
+        return;
+      }
 
       ctx.strokeStyle = colors[key];
       ctx.lineWidth = 2;
@@ -400,17 +370,17 @@ class PIDControllerMini extends LitElement {
       ctx.stroke();
     });
 
-    // Draw legend
     const legendY = padding + 10;
     let legendX = width - padding - 100;
     Object.keys(colors).forEach((key) => {
+      const hasData = data[key] && data[key].length > 0;
       ctx.fillStyle = colors[key];
       ctx.fillRect(legendX, legendY, 12, 2);
-      ctx.fillStyle = "var(--primary-text-color, #000)";
+      ctx.fillStyle = hasData ? "var(--primary-text-color, #000)" : "var(--disabled-text-color, #999)";
       ctx.font = "11px sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(key.toUpperCase(), legendX + 15, legendY + 8);
-      legendX -= 60;
+      ctx.fillText(key.toUpperCase() + (hasData ? "" : " (no data)"), legendX + 15, legendY + 8);
+      legendX -= 80;
     });
   }
 
@@ -488,33 +458,23 @@ class PIDControllerMini extends LitElement {
     
     const popupCard = document.createElement("pid-controller-popup");
     popupCard.setConfig({ pid_entity: this.config.pid_entity });
-    
-    // Pass hass object - ensure it's the live reference
     popupCard.hass = this.hass;
     
-    // Create a function to keep hass updated
     const updateHass = () => {
       if (this.hass) {
-        // Always update to latest hass reference
         popupCard.hass = this.hass;
       }
     };
     
-    // Update hass periodically to ensure it stays in sync
-    const hassUpdateInterval = setInterval(() => {
-      updateHass();
-    }, 1000);
+    const hassUpdateInterval = setInterval(updateHass, 1000);
     
     dialog.addEventListener("closed", () => {
-      // Clean up interval
       clearInterval(hassUpdateInterval);
-      // Check if dialog is still in the DOM before removing
       if (dialog.parentNode === document.body) {
         try {
           document.body.removeChild(dialog);
         } catch (e) {
-          // Dialog may have already been removed, ignore error
-          console.debug("Dialog already removed:", e);
+          // Ignore
         }
       }
     });

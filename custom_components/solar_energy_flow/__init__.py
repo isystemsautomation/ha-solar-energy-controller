@@ -16,10 +16,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up via YAML (not supported) or allow config flow to run."""
-    _LOGGER.info("Solar Energy Flow: Initializing integration (async_setup called)")
+    _LOGGER.info("Solar Energy Flow: Initializing integration")
     
-    # Read version from manifest using executor to avoid blocking
     version = "0.1.2"
     try:
         import json
@@ -35,9 +33,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if manifest:
             version = manifest.get("version", version)
     except Exception:
-        pass  # Use default version
+        pass
     
-    # Register static path for frontend resources
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
     if os.path.isdir(frontend_path):
         await hass.http.async_register_static_paths([
@@ -51,9 +48,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     else:
         _LOGGER.warning("Solar Energy Flow: Frontend directory not found: %s", frontend_path)
 
-    # Auto-register Lovelace resources on HA start
     async def register_resources(_event: Event) -> None:
-        """Register custom card resources automatically."""
         _LOGGER.info("Attempting to register Lovelace resources for %s", DOMAIN)
 
         resources = [
@@ -67,26 +62,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             },
         ]
 
-        # Try to access Lovelace resources API
         try:
-            # Wait a moment for Lovelace to be fully initialized
             import asyncio
             await asyncio.sleep(1)
             
-            # Try multiple ways to access Lovelace
             lovelace_obj = None
             if hasattr(hass, "lovelace"):
                 lovelace_obj = hass.lovelace
             elif "lovelace" in hass.data:
                 lovelace_obj = hass.data["lovelace"]
-            else:
-                # Try accessing via components
-                try:
-                    if hasattr(hass, "components") and hasattr(hass.components, "lovelace"):
-                        lovelace_obj = hass.components.lovelace
-                except Exception:
-                    pass
-            
             if not lovelace_obj:
                 _LOGGER.warning(
                     "Lovelace not available. Please add cards manually: "
@@ -95,7 +79,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 )
                 return
             
-            # Only works in storage mode (default), not YAML mode
             lovelace_mode = getattr(lovelace_obj, "mode", None)
             if lovelace_mode != "storage":
                 _LOGGER.info(
@@ -105,7 +88,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 )
                 return
             
-            # Get existing resources to avoid duplicates
             existing_resources = []
             try:
                 resources_api = lovelace_obj.resources
@@ -118,11 +100,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             except Exception as err:
                 _LOGGER.debug("Could not get existing resources: %s", err)
 
-            # Register resources if not already present
             registered_count = 0
             for resource in resources:
                 resource_url = resource["url"]
-                # Check if URL (without version query) already exists
                 url_base = resource_url.split("?")[0]
                 if any(url_base in existing for existing in existing_resources):
                     _LOGGER.debug("Lovelace resource already exists: %s", url_base)
@@ -154,8 +134,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, register_resources)
-
-    # No YAML configuration is supported; return True so the config flow can be used.
     return True
 
 
