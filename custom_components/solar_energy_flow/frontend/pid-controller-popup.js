@@ -17,13 +17,18 @@ class PIDControllerPopup extends LitElement {
       padding: 16px;
     }
 
+    ha-card {
+      position: relative;
+    }
+
     .header {
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--divider-color);
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
+      padding-left: 40px;
     }
 
     .title {
@@ -33,6 +38,9 @@ class PIDControllerPopup extends LitElement {
     }
 
     .close-button {
+      position: absolute;
+      top: 8px;
+      left: 8px;
       background: none;
       border: none;
       cursor: pointer;
@@ -47,6 +55,7 @@ class PIDControllerPopup extends LitElement {
       height: 32px;
       border-radius: 50%;
       transition: background-color 0.2s, color 0.2s;
+      z-index: 1;
     }
 
     .close-button:hover {

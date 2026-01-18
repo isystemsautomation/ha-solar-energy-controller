@@ -793,7 +793,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.update_interval = timedelta(seconds=interval_seconds)
         if CONF_RUNTIME_MODE in options:
             self._runtime_mode = options[CONF_RUNTIME_MODE]
-        if CONF_MANUAL_OUT_VALUE in options:
+        if CONF_MANUAL_OUT_VALUE in options and self._runtime_mode == RUNTIME_MODE_MANUAL_OUT:
             self._manual_out_value = _coerce_float(options.get(CONF_MANUAL_OUT_VALUE), self._manual_out_value)
         self.pid.apply_options(self._build_pid_config_from_options(options))
 
