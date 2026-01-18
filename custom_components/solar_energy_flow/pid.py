@@ -42,6 +42,9 @@ class PID:
         self._prev_pv: float | None = None
         self._prev_t: float | None = None
         self._prev_error: float | None = None
+        self._prev_integral: float | None = None
+        self._oscillation_count: int = 0
+        self._saturation_count: int = 0  # Count consecutive saturated outputs
         self._kaw = self._compute_kaw(cfg.kp)
         if entry_id:
             _LOGGER.debug("PIDController CREATED entry_id=%s", entry_id)
@@ -55,6 +58,9 @@ class PID:
         self._prev_pv = None
         self._prev_t = None
         self._prev_error = None
+        self._prev_integral = None
+        self._oscillation_count = 0
+        self._saturation_count = 0
 
     def apply_options(self, cfg: PIDConfig) -> None:
         """Apply new tuning without resetting accumulated state."""
@@ -102,40 +108,68 @@ class PID:
 
         if dt > 0:
             # Conditional integration: only accumulate integral when output is not saturated
-            # This prevents integral windup when the output is at its limits
             output_saturated = (u_pid < self.cfg.min_output) or (u_pid > self.cfg.max_output)
             rate_limited = rate_limiter_enabled and rate_limit > 0 and last_output is not None and u_out != u_sat
+            
+            # Track saturation to detect persistent saturation
+            if output_saturated or rate_limited:
+                self._saturation_count += 1
+            else:
+                self._saturation_count = 0
+            
+            # If output has been saturated for many cycles, reset integral to prevent oscillation
+            if self._saturation_count > 10:
+                self._integral = 0.0
+                self._saturation_count = 0
+                self._oscillation_count = 0
+                self._prev_integral = None
             
             # Calculate integral update
             integral_update = 0.0
             if not output_saturated and not rate_limited:
-                # Output is within limits and not rate-limited: normal integral accumulation with anti-windup
+                # Output is within limits: normal integral accumulation with anti-windup
                 integral_update = self.cfg.ki * error * dt + self._kaw * (u_out - u_pid) * dt
             else:
-                # Output is saturated or rate-limited: only apply anti-windup, don't accumulate error
-                # This prevents the integral from growing when the output can't respond
+                # Output is saturated or rate-limited: only apply anti-windup
                 integral_update = self._kaw * (u_out - u_pid) * dt
             
             # Apply integral update with clamping to prevent unbounded growth
-            # Clamp integral to reasonable range: allow integral to drive full output range plus safety margin
-            # Since integral is already multiplied by Ki, clamp it based on output range
             output_range = abs(self.cfg.max_output - self.cfg.min_output)
             if output_range > 0:
-                # Clamp to ±(5x output range) as a safety limit
-                # This prevents runaway while still allowing integral to contribute meaningfully
-                max_integral = output_range * 5.0
+                # Clamp to ±(2x output range) - more restrictive to prevent oscillation
+                max_integral = output_range * 2.0
                 new_integral = self._integral + integral_update
                 
-                # If integral exceeds limit significantly, reset it to prevent oscillation
-                # This handles cases where integral has grown too large due to persistent error
-                if abs(new_integral) > max_integral * 1.5:
-                    # Reset to a smaller value in the same direction to prevent sudden jumps
-                    self._integral = max_integral if new_integral > 0 else -max_integral
+                # Detect oscillation: if integral sign keeps changing, reset it
+                if self._prev_integral is not None:
+                    if (self._prev_integral > 0 and new_integral < 0) or (self._prev_integral < 0 and new_integral > 0):
+                        self._oscillation_count += 1
+                        if self._oscillation_count >= 3:
+                            # Reset integral if oscillating
+                            self._integral = 0.0
+                            self._oscillation_count = 0
+                            self._prev_integral = None
+                        else:
+                            # Clamp normally but track oscillation
+                            self._integral = max(-max_integral, min(max_integral, new_integral))
+                            self._prev_integral = self._integral
+                    else:
+                        self._oscillation_count = 0
+                        # If integral exceeds limit, clamp it aggressively
+                        if abs(new_integral) > max_integral:
+                            # Clamp to limit, but allow some overshoot for anti-windup to work
+                            self._integral = max(-max_integral, min(max_integral, new_integral))
+                        else:
+                            self._integral = new_integral
+                        self._prev_integral = self._integral
                 else:
+                    # First update - just clamp
                     self._integral = max(-max_integral, min(max_integral, new_integral))
+                    self._prev_integral = self._integral
             else:
                 # Fallback: just apply update if range is invalid
                 self._integral += integral_update
+                self._prev_integral = self._integral
 
         self._prev_pv = pv
         self._prev_t = now
