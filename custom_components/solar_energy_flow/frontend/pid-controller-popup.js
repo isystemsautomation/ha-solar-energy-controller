@@ -227,24 +227,41 @@ class PIDControllerPopup extends LitElement {
     // Check if editable values changed on the entity (e.g., manual_sp was updated by another source)
     // Only update if we're not currently editing and haven't recently saved
     const now = Date.now();
-    const SAVE_TIMEOUT = 10000; // Increased timeout to 10 seconds to prevent overwriting recently saved values
+    const SAVE_TIMEOUT = 30000; // Increased timeout to 30 seconds to prevent overwriting recently saved values
     
-    // Check manual_sp specifically
+    // Check manual_sp specifically - check number entity state, not just status entity attribute
     if (!this._editingFields.has("manual_sp")) {
       const savedTime = this._savedFields.get("manual_sp");
       if (savedTime && (now - savedTime <= SAVE_TIMEOUT)) {
-        // Recently saved - only update if entity state matches what we saved
-        const entityValue = attrs.manual_sp ?? null;
+        // Recently saved - check both status entity attribute AND number entity state
+        const statusEntityValue = attrs.manual_sp ?? null;
         const savedValue = this._data.manual_sp ?? null;
-        // If entity matches our saved value, it's confirmed - we can clear the saved flag
-        if (Math.abs((entityValue ?? 0) - (savedValue ?? 0)) < 0.01) {
-          this._savedFields.delete("manual_sp");
+        
+        // Also check the actual number entity state (more reliable - this is what we saved to)
+        const numberEntityId = this._findEntityId("number", "manual_sp_value");
+        const numberEntityState = this.hass?.states[numberEntityId];
+        const numberEntityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : null;
+        
+        console.log(`manual_sp recently saved (${Math.round((now - savedTime)/1000)}s ago), keeping saved value ${savedValue}, status entity has ${statusEntityValue}, number entity has ${numberEntityValue}`);
+        
+        // If number entity matches our saved value, the save was successful
+        // Keep the saved value until status entity also updates (coordinator has processed it)
+        if (numberEntityValue !== null && Math.abs(numberEntityValue - savedValue) < 0.01) {
+          // Number entity confirms our save - now wait for status entity (coordinator) to update
+          if (statusEntityValue !== null && Math.abs(statusEntityValue - savedValue) < 0.01) {
+            console.log(`manual_sp confirmed: both number and status entities match saved value ${savedValue}`);
+            this._savedFields.delete("manual_sp");
+          }
+          // Otherwise keep waiting - don't overwrite
         }
-        // Otherwise, keep our saved value and don't overwrite - DO NOT UPDATE
-        // Skip to next field - don't update manual_sp
+        // Always keep our saved value - don't overwrite
+        return; // Exit early to prevent any updates to manual_sp
       } else if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
         // Not recently saved, or timeout expired - update from entity
-        const entityValue = attrs.manual_sp ?? null;
+        // Prefer number entity state over status entity attribute
+        const numberEntityId = this._findEntityId("number", "manual_sp_value");
+        const numberEntityState = this.hass?.states[numberEntityId];
+        const entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs.manual_sp ?? null);
         const currentValue = this._data.manual_sp ?? null;
         if (Math.abs((entityValue ?? 0) - (currentValue ?? 0)) > 0.01) {
           console.log(`manual_sp updating from entity (timeout expired): ${currentValue} -> ${entityValue}`);
@@ -353,7 +370,7 @@ class PIDControllerPopup extends LitElement {
     if (!state) return;
     
     const data = { ...this._data };
-    const SAVE_TIMEOUT = 10000; // Increased timeout to 10 seconds to prevent overwriting recently saved values
+    const SAVE_TIMEOUT = 30000; // Increased timeout to 30 seconds to prevent overwriting recently saved values
 
     if (state?.attributes) {
       const attrs = state.attributes;
