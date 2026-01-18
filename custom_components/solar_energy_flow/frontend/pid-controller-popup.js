@@ -262,6 +262,9 @@ class PIDControllerPopup extends LitElement {
     let hasChanges = false;
     const now = Date.now();
     const SAVE_TIMEOUT = 30000;
+    const runtimeMode = attrs.runtime_mode || "AUTO_SP";
+    const isManualOutMode = runtimeMode === "MANUAL_OUT";
+    const isManualSpMode = runtimeMode === "MANUAL_SP";
     
     const editableFields = ['manual_out', 'manual_sp', 'deadband', 'kp', 'ki', 'kd', 'max_output', 'min_output', 'enabled', 'runtime_mode'];
     for (const field of editableFields) {
@@ -274,10 +277,22 @@ class PIDControllerPopup extends LitElement {
           entityValue = attrs.enabled ?? false;
         } else if (field === 'runtime_mode') {
           entityValue = attrs.runtime_mode || "AUTO_SP";
-        } else if (field === 'manual_sp' || field === 'manual_out') {
-          const numberEntityId = this._findEntityId("number", field === 'manual_sp' ? "manual_sp_value" : "manual_out_value");
-          const numberEntityState = this.hass?.states[numberEntityId];
-          entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+        } else if (field === 'manual_sp') {
+          if (isManualSpMode) {
+            const numberEntityId = this._findEntityId("number", "manual_sp_value");
+            const numberEntityState = this.hass?.states[numberEntityId];
+            entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+          } else {
+            entityValue = attrs[field] ?? null;
+          }
+        } else if (field === 'manual_out') {
+          if (isManualOutMode) {
+            const numberEntityId = this._findEntityId("number", "manual_out_value");
+            const numberEntityState = this.hass?.states[numberEntityId];
+            entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+          } else {
+            entityValue = attrs[field] ?? null;
+          }
         }
         
         const savedValue = this._data[field];
@@ -296,10 +311,22 @@ class PIDControllerPopup extends LitElement {
         entityValue = attrs.enabled ?? false;
       } else if (field === 'runtime_mode') {
         entityValue = attrs.runtime_mode || "AUTO_SP";
-      } else if (field === 'manual_sp' || field === 'manual_out') {
-        const numberEntityId = this._findEntityId("number", field === 'manual_sp' ? "manual_sp_value" : "manual_out_value");
-        const numberEntityState = this.hass?.states[numberEntityId];
-        entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+      } else if (field === 'manual_sp') {
+        if (isManualSpMode) {
+          const numberEntityId = this._findEntityId("number", "manual_sp_value");
+          const numberEntityState = this.hass?.states[numberEntityId];
+          entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+        } else {
+          entityValue = attrs[field] ?? null;
+        }
+      } else if (field === 'manual_out') {
+        if (isManualOutMode) {
+          const numberEntityId = this._findEntityId("number", "manual_out_value");
+          const numberEntityState = this.hass?.states[numberEntityId];
+          entityValue = numberEntityState?.state ? parseFloat(numberEntityState.state) : (attrs[field] ?? null);
+        } else {
+          entityValue = attrs[field] ?? null;
+        }
       }
       
       const currentValue = this._data[field];
