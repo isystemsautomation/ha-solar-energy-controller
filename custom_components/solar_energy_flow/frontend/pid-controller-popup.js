@@ -196,6 +196,8 @@ class PIDControllerPopup extends LitElement {
 
   _onEnableChanged(ev) {
     this._edited.enabled = ev.target.checked;
+    // Auto-save on change
+    this._save();
     this.requestUpdate();
   }
 
@@ -204,6 +206,8 @@ class PIDControllerPopup extends LitElement {
     // ha-select uses ev.detail.value, not ev.target.value
     const value = ev.detail?.value || ev.target.value;
     this._edited.runtime_mode = value;
+    // Auto-save on change
+    this._save();
     this.requestUpdate();
   }
 
@@ -211,6 +215,8 @@ class PIDControllerPopup extends LitElement {
     const value = parseFloat(ev.target.value);
     if (!isNaN(value)) {
       this._edited[key] = value;
+      // Auto-save on change
+      this._save();
     } else {
       delete this._edited[key];
     }
@@ -511,7 +517,6 @@ class PIDControllerPopup extends LitElement {
             raised
             label="Save"
             @click=${this._save}
-            ?disabled=${!this._hasEdits()}
           ></mwc-button>
         </div>
       </ha-card>
