@@ -7,7 +7,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import device_registry as dr
-from homeassistant.components import lovelace
 from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS
@@ -60,44 +59,43 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         resources = [
             {
                 "url": f"/{DOMAIN}/frontend/pid-controller-mini.js?v={version}",
-                "type": "module",
+                "res_type": "module",
             },
             {
                 "url": f"/{DOMAIN}/frontend/pid-controller-popup.js?v={version}",
-                "type": "module",
+                "res_type": "module",
             },
         ]
 
         # Try to access Lovelace resources API
         try:
-            # Check if lovelace module has resources
-            if not hasattr(lovelace, "resources"):
+            # Check if Lovelace is available and in storage mode
+            if not hasattr(hass, "lovelace"):
                 _LOGGER.warning(
-                    "Lovelace resources API not found. Please add cards manually: "
+                    "Lovelace not available. Please add cards manually: "
                     "Settings → Dashboards → Resources. URLs: %s",
                     [r["url"] for r in resources]
                 )
                 return
             
-            resources_api = lovelace.resources
-            if not hasattr(resources_api, "async_create_item"):
-                _LOGGER.warning(
-                    "Lovelace resources.async_create_item not found. Please add cards manually: "
-                    "Settings → Dashboards → Resources. URLs: %s",
-                    [r["url"] for r in resources]
+            # Only works in storage mode (default), not YAML mode
+            if hass.lovelace.mode != "storage":
+                _LOGGER.info(
+                    "Lovelace is in %s mode. Auto-registration only works in storage mode. "
+                    "Please add cards manually: %s",
+                    hass.lovelace.mode, [r["url"] for r in resources]
                 )
                 return
-
+            
             # Get existing resources to avoid duplicates
             existing_resources = []
             try:
-                existing_resources_list = await resources_api.async_get_info(hass)
-                if existing_resources_list:
-                    existing_resources = [
-                        item.get("url", "") if isinstance(item, dict) else str(item)
-                        for item in existing_resources_list
-                        if item
-                    ]
+                existing_items = hass.lovelace.resources.async_items()
+                existing_resources = [
+                    item.get("url", "") if isinstance(item, dict) else str(item)
+                    for item in existing_items
+                    if item
+                ]
             except Exception as err:
                 _LOGGER.debug("Could not get existing resources: %s", err)
 
@@ -105,16 +103,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             registered_count = 0
             for resource in resources:
                 resource_url = resource["url"]
-                if resource_url in existing_resources:
-                    _LOGGER.debug("Lovelace resource already exists: %s", resource_url)
+                # Check if URL (without version query) already exists
+                url_base = resource_url.split("?")[0]
+                if any(url_base in existing for existing in existing_resources):
+                    _LOGGER.debug("Lovelace resource already exists: %s", url_base)
                     continue
 
                 try:
-                    await resources_api.async_create_item(
-                        hass, {"url": resource_url, "type": resource["type"]}
+                    await hass.lovelace.resources.async_create_item(
+                        {"url": resource_url, "res_type": resource["res_type"]}
                     )
                     _LOGGER.info(
-                        "✓ Registered Lovelace resource: %s (%s)", resource_url, resource["type"]
+                        "✓ Registered Lovelace resource: %s (%s)", resource_url, resource["res_type"]
                     )
                     registered_count += 1
                 except Exception as err:
