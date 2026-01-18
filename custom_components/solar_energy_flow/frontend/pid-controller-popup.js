@@ -18,15 +18,6 @@ class PIDControllerPopup extends LitElement {
       padding: 16px;
     }
     
-    .close-button {
-      position: absolute;
-      top: -64px;
-      left: 8px;
-      --mdc-icon-button-size: 40px;
-      --mdc-icon-size: 24px;
-      z-index: 1000;
-      color: var(--primary-text-color);
-    }
 
     .header {
       margin-bottom: 24px;
@@ -951,9 +942,6 @@ class PIDControllerPopup extends LitElement {
 
     return html`
       <ha-card>
-        <mwc-icon-button class="close-button" @click=${this._close} title="Close">
-          <ha-icon icon="mdi:close"></ha-icon>
-        </mwc-icon-button>
         <div class="header">
           <div class="title">PID Controller Editor</div>
         </div>

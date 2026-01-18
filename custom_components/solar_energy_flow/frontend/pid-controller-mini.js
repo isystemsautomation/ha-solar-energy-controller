@@ -549,6 +549,29 @@ class PIDControllerMini extends LitElement {
     dialog.appendChild(popupCard);
     document.body.appendChild(dialog);
     dialog.show();
+    
+    setTimeout(() => {
+      const shadowRoot = dialog.shadowRoot;
+      if (!shadowRoot) return;
+      
+      const header = shadowRoot.querySelector(".mdc-dialog__header") || 
+                     shadowRoot.querySelector("h2")?.parentElement ||
+                     shadowRoot.querySelector('[slot="heading"]')?.parentElement;
+      
+      if (header) {
+        header.style.position = "relative";
+        header.style.paddingLeft = "56px";
+        
+        const closeButton = document.createElement("mwc-icon-button");
+        closeButton.style.cssText = "position: absolute; left: 8px; top: 50%; transform: translateY(-50%); --mdc-icon-button-size: 40px; --mdc-icon-size: 24px; z-index: 10; color: var(--primary-text-color);";
+        const closeIcon = document.createElement("ha-icon");
+        closeIcon.setAttribute("icon", "mdi:close");
+        closeButton.appendChild(closeIcon);
+        closeButton.addEventListener("click", () => dialog.close());
+        
+        header.insertBefore(closeButton, header.firstChild);
+      }
+    }, 200);
   }
 
   render() {
