@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant, Event
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import device_registry as dr
 from homeassistant.components import lovelace
+from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SolarEnergyFlowCoordinator
@@ -22,9 +23,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     # Register static path for frontend resources
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
     if os.path.isdir(frontend_path):
-        hass.http.register_static_path(
-            f"/{DOMAIN}/frontend", frontend_path, cache_headers=False
-        )
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(
+                url_path=f"/{DOMAIN}/frontend",
+                path=frontend_path,
+                cache_headers=False
+            )
+        ])
         _LOGGER.info("Solar Energy Flow: Registered static path: /%s/frontend -> %s", DOMAIN, frontend_path)
     else:
         _LOGGER.warning("Solar Energy Flow: Frontend directory not found: %s", frontend_path)
