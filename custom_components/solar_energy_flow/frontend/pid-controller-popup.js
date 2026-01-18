@@ -21,11 +21,36 @@ class PIDControllerPopup extends LitElement {
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--divider-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .title {
       font-size: 20px;
       font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .close-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      color: var(--secondary-text-color);
+      font-size: 24px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .close-button:hover {
+      background-color: var(--divider-color);
       color: var(--primary-text-color);
     }
 
@@ -913,6 +938,9 @@ class PIDControllerPopup extends LitElement {
       <ha-card>
         <div class="header">
           <div class="title">PID Controller Editor</div>
+          <button class="close-button" @click=${this._close} title="Close">
+            ×
+          </button>
         </div>
 
         <div class="graph-container" id="popup-graph-container"></div>
