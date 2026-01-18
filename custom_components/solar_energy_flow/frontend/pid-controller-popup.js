@@ -215,12 +215,17 @@ class PIDControllerPopup extends LitElement {
     const value = parseFloat(ev.target.value);
     if (!isNaN(value)) {
       this._edited[key] = value;
-      // Auto-save on change
-      this._save();
     } else {
       delete this._edited[key];
     }
     this.requestUpdate();
+  }
+
+  _onNumberBlur(key, ev) {
+    // Save on blur (when user leaves the field)
+    if (this._edited[key] !== undefined) {
+      this._save();
+    }
   }
 
   _formatValue(value) {
@@ -284,15 +289,19 @@ class PIDControllerPopup extends LitElement {
             entity_id: numberEntity,
             value: patch[key],
           });
-          delete patch[key];
+          // Update the data immediately so the UI reflects the change
+          this._data[key] = patch[key];
         }
       }
       
-      // Clear edits and refresh after a short delay
-      this._edited = {};
+      // Clear edits after a delay to allow entity states to update
+      // Keep the edited values visible until the entity updates
       setTimeout(() => {
+        this._edited = {};
         this._updateData();
-      }, 500);
+      }, 2000);
+      
+      this.requestUpdate();
     } catch (err) {
       alert(`Error saving: ${err.message || err}`);
       console.error("Error saving PID settings:", err);
@@ -302,6 +311,22 @@ class PIDControllerPopup extends LitElement {
   _reset() {
     this._edited = {};
     this.requestUpdate();
+  }
+
+  _close() {
+    // Try to close the dialog if we're in one
+    const dialog = this.closest("ha-dialog");
+    if (dialog) {
+      dialog.close();
+    }
+    // If using browser_mod, try to close that way
+    if (this.hass && this.hass.callService) {
+      try {
+        this.hass.callService("browser_mod", "close_popup", {});
+      } catch (e) {
+        // Ignore if browser_mod not available
+      }
+    }
   }
 
   render() {
@@ -366,6 +391,7 @@ class PIDControllerPopup extends LitElement {
                 type="number"
                 .value=${manual_out ?? ""}
                 @input=${(e) => this._onNumberChanged("manual_out", e)}
+                @blur=${(e) => this._onNumberBlur("manual_out", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -376,6 +402,7 @@ class PIDControllerPopup extends LitElement {
                 type="number"
                 .value=${manual_sp ?? ""}
                 @input=${(e) => this._onNumberChanged("manual_sp", e)}
+                @blur=${(e) => this._onNumberBlur("manual_sp", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -393,6 +420,7 @@ class PIDControllerPopup extends LitElement {
                 step="0.1"
                 .value=${kp ?? ""}
                 @input=${(e) => this._onNumberChanged("kp", e)}
+                @blur=${(e) => this._onNumberBlur("kp", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -404,6 +432,7 @@ class PIDControllerPopup extends LitElement {
                 step="0.01"
                 .value=${ki ?? ""}
                 @input=${(e) => this._onNumberChanged("ki", e)}
+                @blur=${(e) => this._onNumberBlur("ki", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -415,6 +444,7 @@ class PIDControllerPopup extends LitElement {
                 step="0.1"
                 .value=${kd ?? ""}
                 @input=${(e) => this._onNumberChanged("kd", e)}
+                @blur=${(e) => this._onNumberBlur("kd", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -426,6 +456,7 @@ class PIDControllerPopup extends LitElement {
                 step="0.1"
                 .value=${deadband ?? ""}
                 @input=${(e) => this._onNumberChanged("deadband", e)}
+                @blur=${(e) => this._onNumberBlur("deadband", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -442,6 +473,7 @@ class PIDControllerPopup extends LitElement {
                 type="number"
                 .value=${min_output ?? ""}
                 @input=${(e) => this._onNumberChanged("min_output", e)}
+                @blur=${(e) => this._onNumberBlur("min_output", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -452,6 +484,7 @@ class PIDControllerPopup extends LitElement {
                 type="number"
                 .value=${max_output ?? ""}
                 @input=${(e) => this._onNumberChanged("max_output", e)}
+                @blur=${(e) => this._onNumberBlur("max_output", e)}
                 placeholder="—"
               ></ha-textfield>
             </div>
@@ -517,6 +550,12 @@ class PIDControllerPopup extends LitElement {
             raised
             label="Save"
             @click=${this._save}
+            ?disabled=${!this._hasEdits()}
+          ></mwc-button>
+          <mwc-button
+            outlined
+            label="Close"
+            @click=${this._close}
           ></mwc-button>
         </div>
       </ha-card>
