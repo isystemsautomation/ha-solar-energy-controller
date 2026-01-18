@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, Event
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import device_registry as dr
+from homeassistant.components import lovelace
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SolarEnergyFlowCoordinator
@@ -14,6 +17,80 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up via YAML (not supported) or allow config flow to run."""
+    # Register static path for frontend resources
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
+    if os.path.isdir(frontend_path):
+        hass.http.register_static_path(
+            f"/{DOMAIN}/frontend", frontend_path, cache_headers=False
+        )
+
+    # Auto-register Lovelace resources on HA start
+    async def register_resources(_event: Event) -> None:
+        """Register custom card resources automatically."""
+        # Get version from manifest
+        version = "0.1.2"
+        try:
+            import json
+            manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
+            if os.path.exists(manifest_path):
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                    version = manifest.get("version", version)
+        except Exception:
+            pass
+
+        resources = [
+            {
+                "url": f"/{DOMAIN}/frontend/pid-controller-mini.js?v={version}",
+                "type": "module",
+            },
+            {
+                "url": f"/{DOMAIN}/frontend/pid-controller-popup.js?v={version}",
+                "type": "module",
+            },
+        ]
+
+        # Check if Lovelace resources component is available
+        if not hasattr(lovelace, "resources") or not hasattr(
+            lovelace.resources, "async_create_item"
+        ):
+            _LOGGER.warning(
+                "Lovelace resources API not available. Cards must be added manually via Settings → Dashboards → Resources"
+            )
+            return
+
+        # Get existing resources to avoid duplicates
+        existing_resources = []
+        try:
+            existing_resources_list = await lovelace.resources.async_get_info(hass)
+            existing_resources = [
+                item.get("url", "") for item in existing_resources_list if item
+            ]
+        except Exception:
+            pass
+
+        # Register resources if not already present
+        for resource in resources:
+            if resource["url"] in existing_resources:
+                _LOGGER.debug(
+                    "Lovelace resource already exists: %s", resource["url"]
+                )
+                continue
+
+            try:
+                await lovelace.resources.async_create_item(
+                    hass, {"url": resource["url"], "type": resource["type"]}
+                )
+                _LOGGER.info(
+                    "Registered Lovelace resource: %s (%s)", resource["url"], resource["type"]
+                )
+            except Exception as err:
+                _LOGGER.warning(
+                    "Failed to register Lovelace resource %s: %s", resource["url"], err
+                )
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, register_resources)
+
     # No YAML configuration is supported; return True so the config flow can be used.
     return True
 
