@@ -69,8 +69,25 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
         # Try to access Lovelace resources API
         try:
-            # Check if Lovelace is available and in storage mode
-            if not hasattr(hass, "lovelace"):
+            # Wait a moment for Lovelace to be fully initialized
+            import asyncio
+            await asyncio.sleep(1)
+            
+            # Try multiple ways to access Lovelace
+            lovelace_obj = None
+            if hasattr(hass, "lovelace"):
+                lovelace_obj = hass.lovelace
+            elif "lovelace" in hass.data:
+                lovelace_obj = hass.data["lovelace"]
+            else:
+                # Try accessing via components
+                try:
+                    if hasattr(hass, "components") and hasattr(hass.components, "lovelace"):
+                        lovelace_obj = hass.components.lovelace
+                except Exception:
+                    pass
+            
+            if not lovelace_obj:
                 _LOGGER.warning(
                     "Lovelace not available. Please add cards manually: "
                     "Settings → Dashboards → Resources. URLs: %s",
@@ -79,18 +96,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 return
             
             # Only works in storage mode (default), not YAML mode
-            if hass.lovelace.mode != "storage":
+            lovelace_mode = getattr(lovelace_obj, "mode", None)
+            if lovelace_mode != "storage":
                 _LOGGER.info(
                     "Lovelace is in %s mode. Auto-registration only works in storage mode. "
                     "Please add cards manually: %s",
-                    hass.lovelace.mode, [r["url"] for r in resources]
+                    lovelace_mode, [r["url"] for r in resources]
                 )
                 return
             
             # Get existing resources to avoid duplicates
             existing_resources = []
             try:
-                existing_items = hass.lovelace.resources.async_items()
+                resources_api = lovelace_obj.resources
+                existing_items = resources_api.async_items()
                 existing_resources = [
                     item.get("url", "") if isinstance(item, dict) else str(item)
                     for item in existing_items
@@ -110,7 +129,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                     continue
 
                 try:
-                    await hass.lovelace.resources.async_create_item(
+                    await resources_api.async_create_item(
                         {"url": resource_url, "res_type": resource["res_type"]}
                     )
                     _LOGGER.info(

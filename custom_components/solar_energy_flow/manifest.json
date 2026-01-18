@@ -5,6 +5,7 @@
   "documentation": "https://github.com/isystemsautomation/ha-solar-energy-flow/",
     "issue_tracker": "https://github.com/isystemsautomation/ha-solar-energy-flow/issues",
   "requirements": [],
+  "dependencies": ["frontend", "http"],
   "codeowners": ["@isystemsautomation"],
   "config_flow": true,
   "integration_type": "device"
