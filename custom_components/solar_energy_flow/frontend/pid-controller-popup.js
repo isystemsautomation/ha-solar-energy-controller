@@ -604,19 +604,46 @@ class PIDControllerPopup extends LitElement {
   _findEntityId(domain, suffix) {
     const statusEntity = this.config.pid_entity;
     const deviceName = statusEntity.replace(/^sensor\./, "").replace(/_status$/, "");
-    const candidateId = `${domain}.${deviceName}_${suffix}`;
+    
+    // Map suffix to actual entity name (entity names are converted to lowercase with underscores)
+    const suffixMap = {
+      "manual_sp_value": "manual_sp",  // "Manual SP" -> "manual_sp"
+      "manual_out_value": "manual_out", // "Manual OUT" -> "manual_out"
+      "pid_deadband": "pid_deadband",
+      "kp": "kp",
+      "ki": "ki",
+      "kd": "kd",
+      "min_output": "min_output",
+      "max_output": "max_output",
+      "enabled": "enabled",
+      "runtime_mode": "runtime_mode",
+    };
+    
+    const entityName = suffixMap[suffix] || suffix;
+    const candidateId = `${domain}.${deviceName}_${entityName}`;
     
     if (this.hass.states[candidateId]) {
       return candidateId;
     }
     
+    // Try alternative patterns
     const prefix = `${domain}.${deviceName}`;
     for (const entityId in this.hass.states) {
-      if (entityId.startsWith(prefix) && entityId.endsWith(`_${suffix}`)) {
-        return entityId;
+      if (entityId.startsWith(prefix)) {
+        // Check if it ends with the entity name
+        if (entityId.endsWith(`_${entityName}`) || entityId.endsWith(`_${suffix}`)) {
+          return entityId;
+        }
+        // Also check for exact match on the suffix part
+        const entityPart = entityId.replace(`${prefix}_`, "");
+        if (entityPart === entityName || entityPart === suffix) {
+          return entityId;
+        }
       }
     }
     
+    // Fallback: return the candidate ID even if not found (will cause error but helps debug)
+    console.warn(`Entity not found: ${candidateId}, tried suffix: ${suffix}, entityName: ${entityName}`);
     return candidateId;
   }
 
