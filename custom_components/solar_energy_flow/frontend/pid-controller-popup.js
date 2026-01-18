@@ -18,9 +18,6 @@ class PIDControllerPopup extends LitElement {
     }
 
     .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--divider-color);
@@ -118,7 +115,8 @@ class PIDControllerPopup extends LitElement {
     super();
     this._data = {};
     this._edited = {};
-    this._editingFields = new Set(); // Track which fields are currently being edited
+    this._editingFields = new Set();
+    this._savedFields = new Map();
   }
 
   setConfig(config) {
@@ -142,20 +140,33 @@ class PIDControllerPopup extends LitElement {
     if (!this.hass || !this.config) return;
 
     const state = this.hass.states[this.config.pid_entity];
-    const data = {};
+    const data = { ...this._data };
+    const SAVE_TIMEOUT = 3000;
 
-      if (state && state.attributes) {
+    if (state && state.attributes) {
       const attrs = state.attributes;
+      const now = Date.now();
       
-      // Preserve edited values, otherwise update from entity state
       if (this._edited.enabled === undefined) {
-        data.enabled = attrs.enabled ?? false;
+        const savedTime = this._savedFields.get("enabled");
+        if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+          if (!savedTime || attrs.enabled === this._data.enabled) {
+            data.enabled = attrs.enabled ?? false;
+            this._savedFields.delete("enabled");
+          }
+        }
       } else {
         data.enabled = this._data.enabled ?? attrs.enabled ?? false;
       }
       
       if (this._edited.runtime_mode === undefined) {
-        data.runtime_mode = attrs.runtime_mode || "AUTO_SP";
+        const savedTime = this._savedFields.get("runtime_mode");
+        if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+          if (!savedTime || attrs.runtime_mode === this._data.runtime_mode) {
+            data.runtime_mode = attrs.runtime_mode || "AUTO_SP";
+            this._savedFields.delete("runtime_mode");
+          }
+        }
       } else {
         data.runtime_mode = this._data.runtime_mode ?? (attrs.runtime_mode || "AUTO_SP");
       }
@@ -165,17 +176,17 @@ class PIDControllerPopup extends LitElement {
         if (this._editingFields.has(field) || this._edited[field] !== undefined) {
           data[field] = this._edited[field] ?? this._data[field] ?? attrs[field] ?? null;
         } else {
-          data[field] = attrs[field] ?? null;
+          const savedTime = this._savedFields.get(field);
+          if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+            if (!savedTime || Math.abs((attrs[field] ?? 0) - (this._data[field] ?? 0)) < 0.01) {
+              data[field] = attrs[field] ?? null;
+              this._savedFields.delete(field);
+            }
+          }
         }
       }
       
-      // Always update read-only sensor values
-      data.runtime_modes = attrs.runtime_modes || [
-        "AUTO_SP",
-        "MANUAL_SP",
-        "HOLD",
-        "MANUAL_OUT",
-      ];
+      data.runtime_modes = attrs.runtime_modes || ["AUTO_SP", "MANUAL_SP", "HOLD", "MANUAL_OUT"];
       data.pv_value = attrs.pv_value ?? null;
       data.effective_sp = attrs.effective_sp ?? null;
       data.error = attrs.error ?? null;
@@ -252,60 +263,53 @@ class PIDControllerPopup extends LitElement {
     if (!this._hasEdits()) return;
 
     const patch = { ...this._edited };
-    
-    // Extract device name from status entity ID (e.g., sensor.charger_pid_status -> charger_pid)
     const statusEntity = this.config.pid_entity;
     const deviceName = statusEntity.replace(/^sensor\./, "").replace(/_status$/, "");
+    const numberMappings = {
+      kp: "kp",
+      ki: "ki",
+      kd: "kd",
+      deadband: "pid_deadband",
+      min_output: "min_output",
+      max_output: "max_output",
+      manual_out: "manual_out_value",
+      manual_sp: "manual_sp_value",
+    };
     
     try {
-      // Update enabled switch
+      const now = Date.now();
+      
       if (patch.enabled !== undefined) {
-        const enabledEntity = `switch.${deviceName}_enabled`;
         await this.hass.callService("switch", patch.enabled ? "turn_on" : "turn_off", {
-          entity_id: enabledEntity,
+          entity_id: `switch.${deviceName}_enabled`,
         });
+        this._data.enabled = patch.enabled;
+        this._savedFields.set("enabled", now);
         delete patch.enabled;
       }
       
-      // Update runtime mode select
       if (patch.runtime_mode !== undefined) {
-        const runtimeModeEntity = `select.${deviceName}_runtime_mode`;
         await this.hass.callService("select", "select_option", {
-          entity_id: runtimeModeEntity,
+          entity_id: `select.${deviceName}_runtime_mode`,
           option: patch.runtime_mode,
         });
+        this._data.runtime_mode = patch.runtime_mode;
+        this._savedFields.set("runtime_mode", now);
         delete patch.runtime_mode;
       }
       
-      // Update number entities (kp, ki, kd, deadband, min_output, max_output, manual_out, manual_sp)
-      const numberMappings = {
-        kp: "kp",
-        ki: "ki",
-        kd: "kd",
-        deadband: "pid_deadband",
-        min_output: "min_output",
-        max_output: "max_output",
-        manual_out: "manual_out_value",
-        manual_sp: "manual_sp_value",
-      };
-      
       for (const [key, entitySuffix] of Object.entries(numberMappings)) {
         if (patch[key] !== undefined) {
-          const numberEntity = `number.${deviceName}_${entitySuffix}`;
           await this.hass.callService("number", "set_value", {
-            entity_id: numberEntity,
+            entity_id: `number.${deviceName}_${entitySuffix}`,
             value: patch[key],
           });
           this._data[key] = patch[key];
+          this._savedFields.set(key, now);
         }
       }
       
-      // Clear edits after a delay to allow entity states to update
-      setTimeout(() => {
-        this._edited = {};
-        this._updateData();
-      }, 1000);
-      
+      this._edited = {};
       this.requestUpdate();
     } catch (err) {
       alert(`Error saving: ${err.message || err}`);
@@ -327,7 +331,7 @@ class PIDControllerPopup extends LitElement {
       try {
         this.hass.callService("browser_mod", "close_popup", {});
       } catch (e) {
-        // Ignore if browser_mod not available
+        // Ignore
       }
     }
   }

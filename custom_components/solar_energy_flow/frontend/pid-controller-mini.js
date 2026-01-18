@@ -177,7 +177,6 @@ class PIDControllerMini extends LitElement {
       ev.stopPropagation();
     }
 
-    // Use browser_mod if available
     if (
       this.hass.services["browser_mod"] &&
       this.hass.services["browser_mod"]["popup"]
@@ -193,7 +192,6 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    // Fallback: Create a modal dialog
     const dialog = document.createElement("ha-dialog");
     dialog.heading = this.config.title || "PID Controller";
     dialog.hideActions = false;
