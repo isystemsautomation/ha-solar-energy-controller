@@ -784,7 +784,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             if old.get(key) != new.get(key):
                 return True
         return False
-
+    
     def apply_options(self, options: Mapping[str, Any]) -> None:
         """Apply runtime tuning without resetting PID state."""
 
@@ -826,8 +826,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         error_raw: float | None = None
         if pv_for_pid_raw is not None and sp_for_pid_raw is not None:
             error_raw = sp_for_pid_raw - pv_for_pid_raw
-            if options.pid_mode == PID_MODE_REVERSE:
-                error_raw = -error_raw
+                if options.pid_mode == PID_MODE_REVERSE:
+                    error_raw = -error_raw
 
         if not options.enabled:
             self.pid.reset()
@@ -918,8 +918,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             )
 
         error_pct = sp_for_pid - pv_for_pid
-        if options.pid_mode == PID_MODE_REVERSE:
-            error_pct = -error_pct
+            if options.pid_mode == PID_MODE_REVERSE:
+                error_pct = -error_pct
 
         if (
             limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
