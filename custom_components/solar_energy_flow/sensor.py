@@ -69,7 +69,8 @@ class SolarEnergyFlowEffectiveSPSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "sp", None)
+        value = getattr(data, "sp", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
@@ -81,7 +82,8 @@ class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "pv", None)
+        value = getattr(data, "pv", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
@@ -106,7 +108,8 @@ class SolarEnergyFlowErrorSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "error", None)
+        value = getattr(data, "error", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
@@ -130,7 +133,8 @@ class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "grid_power", None)
+        value = getattr(data, "grid_power", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
@@ -142,7 +146,8 @@ class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "p_term", None)
+        value = getattr(data, "p_term", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowITermSensor(_BaseFlowSensor):
@@ -154,7 +159,8 @@ class SolarEnergyFlowITermSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "i_term", None)
+        value = getattr(data, "i_term", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowDTermSensor(_BaseFlowSensor):
@@ -166,7 +172,8 @@ class SolarEnergyFlowDTermSensor(_BaseFlowSensor):
     @property
     def native_value(self):
         data = self._data
-        return getattr(data, "d_term", None)
+        value = getattr(data, "d_term", None)
+        return round(value, 1) if value is not None else None
 
 
 class SolarEnergyFlowLimiterStateSensor(_BaseFlowSensor):
