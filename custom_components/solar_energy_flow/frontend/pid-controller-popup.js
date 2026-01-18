@@ -227,11 +227,22 @@ class PIDControllerPopup extends LitElement {
     // Check if editable values changed on the entity (e.g., manual_sp was updated by another source)
     // Only update if we're not currently editing and haven't recently saved
     const now = Date.now();
-    const SAVE_TIMEOUT = 2000;
+    const SAVE_TIMEOUT = 5000; // Increased timeout to prevent overwriting recently saved values
     
+    // Check manual_sp specifically
     if (!this._editingFields.has("manual_sp")) {
       const savedTime = this._savedFields.get("manual_sp");
-      if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+      if (savedTime && (now - savedTime <= SAVE_TIMEOUT)) {
+        // Recently saved - only update if entity state matches what we saved
+        const entityValue = attrs.manual_sp ?? null;
+        const savedValue = this._data.manual_sp ?? null;
+        // If entity matches our saved value, it's confirmed - we can clear the saved flag
+        if (Math.abs((entityValue ?? 0) - (savedValue ?? 0)) < 0.01) {
+          this._savedFields.delete("manual_sp");
+        }
+        // Otherwise, keep our saved value and don't overwrite
+      } else if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+        // Not recently saved, or timeout expired - update from entity
         const entityValue = attrs.manual_sp ?? null;
         const currentValue = this._data.manual_sp ?? null;
         if (Math.abs((entityValue ?? 0) - (currentValue ?? 0)) > 0.01) {
@@ -247,8 +258,34 @@ class PIDControllerPopup extends LitElement {
       if (this._editingFields.has(field)) continue;
       
       const savedTime = this._savedFields.get(field);
-      if (savedTime && (now - savedTime <= SAVE_TIMEOUT)) continue;
+      if (savedTime && (now - savedTime <= SAVE_TIMEOUT)) {
+        // Recently saved - only update if entity state matches what we saved
+        let entityValue = attrs[field];
+        if (field === 'enabled') {
+          entityValue = attrs.enabled ?? false;
+        } else if (field === 'runtime_mode') {
+          entityValue = attrs.runtime_mode || "AUTO_SP";
+        } else {
+          entityValue = attrs[field] ?? null;
+        }
+        
+        const savedValue = this._data[field];
+        let matches = false;
+        if (field === 'enabled' || field === 'runtime_mode') {
+          matches = entityValue === savedValue;
+        } else {
+          matches = Math.abs((entityValue ?? 0) - (savedValue ?? 0)) < 0.01;
+        }
+        
+        if (matches) {
+          // Entity matches our saved value - confirmed, clear the saved flag
+          this._savedFields.delete(field);
+        }
+        // Otherwise, keep our saved value and don't overwrite
+        continue;
+      }
       
+      // Not recently saved, or timeout expired - update from entity
       let entityValue = attrs[field];
       if (field === 'enabled') {
         entityValue = attrs.enabled ?? false;
@@ -314,7 +351,7 @@ class PIDControllerPopup extends LitElement {
     if (!state) return;
     
     const data = { ...this._data };
-    const SAVE_TIMEOUT = 3000;
+    const SAVE_TIMEOUT = 5000; // Increased timeout to prevent overwriting recently saved values
 
     if (state?.attributes) {
       const attrs = state.attributes;
@@ -353,19 +390,27 @@ class PIDControllerPopup extends LitElement {
           // Has unsaved edits - keep edited value
           data[field] = this._edited[field];
         } else {
-          // No edits - update from entity state if not recently saved
+          // No edits - check if recently saved
           const savedTime = this._savedFields.get(field);
-          if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
-            if (!savedTime || Math.abs((attrs[field] ?? 0) - (this._data[field] ?? 0)) < 0.01) {
-              data[field] = attrs[field] ?? null;
+          if (savedTime && (now - savedTime <= SAVE_TIMEOUT)) {
+            // Recently saved - keep our saved value, don't overwrite from entity
+            // Only update if entity state matches what we saved (confirmation)
+            const entityValue = attrs[field] ?? null;
+            const savedValue = this._data[field] ?? null;
+            if (Math.abs((entityValue ?? 0) - (savedValue ?? 0)) < 0.01) {
+              // Entity matches - confirmed, we can clear the saved flag
+              data[field] = entityValue;
               this._savedFields.delete(field);
             } else {
-              // Entity state doesn't match - keep current data value
-              data[field] = this._data[field] ?? attrs[field] ?? null;
+              // Entity doesn't match yet - keep our saved value
+              data[field] = savedValue;
             }
           } else {
-            // Recently saved - keep current data value
-            data[field] = this._data[field] ?? attrs[field] ?? null;
+            // Not recently saved, or timeout expired - update from entity
+            data[field] = attrs[field] ?? null;
+            if (savedTime) {
+              this._savedFields.delete(field);
+            }
           }
         }
       }
@@ -605,9 +650,13 @@ class PIDControllerPopup extends LitElement {
               entity_id: entityId,
               value: patch[key],
             });
+            // Update _data immediately with saved value
             this._data[key] = patch[key];
+            // Mark as saved with timestamp - this prevents overwriting for 5 seconds
             this._savedFields.set(key, now);
-            console.log(`Saved ${key} = ${patch[key]} to ${entityId}`);
+            // Remove from _edited since it's now saved
+            delete this._edited[key];
+            console.log(`Saved ${key} = ${patch[key]} to ${entityId}, marked as saved`);
           } catch (err) {
             console.error(`Error saving ${key} to ${entityId}:`, err);
             alert(`Error saving ${key}: ${err.message || err}`);
