@@ -135,12 +135,16 @@ class PIDControllerPopup extends LitElement {
     // Initial update immediately
     this._updateReadOnlyValues();
     
-    // Then update every second
+    // Update every 500ms for more responsive updates
     this._updateInterval = setInterval(() => {
       if (this.hass && this.config) {
-        this._updateReadOnlyValues();
+        // Force update by checking hass state directly
+        const state = this.hass.states[this.config.pid_entity];
+        if (state) {
+          this._updateReadOnlyValues();
+        }
       }
-    }, 1000);
+    }, 500);
   }
 
   disconnectedCallback() {
@@ -168,12 +172,12 @@ class PIDControllerPopup extends LitElement {
       if (this.hass && this.config) {
         if (!this._updateInterval) {
           this._startLiveUpdates();
-        } else {
-          // Force an immediate update when hass/config changes
-          this._updateReadOnlyValues();
         }
+        // Always force an immediate update when hass/config changes
+        this._updateReadOnlyValues();
       }
     }
+    // Also update when hass changes (entity state updates)
     if (changedProperties.has("hass")) {
       this._updateReadOnlyValues();
     }
@@ -183,6 +187,8 @@ class PIDControllerPopup extends LitElement {
     if (!this.hass || !this.config) return;
 
     const state = this.hass.states[this.config.pid_entity];
+    if (!state) return;
+    
     const data = { ...this._data };
     const SAVE_TIMEOUT = 3000;
 
@@ -241,6 +247,7 @@ class PIDControllerPopup extends LitElement {
       }
       
       data.runtime_modes = attrs.runtime_modes || ["AUTO_SP", "MANUAL_SP", "HOLD", "MANUAL_OUT"];
+      // Always update read-only values from entity state
       data.pv_value = attrs.pv_value ?? null;
       data.effective_sp = attrs.effective_sp ?? null;
       data.error = attrs.error ?? null;
@@ -278,51 +285,68 @@ class PIDControllerPopup extends LitElement {
       return String(oldVal) !== String(newVal);
     };
     
-    if (compareValue(this._data.pv_value, attrs.pv_value)) {
-      this._data.pv_value = attrs.pv_value ?? null;
+    // Always update these values - they're read-only and should reflect current state
+    const newValues = {
+      pv_value: attrs.pv_value ?? null,
+      effective_sp: attrs.effective_sp ?? null,
+      error: attrs.error ?? null,
+      output: attrs.output ?? null,
+      p_term: attrs.p_term ?? null,
+      i_term: attrs.i_term ?? null,
+      d_term: attrs.d_term ?? null,
+      grid_power: attrs.grid_power ?? null,
+      status: attrs.status || "unknown",
+      limiter_state: attrs.limiter_state ?? null,
+      output_pre_rate_limit: attrs.output_pre_rate_limit ?? null,
+    };
+    
+    // Check for changes
+    if (compareValue(this._data.pv_value, newValues.pv_value)) {
+      this._data.pv_value = newValues.pv_value;
       hasChanges = true;
     }
-    if (compareValue(this._data.effective_sp, attrs.effective_sp)) {
-      this._data.effective_sp = attrs.effective_sp ?? null;
+    if (compareValue(this._data.effective_sp, newValues.effective_sp)) {
+      this._data.effective_sp = newValues.effective_sp;
       hasChanges = true;
     }
-    if (compareValue(this._data.error, attrs.error)) {
-      this._data.error = attrs.error ?? null;
+    if (compareValue(this._data.error, newValues.error)) {
+      this._data.error = newValues.error;
       hasChanges = true;
     }
-    if (compareValue(this._data.output, attrs.output)) {
-      this._data.output = attrs.output ?? null;
+    if (compareValue(this._data.output, newValues.output)) {
+      this._data.output = newValues.output;
       hasChanges = true;
     }
-    if (compareValue(this._data.p_term, attrs.p_term)) {
-      this._data.p_term = attrs.p_term ?? null;
+    if (compareValue(this._data.p_term, newValues.p_term)) {
+      this._data.p_term = newValues.p_term;
       hasChanges = true;
     }
-    if (compareValue(this._data.i_term, attrs.i_term)) {
-      this._data.i_term = attrs.i_term ?? null;
+    if (compareValue(this._data.i_term, newValues.i_term)) {
+      this._data.i_term = newValues.i_term;
       hasChanges = true;
     }
-    if (compareValue(this._data.d_term, attrs.d_term)) {
-      this._data.d_term = attrs.d_term ?? null;
+    if (compareValue(this._data.d_term, newValues.d_term)) {
+      this._data.d_term = newValues.d_term;
       hasChanges = true;
     }
-    if (compareValue(this._data.grid_power, attrs.grid_power)) {
-      this._data.grid_power = attrs.grid_power ?? null;
+    if (compareValue(this._data.grid_power, newValues.grid_power)) {
+      this._data.grid_power = newValues.grid_power;
       hasChanges = true;
     }
-    if (this._data.status !== (attrs.status || "unknown")) {
-      this._data.status = attrs.status || "unknown";
+    if (this._data.status !== newValues.status) {
+      this._data.status = newValues.status;
       hasChanges = true;
     }
-    if (this._data.limiter_state !== (attrs.limiter_state ?? null)) {
-      this._data.limiter_state = attrs.limiter_state ?? null;
+    if (this._data.limiter_state !== newValues.limiter_state) {
+      this._data.limiter_state = newValues.limiter_state;
       hasChanges = true;
     }
-    if (compareValue(this._data.output_pre_rate_limit, attrs.output_pre_rate_limit)) {
-      this._data.output_pre_rate_limit = attrs.output_pre_rate_limit ?? null;
+    if (compareValue(this._data.output_pre_rate_limit, newValues.output_pre_rate_limit)) {
+      this._data.output_pre_rate_limit = newValues.output_pre_rate_limit;
       hasChanges = true;
     }
     
+    // Always request update to ensure UI reflects current state
     if (hasChanges) {
       this.requestUpdate();
     }

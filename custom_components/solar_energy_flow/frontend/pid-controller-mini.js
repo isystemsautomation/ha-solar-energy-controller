@@ -199,10 +199,26 @@ class PIDControllerMini extends LitElement {
     dialog.escapeKeyAction = "close";
     
     const popupCard = document.createElement("pid-controller-popup");
-    popupCard.hass = this.hass;
-    popupCard.config = { pid_entity: this.config.pid_entity };
+    popupCard.setConfig({ pid_entity: this.config.pid_entity });
+    
+    // Use a function to update hass when it changes
+    const updateHass = () => {
+      if (this.hass) {
+        popupCard.hass = this.hass;
+      }
+    };
+    updateHass();
+    
+    // Listen for hass updates (if available)
+    if (this.hass && this.hass.connection) {
+      this.hass.connection.addEventListener("ready", updateHass);
+    }
     
     dialog.addEventListener("closed", () => {
+      // Clean up event listener
+      if (this.hass && this.hass.connection) {
+        this.hass.connection.removeEventListener("ready", updateHass);
+      }
       // Check if dialog is still in the DOM before removing
       if (dialog.parentNode === document.body) {
         try {
