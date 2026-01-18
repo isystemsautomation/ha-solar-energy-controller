@@ -201,24 +201,25 @@ class PIDControllerMini extends LitElement {
     const popupCard = document.createElement("pid-controller-popup");
     popupCard.setConfig({ pid_entity: this.config.pid_entity });
     
-    // Use a function to update hass when it changes
+    // Pass hass object - ensure it's the live reference
+    popupCard.hass = this.hass;
+    
+    // Create a function to keep hass updated
     const updateHass = () => {
       if (this.hass) {
+        // Always update to latest hass reference
         popupCard.hass = this.hass;
       }
     };
-    updateHass();
     
-    // Listen for hass updates (if available)
-    if (this.hass && this.hass.connection) {
-      this.hass.connection.addEventListener("ready", updateHass);
-    }
+    // Update hass periodically to ensure it stays in sync
+    const hassUpdateInterval = setInterval(() => {
+      updateHass();
+    }, 1000);
     
     dialog.addEventListener("closed", () => {
-      // Clean up event listener
-      if (this.hass && this.hass.connection) {
-        this.hass.connection.removeEventListener("ready", updateHass);
-      }
+      // Clean up interval
+      clearInterval(hassUpdateInterval);
       // Check if dialog is still in the DOM before removing
       if (dialog.parentNode === document.body) {
         try {

@@ -119,11 +119,65 @@ class PIDControllerPopup extends LitElement {
     this._savedFields = new Map();
     this._updateInterval = null;
     this._lastFullUpdate = 0;
+    this._stateChangedUnsub = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._startLiveUpdates();
+    this._subscribeToStateChanges();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._updateInterval) {
+      clearInterval(this._updateInterval);
+      this._updateInterval = null;
+    }
+    if (this._stateChangedUnsub) {
+      this._stateChangedUnsub();
+      this._stateChangedUnsub = null;
+    }
+  }
+
+  _subscribeToStateChanges() {
+    if (!this.hass || !this.config) return;
+    
+    // Unsubscribe from previous subscription if any
+    if (this._stateChangedUnsub) {
+      this._stateChangedUnsub();
+      this._stateChangedUnsub = null;
+    }
+    
+    // Subscribe to state_changed events for our entity using Home Assistant API
+    const entityId = this.config.pid_entity;
+    
+    const handleStateChanged = (ev) => {
+      if (ev.detail && ev.detail.entity_id === entityId) {
+        // Entity state changed - force immediate update
+        this._updateReadOnlyValues();
+        this._checkEntityStateChanges();
+        // Also do a full update after a short delay to ensure all attributes are fresh
+        setTimeout(() => {
+          if (!this._editingFields.size) {
+            this._updateData();
+          }
+        }, 100);
+      }
+    };
+    
+    // Try to use hass.subscribeEvents if available (Home Assistant API)
+    if (this.hass.subscribeEvents) {
+      this._stateChangedUnsub = this.hass.subscribeEvents(handleStateChanged, "state_changed");
+    } else if (this.hass.connection && this.hass.connection.addEventListener) {
+      // Fallback: use connection event listener
+      this.hass.connection.addEventListener("state_changed", handleStateChanged);
+      this._stateChangedUnsub = () => {
+        if (this.hass && this.hass.connection && this.hass.connection.removeEventListener) {
+          this.hass.connection.removeEventListener("state_changed", handleStateChanged);
+        }
+      };
+    }
   }
 
   _startLiveUpdates() {
@@ -136,25 +190,29 @@ class PIDControllerPopup extends LitElement {
     // Initial update immediately
     this._updateReadOnlyValues();
     
-    // Update every 500ms for more responsive updates
+    // Update every 300ms for very responsive updates
     this._updateInterval = setInterval(() => {
       if (this.hass && this.config) {
         // Force update by checking hass state directly
         const state = this.hass.states[this.config.pid_entity];
         if (state) {
           // Always update read-only values (PV, SP, Error, Output, etc.)
+          // This is critical - these values change frequently
           this._updateReadOnlyValues();
           // Also check if entity attributes changed for editable fields (in case backend updated them)
           this._checkEntityStateChanges();
           // Periodically do a full data update to catch any missed changes
           // Do this less frequently to avoid overwriting user edits
-          if (!this._lastFullUpdate || (Date.now() - this._lastFullUpdate > 2000)) {
-            this._updateData();
-            this._lastFullUpdate = Date.now();
+          if (!this._lastFullUpdate || (Date.now() - this._lastFullUpdate > 1500)) {
+            // Only do full update if not actively editing
+            if (this._editingFields.size === 0) {
+              this._updateData();
+              this._lastFullUpdate = Date.now();
+            }
           }
         }
       }
-    }, 500);
+    }, 300);
   }
 
   _checkEntityStateChanges() {
@@ -219,13 +277,6 @@ class PIDControllerPopup extends LitElement {
     }
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._updateInterval) {
-      clearInterval(this._updateInterval);
-      this._updateInterval = null;
-    }
-  }
 
   setConfig(config) {
     if (!config.pid_entity) {
@@ -341,8 +392,12 @@ class PIDControllerPopup extends LitElement {
   _updateReadOnlyValues() {
     if (!this.hass || !this.config) return;
 
+    // Always read the latest state directly from hass - don't cache
     const state = this.hass.states[this.config.pid_entity];
-    if (!state?.attributes) return;
+    if (!state?.attributes) {
+      console.debug("PID Popup: No state/attributes for", this.config.pid_entity);
+      return;
+    }
 
     const attrs = state.attributes;
     let hasChanges = false;
@@ -379,6 +434,7 @@ class PIDControllerPopup extends LitElement {
       hasChanges = true;
     }
     if (compareValue(this._data.effective_sp, newValues.effective_sp)) {
+      console.debug("PID Popup: SP changed", this._data.effective_sp, "->", newValues.effective_sp);
       this._data.effective_sp = newValues.effective_sp;
       hasChanges = true;
     }
@@ -419,10 +475,9 @@ class PIDControllerPopup extends LitElement {
       hasChanges = true;
     }
     
-    // Always request update if changes detected
-    if (hasChanges) {
-      this.requestUpdate();
-    }
+    // Always request update - force re-render to show latest values
+    // Even if no changes detected, ensure UI is in sync with entity state
+    this.requestUpdate();
   }
 
   _hasEdits() {
