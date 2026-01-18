@@ -518,7 +518,7 @@ class PIDControllerMini extends LitElement {
     }
 
     const dialog = document.createElement("ha-dialog");
-    dialog.heading = "";
+    dialog.heading = this.config.title || "PID Controller";
     dialog.hideActions = false;
     dialog.scrimClickAction = "close";
     dialog.escapeKeyAction = "close";
