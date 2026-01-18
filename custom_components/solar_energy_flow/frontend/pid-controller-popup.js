@@ -400,17 +400,35 @@ class PIDControllerPopup extends LitElement {
       }
       
       if (this._edited.grid_limiter_enabled === undefined) {
-        const switchEntityId = this._findEntityId("switch", "grid_limiter");
-        const switchEntityState = this.hass?.states[switchEntityId];
-        data.grid_limiter_enabled = switchEntityState?.state === "on";
+        const savedTime = this._savedFields.get("grid_limiter_enabled");
+        if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+          const switchEntityId = this._findEntityId("switch", "grid_limiter");
+          const switchEntityState = this.hass?.states[switchEntityId];
+          const entityValue = switchEntityState?.state === "on";
+          if (!savedTime || entityValue === this._data.grid_limiter_enabled) {
+            data.grid_limiter_enabled = entityValue;
+            this._savedFields.delete("grid_limiter_enabled");
+          }
+        } else {
+          data.grid_limiter_enabled = this._data.grid_limiter_enabled ?? false;
+        }
       } else {
         data.grid_limiter_enabled = this._data.grid_limiter_enabled ?? false;
       }
       
       if (this._edited.rate_limiter_enabled === undefined) {
-        const switchEntityId = this._findEntityId("switch", "rate_limiter");
-        const switchEntityState = this.hass?.states[switchEntityId];
-        data.rate_limiter_enabled = switchEntityState?.state === "on";
+        const savedTime = this._savedFields.get("rate_limiter_enabled");
+        if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
+          const switchEntityId = this._findEntityId("switch", "rate_limiter");
+          const switchEntityState = this.hass?.states[switchEntityId];
+          const entityValue = switchEntityState?.state === "on";
+          if (!savedTime || entityValue === this._data.rate_limiter_enabled) {
+            data.rate_limiter_enabled = entityValue;
+            this._savedFields.delete("rate_limiter_enabled");
+          }
+        } else {
+          data.rate_limiter_enabled = this._data.rate_limiter_enabled ?? false;
+        }
       } else {
         data.rate_limiter_enabled = this._data.rate_limiter_enabled ?? false;
       }
@@ -718,8 +736,10 @@ class PIDControllerPopup extends LitElement {
         await this.hass.callService("switch", patch.grid_limiter_enabled ? "turn_on" : "turn_off", {
           entity_id: entityId,
         });
+        await new Promise(resolve => setTimeout(resolve, 200));
         this._data.grid_limiter_enabled = patch.grid_limiter_enabled;
         this._savedFields.set("grid_limiter_enabled", now);
+        delete this._edited.grid_limiter_enabled;
         delete patch.grid_limiter_enabled;
       }
       
@@ -728,8 +748,10 @@ class PIDControllerPopup extends LitElement {
         await this.hass.callService("switch", patch.rate_limiter_enabled ? "turn_on" : "turn_off", {
           entity_id: entityId,
         });
+        await new Promise(resolve => setTimeout(resolve, 200));
         this._data.rate_limiter_enabled = patch.rate_limiter_enabled;
         this._savedFields.set("rate_limiter_enabled", now);
+        delete this._edited.rate_limiter_enabled;
         delete patch.rate_limiter_enabled;
       }
       
