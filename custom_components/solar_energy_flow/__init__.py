@@ -20,15 +20,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up via YAML (not supported) or allow config flow to run."""
     _LOGGER.info("Solar Energy Flow: Initializing integration (async_setup called)")
     
-    # Read version from manifest (sync, during setup is OK)
+    # Read version from manifest using executor to avoid blocking
     version = "0.1.2"
     try:
         import json
-        manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
-        if os.path.exists(manifest_path):
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-                version = manifest.get("version", version)
+        
+        def read_manifest():
+            manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
+            if os.path.exists(manifest_path):
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            return None
+        
+        manifest = await hass.async_add_executor_job(read_manifest)
+        if manifest:
+            version = manifest.get("version", version)
     except Exception:
         pass  # Use default version
     
