@@ -120,6 +120,13 @@ class PIDControllerMini extends LitElement {
     }
     this.config = {
       title: "PID Controller",
+      show_status: true,
+      show_mode: true,
+      show_pv: true,
+      show_sp: true,
+      show_error: true,
+      show_output: true,
+      show_chart: true,
       ...config,
     };
   }
@@ -143,6 +150,62 @@ class PIDControllerMini extends LitElement {
             text: {},
           },
         },
+        {
+          name: "show_status",
+          label: "Show Status",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_mode",
+          label: "Show Mode",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_pv",
+          label: "Show PV",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_sp",
+          label: "Show SP",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_error",
+          label: "Show Error",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_output",
+          label: "Show Output",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
+        {
+          name: "show_chart",
+          label: "Show Chart",
+          default: true,
+          selector: {
+            boolean: {},
+          },
+        },
       ],
     };
   }
@@ -154,13 +217,17 @@ class PIDControllerMini extends LitElement {
   updated(changedProperties) {
     if (changedProperties.has("hass") || changedProperties.has("config")) {
       this._updateData();
-      setTimeout(() => this._updateGraph(), 100);
+      if (this.config.show_chart) {
+        setTimeout(() => this._updateGraph(), 100);
+      }
     }
   }
 
   firstUpdated() {
-    setTimeout(() => this._updateGraph(), 200);
-    this._graphInterval = setInterval(() => this._updateGraph(), 30000);
+    if (this.config.show_chart) {
+      setTimeout(() => this._updateGraph(), 200);
+      this._graphInterval = setInterval(() => this._updateGraph(), 30000);
+    }
   }
 
   disconnectedCallback() {
@@ -500,44 +567,58 @@ class PIDControllerMini extends LitElement {
         </div>
 
         <div class="compact-grid">
-          <div class="metric">
-            <div class="metric-label">Status</div>
-            <div class="metric-value">
-              <span class="status-badge ${statusClass}">${d.status || "—"}</span>
+          ${this.config.show_status ? html`
+            <div class="metric">
+              <div class="metric-label">Status</div>
+              <div class="metric-value">
+                <span class="status-badge ${statusClass}">${d.status || "—"}</span>
+              </div>
             </div>
-          </div>
+          ` : ""}
 
-          <div class="metric">
-            <div class="metric-label">Mode</div>
-            <div class="metric-value">${this._formatMode(d.runtime_mode)}</div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">PV</div>
-            <div class="metric-value">${this._formatValue(d.pv_value)}</div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">SP</div>
-            <div class="metric-value">${this._formatValue(d.effective_sp)}</div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">Error</div>
-            <div
-              class="metric-value ${d.error && d.error < 0 ? "negative" : ""}"
-            >
-              ${this._formatValue(d.error)}
+          ${this.config.show_mode ? html`
+            <div class="metric">
+              <div class="metric-label">Mode</div>
+              <div class="metric-value">${this._formatMode(d.runtime_mode)}</div>
             </div>
-          </div>
+          ` : ""}
 
-          <div class="metric">
-            <div class="metric-label">Output</div>
-            <div class="metric-value">${this._formatValue(d.output)}</div>
-          </div>
+          ${this.config.show_pv ? html`
+            <div class="metric">
+              <div class="metric-label">PV</div>
+              <div class="metric-value">${this._formatValue(d.pv_value)}</div>
+            </div>
+          ` : ""}
+
+          ${this.config.show_sp ? html`
+            <div class="metric">
+              <div class="metric-label">SP</div>
+              <div class="metric-value">${this._formatValue(d.effective_sp)}</div>
+            </div>
+          ` : ""}
+
+          ${this.config.show_error ? html`
+            <div class="metric">
+              <div class="metric-label">Error</div>
+              <div
+                class="metric-value ${d.error && d.error < 0 ? "negative" : ""}"
+              >
+                ${this._formatValue(d.error)}
+              </div>
+            </div>
+          ` : ""}
+
+          ${this.config.show_output ? html`
+            <div class="metric">
+              <div class="metric-label">Output</div>
+              <div class="metric-value">${this._formatValue(d.output)}</div>
+            </div>
+          ` : ""}
         </div>
 
-        <div class="graph-container" id="graph-container"></div>
+        ${this.config.show_chart ? html`
+          <div class="graph-container" id="graph-container"></div>
+        ` : ""}
 
         <div class="actions">
           <mwc-button outlined label="Open Editor" @click=${this._openPopup}></mwc-button>
