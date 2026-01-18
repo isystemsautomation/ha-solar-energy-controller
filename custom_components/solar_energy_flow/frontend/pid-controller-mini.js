@@ -173,7 +173,6 @@ class PIDControllerMini extends LitElement {
   }
 
   _openPopup(ev) {
-    // Prevent event bubbling if clicking the button
     if (ev) {
       ev.stopPropagation();
     }
@@ -194,28 +193,22 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    // Fallback: Create a modal dialog with the popup card
+    // Fallback: Create a modal dialog
     const dialog = document.createElement("ha-dialog");
     dialog.heading = this.config.title || "PID Controller";
     dialog.hideActions = false;
-    // Allow closing with ESC or click outside
     dialog.scrimClickAction = "close";
     dialog.escapeKeyAction = "close";
     
     const popupCard = document.createElement("pid-controller-popup");
     popupCard.hass = this.hass;
-    popupCard.config = {
-      pid_entity: this.config.pid_entity,
-    };
+    popupCard.config = { pid_entity: this.config.pid_entity };
     
-    // Add close button handler
-    const closeHandler = () => {
+    dialog.addEventListener("closed", () => {
       if (dialog.parentNode) {
         document.body.removeChild(dialog);
       }
-    };
-    
-    dialog.addEventListener("closed", closeHandler);
+    });
     
     dialog.appendChild(popupCard);
     document.body.appendChild(dialog);
@@ -285,7 +278,6 @@ class PIDControllerMini extends LitElement {
 
 customElements.define("pid-controller-mini", PIDControllerMini);
 
-// Register the card
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "pid-controller-mini",

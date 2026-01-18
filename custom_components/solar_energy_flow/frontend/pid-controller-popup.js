@@ -112,11 +112,6 @@ class PIDControllerPopup extends LitElement {
       --mdc-theme-primary: var(--primary-color);
     }
 
-    .error-text {
-      color: var(--error-color);
-      font-size: 12px;
-      margin-top: 4px;
-    }
   `;
 
   constructor() {
@@ -139,14 +134,7 @@ class PIDControllerPopup extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has("hass") || changedProperties.has("config")) {
-      // Only update if we're not currently editing (no active edits)
-      // This prevents overwriting user input while they're typing
-      if (!this._hasEdits()) {
-        this._updateData();
-      } else {
-        // Still update read-only sensor values, but preserve edited values
-        this._updateData();
-      }
+      this._updateData();
     }
   }
 
@@ -156,9 +144,10 @@ class PIDControllerPopup extends LitElement {
     const state = this.hass.states[this.config.pid_entity];
     const data = {};
 
-    if (state && state.attributes) {
+      if (state && state.attributes) {
       const attrs = state.attributes;
-      // Only update fields that aren't currently being edited
+      
+      // Preserve edited values, otherwise update from entity state
       if (this._edited.enabled === undefined) {
         data.enabled = attrs.enabled ?? false;
       } else {
@@ -168,17 +157,14 @@ class PIDControllerPopup extends LitElement {
       if (this._edited.runtime_mode === undefined) {
         data.runtime_mode = attrs.runtime_mode || "AUTO_SP";
       } else {
-        data.runtime_mode = this._data.runtime_mode ?? attrs.runtime_mode || "AUTO_SP";
+        data.runtime_mode = this._data.runtime_mode ?? (attrs.runtime_mode || "AUTO_SP");
       }
       
-      // For number fields, preserve edited values
       const numberFields = ['manual_out', 'manual_sp', 'deadband', 'kp', 'ki', 'kd', 'max_output', 'min_output'];
       for (const field of numberFields) {
         if (this._editingFields.has(field) || this._edited[field] !== undefined) {
-          // Keep the edited value - don't overwrite it while user is typing
           data[field] = this._edited[field] ?? this._data[field] ?? attrs[field] ?? null;
         } else {
-          // Update from entity state
           data[field] = attrs[field] ?? null;
         }
       }
@@ -212,26 +198,19 @@ class PIDControllerPopup extends LitElement {
   }
 
   _getValue(key) {
-    // Always prioritize edited value - this prevents overwriting user input
-    if (this._edited[key] !== undefined) {
-      return this._edited[key];
-    }
-    return this._data[key];
+    return this._edited[key] !== undefined ? this._edited[key] : this._data[key];
   }
 
   _onEnableChanged(ev) {
     this._edited.enabled = ev.target.checked;
-    // Auto-save on change
     this._save();
     this.requestUpdate();
   }
 
   _onModeChanged(ev) {
     ev.stopPropagation();
-    // ha-select uses ev.detail.value, not ev.target.value
     const value = ev.detail?.value || ev.target.value;
     this._edited.runtime_mode = value;
-    // Auto-save on change
     this._save();
     this.requestUpdate();
   }
@@ -240,21 +219,16 @@ class PIDControllerPopup extends LitElement {
     const value = parseFloat(ev.target.value);
     if (!isNaN(value)) {
       this._edited[key] = value;
-      this._editingFields.add(key); // Mark as being edited
-      // Also update _data immediately so it persists during updates
-      if (!this._data) this._data = {};
+      this._editingFields.add(key);
       this._data[key] = value;
     } else {
       delete this._edited[key];
       this._editingFields.delete(key);
     }
-    // Don't call requestUpdate here - let the input field handle its own state
   }
 
   _onNumberBlur(key, ev) {
-    // Mark field as no longer being edited
     this._editingFields.delete(key);
-    // Save on blur (when user leaves the field)
     if (this._edited[key] !== undefined) {
       this._save();
     }
@@ -322,17 +296,15 @@ class PIDControllerPopup extends LitElement {
             entity_id: numberEntity,
             value: patch[key],
           });
-          // Update the data immediately so the UI reflects the change
           this._data[key] = patch[key];
         }
       }
       
       // Clear edits after a delay to allow entity states to update
-      // Keep the edited values visible until the entity updates
       setTimeout(() => {
         this._edited = {};
         this._updateData();
-      }, 2000);
+      }, 1000);
       
       this.requestUpdate();
     } catch (err) {
@@ -347,13 +319,11 @@ class PIDControllerPopup extends LitElement {
   }
 
   _close() {
-    // Try to close the dialog if we're in one
     const dialog = this.closest("ha-dialog");
     if (dialog) {
       dialog.close();
     }
-    // If using browser_mod, try to close that way
-    if (this.hass && this.hass.callService) {
+    if (this.hass?.callService) {
       try {
         this.hass.callService("browser_mod", "close_popup", {});
       } catch (e) {
