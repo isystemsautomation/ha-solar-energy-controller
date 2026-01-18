@@ -50,7 +50,6 @@ from .const import (
     CONF_SP_MAX,
     CONF_GRID_MIN,
     CONF_GRID_MAX,
-    CONF_DIVIDER_ENABLED,
     DEFAULT_INVERT_PV,
     DEFAULT_INVERT_SP,
     DEFAULT_GRID_POWER_INVERT,
@@ -70,38 +69,8 @@ from .const import (
     DEFAULT_SP_MAX,
     DEFAULT_GRID_MIN,
     DEFAULT_GRID_MAX,
-    DEFAULT_DIVIDER_ENABLED,
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
-    CONF_CONSUMERS,
-    CONSUMER_ID,
-    CONSUMER_NAME,
-    CONSUMER_TYPE,
-    CONSUMER_ENABLE_CONTROL_MODE,
-    CONSUMER_ENABLE_TARGET_ENTITY_ID,
-    CONSUMER_STATE_ENTITY_ID,
-    CONSUMER_POWER_TARGET_ENTITY_ID,
-    CONSUMER_CONTROL_MODE_ONOFF,
-    CONSUMER_CONTROL_MODE_PRESS,
-    CONSUMER_PRIORITY,
-    CONSUMER_MAX_POWER_W,
-    CONSUMER_MIN_POWER_W,
-    CONSUMER_ON_THRESHOLD_W,
-    CONSUMER_OFF_THRESHOLD_W,
-    CONSUMER_TYPE_BINARY,
-    CONSUMER_TYPE_CONTROLLED,
-    CONSUMER_STEP_W,
-    CONSUMER_PID_DEADBAND_PCT,
-    CONSUMER_ASSUMED_POWER_W,
-    CONSUMER_DEFAULT_STEP_W,
-    CONSUMER_MIN_STEP_W,
-    CONSUMER_MAX_STEP_W,
-    CONSUMER_DEFAULT_PID_DEADBAND_PCT,
-    CONSUMER_MIN_PID_DEADBAND_PCT,
-    CONSUMER_MAX_PID_DEADBAND_PCT,
-    CONSUMER_DEFAULT_ASSUMED_POWER_W,
-    CONSUMER_MIN_ASSUMED_POWER_W,
-    CONSUMER_MAX_ASSUMED_POWER_W,
 )
 
 _PV_DOMAINS = {"sensor", "number", "input_number"}
@@ -240,9 +209,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         # config_entry is read-only in your HA version
         self._config_entry = config_entry
-        self._consumers: list[dict] = list(config_entry.options.get(CONF_CONSUMERS, []))
-        self._selected_consumer_id: str | None = None
-        self._pending_consumer_type: str | None = None
 
     @staticmethod
     def _coerce_int(value, default, min_value=1):
@@ -302,11 +268,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_SP_MIN, default=defaults[CONF_SP_MIN]): vol.Coerce(float),
             vol.Required(CONF_SP_MAX, default=defaults[CONF_SP_MAX]): vol.Coerce(float),
             vol.Required(CONF_GRID_MIN, default=defaults[CONF_GRID_MIN]): vol.Coerce(float),
-            vol.Required(CONF_GRID_MAX, default=defaults[CONF_GRID_MAX]): vol.Coerce(float),
-            vol.Optional(
-                CONF_DIVIDER_ENABLED,
-                default=defaults.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED),
-            ): bool,
+                vol.Required(CONF_GRID_MAX, default=defaults[CONF_GRID_MAX]): vol.Coerce(float),
         }
         
         # Add battery_soc_entity - only include default if we have a valid non-empty string value
@@ -380,7 +342,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SP_MAX: round(float(o.get(CONF_SP_MAX, self._config_entry.data.get(CONF_SP_MAX, DEFAULT_SP_MAX))), 1),
             CONF_GRID_MIN: round(float(o.get(CONF_GRID_MIN, self._config_entry.data.get(CONF_GRID_MIN, DEFAULT_GRID_MIN))), 1),
             CONF_GRID_MAX: round(float(o.get(CONF_GRID_MAX, self._config_entry.data.get(CONF_GRID_MAX, DEFAULT_GRID_MAX))), 1),
-            CONF_DIVIDER_ENABLED: o.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED),
         }
 
         if user_input is not None:
@@ -402,9 +363,8 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_PV_MAX: round(float(user_input.get(CONF_PV_MAX, defaults[CONF_PV_MAX])), 1),
                 CONF_SP_MIN: round(float(user_input.get(CONF_SP_MIN, defaults[CONF_SP_MIN])), 1),
                 CONF_SP_MAX: round(float(user_input.get(CONF_SP_MAX, defaults[CONF_SP_MAX])), 1),
-                CONF_GRID_MIN: round(float(user_input.get(CONF_GRID_MIN, defaults[CONF_GRID_MIN])), 1),
-                CONF_GRID_MAX: round(float(user_input.get(CONF_GRID_MAX, defaults[CONF_GRID_MAX])), 1),
-                CONF_DIVIDER_ENABLED: user_input.get(CONF_DIVIDER_ENABLED, defaults[CONF_DIVIDER_ENABLED]),
+            CONF_GRID_MIN: round(float(user_input.get(CONF_GRID_MIN, defaults[CONF_GRID_MIN])), 1),
+            CONF_GRID_MAX: round(float(user_input.get(CONF_GRID_MAX, defaults[CONF_GRID_MAX])), 1),
             }
             
             # Handle battery_soc_entity separately - it's optional, so only include if it has a valid non-empty value
@@ -474,7 +434,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                 options[CONF_BATTERY_SOC_ENTITY] = battery_soc_in_options
             else:
                 options.pop(CONF_BATTERY_SOC_ENTITY, None)
-            options[CONF_CONSUMERS] = self._consumers
             return self.async_create_entry(title="", data=options)
 
         try:
@@ -512,21 +471,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
     async def async_step_init(self, user_input=None):
-        # Only show consumer menu items if divider is enabled
-        divider_enabled = self._config_entry.options.get(CONF_DIVIDER_ENABLED, DEFAULT_DIVIDER_ENABLED)
         menu_options = {"configure": "Configure"}
-        
-        # Add divider toggle option - show opposite of current state
-        if divider_enabled:
-            menu_options["disable_divider"] = "Disable Energy Divider"
-            menu_options.update({
-                "add_consumer": "Add Consumer",
-                "edit_consumer": "Edit Consumer",
-                "remove_consumer": "Remove Consumer",
-            })
-        else:
-            menu_options["enable_divider"] = "Enable Energy Divider"
-        
         return self.async_show_menu(
             step_id="init",
             menu_options=menu_options,
@@ -534,292 +479,3 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_configure(self, user_input=None):
         return await self.async_step_init_settings(user_input)
-
-    async def async_step_enable_divider(self, user_input=None):
-        """Enable the Energy Divider."""
-        options = dict(self._config_entry.options)
-        options[CONF_DIVIDER_ENABLED] = True
-        options.setdefault(CONF_CONSUMERS, [])
-        self.hass.config_entries.async_update_entry(self._config_entry, options=options)
-        # Reload is required to add divider device and entities
-        # The reload will abort this flow automatically
-        await self.hass.config_entries.async_reload(self._config_entry.entry_id)
-        return self.async_abort(reason="reload_required")
-
-    async def async_step_disable_divider(self, user_input=None):
-        """Disable the Energy Divider."""
-        options = dict(self._config_entry.options)
-        options[CONF_DIVIDER_ENABLED] = False
-        self.hass.config_entries.async_update_entry(self._config_entry, options=options)
-        # Reload is required to remove divider device and entities
-        # The reload will abort this flow automatically
-        await self.hass.config_entries.async_reload(self._config_entry.entry_id)
-        return self.async_abort(reason="reload_required")
-
-    async def async_step_add_consumer(self, user_input=None):
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            consumer_type = user_input[CONSUMER_TYPE]
-            if consumer_type not in (CONSUMER_TYPE_CONTROLLED, CONSUMER_TYPE_BINARY):
-                errors["base"] = "invalid_consumer_type"
-            else:
-                self._pending_consumer_type = consumer_type
-                return await self.async_step_add_consumer_details()
-
-        return self.async_show_form(
-            step_id="add_consumer",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONSUMER_TYPE): vol.In(
-                        {CONSUMER_TYPE_CONTROLLED: "Controlled", CONSUMER_TYPE_BINARY: "Binary"}
-                    ),
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_add_consumer_details(self, user_input=None):
-        consumer_type = self._pending_consumer_type
-        if consumer_type is None:
-            return await self.async_step_add_consumer()
-
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            errors = self._validate_consumer_input(user_input, consumer_type)
-            if not errors:
-                # Generate new consumer ID and check for duplicates
-                new_consumer_id = uuid.uuid4().hex
-                existing_ids = {c.get(CONSUMER_ID) for c in self._consumers}
-                # Ensure uniqueness (shouldn't happen with UUID, but safety check)
-                while new_consumer_id in existing_ids:
-                    new_consumer_id = uuid.uuid4().hex
-                consumer = self._build_consumer(user_input, consumer_type, new_consumer_id)
-                self._consumers.append(consumer)
-                return self._create_entry_with_consumers()
-
-        return self.async_show_form(
-            step_id="add_consumer_details",
-            data_schema=self._consumer_schema(consumer_type, user_input or {}),
-            errors=errors,
-        )
-
-    async def async_step_edit_consumer(self, user_input=None):
-        if not self._consumers:
-            return self.async_abort(reason="no_consumers")
-
-        consumer_map = {c[CONSUMER_ID]: c[CONSUMER_NAME] for c in self._consumers}
-        if user_input is not None:
-            consumer_id = user_input.get("consumer")
-            if consumer_id in consumer_map:
-                self._selected_consumer_id = consumer_id
-                return await self.async_step_edit_consumer_details()
-
-        return self.async_show_form(
-            step_id="edit_consumer",
-            data_schema=vol.Schema({vol.Required("consumer"): vol.In(consumer_map)}),
-        )
-
-    async def async_step_edit_consumer_details(self, user_input=None):
-        if not self._selected_consumer_id:
-            return await self.async_step_edit_consumer()
-
-        consumer = next((c for c in self._consumers if c[CONSUMER_ID] == self._selected_consumer_id), None)
-        if consumer is None:
-            return await self.async_step_edit_consumer()
-
-        consumer_type = consumer[CONSUMER_TYPE]
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            errors = self._validate_consumer_input(user_input, consumer_type)
-            if not errors:
-                updated = self._build_consumer(user_input, consumer_type, consumer[CONSUMER_ID])
-                self._consumers = [
-                    updated if c[CONSUMER_ID] == self._selected_consumer_id else c for c in self._consumers
-                ]
-                return self._create_entry_with_consumers()
-
-        return self.async_show_form(
-            step_id="edit_consumer_details",
-            data_schema=self._consumer_schema(consumer_type, consumer),
-            errors=errors,
-        )
-
-    async def async_step_remove_consumer(self, user_input=None):
-        if not self._consumers:
-            return self.async_abort(reason="no_consumers")
-
-        consumer_map = {c[CONSUMER_ID]: c[CONSUMER_NAME] for c in self._consumers}
-        if user_input is not None:
-            consumer_id = user_input.get("consumer")
-            if consumer_id in consumer_map:
-                self._consumers = [c for c in self._consumers if c[CONSUMER_ID] != consumer_id]
-                return self._create_entry_with_consumers()
-
-        return self.async_show_form(
-            step_id="remove_consumer",
-            data_schema=vol.Schema({vol.Required("consumer"): vol.In(consumer_map)}),
-        )
-
-    def _consumer_schema(self, consumer_type: str, defaults: dict) -> vol.Schema:
-        control_mode_default = defaults.get(CONSUMER_ENABLE_CONTROL_MODE, CONSUMER_CONTROL_MODE_ONOFF)
-        if control_mode_default not in (CONSUMER_CONTROL_MODE_ONOFF, CONSUMER_CONTROL_MODE_PRESS):
-            control_mode_default = CONSUMER_CONTROL_MODE_ONOFF
-
-        enable_target_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(
-                domain=["button"] if control_mode_default == CONSUMER_CONTROL_MODE_PRESS else ["switch"]
-            )
-        )
-
-        base = {
-            vol.Required(CONSUMER_NAME, default=defaults.get(CONSUMER_NAME, "")): str,
-            vol.Required(CONSUMER_PRIORITY, default=defaults.get(CONSUMER_PRIORITY, 1)): vol.Coerce(int),
-            vol.Required(
-                CONSUMER_ENABLE_CONTROL_MODE, default=control_mode_default
-            ): vol.In({CONSUMER_CONTROL_MODE_ONOFF: "On/Off", CONSUMER_CONTROL_MODE_PRESS: "Button press"}),
-            vol.Required(
-                CONSUMER_ENABLE_TARGET_ENTITY_ID, default=defaults.get(CONSUMER_ENABLE_TARGET_ENTITY_ID, "")
-            ): enable_target_selector,
-            vol.Optional(
-                CONSUMER_STATE_ENTITY_ID, default=defaults.get(CONSUMER_STATE_ENTITY_ID)
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "binary_sensor", "sensor"])),
-        }
-        if consumer_type == CONSUMER_TYPE_CONTROLLED:
-            base.update(
-                {
-                    vol.Required(CONSUMER_MIN_POWER_W, default=defaults.get(CONSUMER_MIN_POWER_W, 0.0)): vol.Coerce(
-                        float
-                    ),
-                    vol.Required(
-                        CONSUMER_MAX_POWER_W, default=defaults.get(CONSUMER_MAX_POWER_W, 0.0)
-                    ): vol.Coerce(float),
-                    vol.Required(
-                        CONSUMER_POWER_TARGET_ENTITY_ID, default=defaults.get(CONSUMER_POWER_TARGET_ENTITY_ID, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["number", "input_number"])),
-                    vol.Required(
-                        CONSUMER_STEP_W,
-                        default=defaults.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W),
-                    ): vol.All(
-                        vol.Coerce(float),
-                        vol.Range(min=CONSUMER_MIN_STEP_W, max=CONSUMER_MAX_STEP_W),
-                    ),
-                    vol.Required(
-                        CONSUMER_PID_DEADBAND_PCT,
-                        default=defaults.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT),
-                    ): vol.All(
-                        vol.Coerce(float),
-                        vol.Range(min=CONSUMER_MIN_PID_DEADBAND_PCT, max=CONSUMER_MAX_PID_DEADBAND_PCT),
-                    ),
-                }
-            )
-        else:
-            base.update(
-                {
-                    vol.Required(
-                        CONSUMER_ON_THRESHOLD_W, default=defaults.get(CONSUMER_ON_THRESHOLD_W, 0.0)
-                    ): vol.Coerce(float),
-                    vol.Required(
-                        CONSUMER_OFF_THRESHOLD_W, default=defaults.get(CONSUMER_OFF_THRESHOLD_W, 0.0)
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONSUMER_ASSUMED_POWER_W,
-                        default=defaults.get(CONSUMER_ASSUMED_POWER_W, CONSUMER_DEFAULT_ASSUMED_POWER_W),
-                    ): vol.All(
-                        vol.Coerce(float),
-                        vol.Range(min=CONSUMER_MIN_ASSUMED_POWER_W, max=CONSUMER_MAX_ASSUMED_POWER_W),
-                    ),
-                }
-            )
-
-        return vol.Schema(base)
-
-    def _validate_consumer_input(self, user_input: dict, consumer_type: str) -> dict[str, str]:
-        errors: dict[str, str] = {}
-        control_mode = user_input.get(CONSUMER_ENABLE_CONTROL_MODE, CONSUMER_CONTROL_MODE_ONOFF)
-        if control_mode not in (CONSUMER_CONTROL_MODE_ONOFF, CONSUMER_CONTROL_MODE_PRESS):
-            errors[CONSUMER_ENABLE_CONTROL_MODE] = "invalid_enable_control_mode"
-
-        enable_target_domain = _extract_domain(user_input.get(CONSUMER_ENABLE_TARGET_ENTITY_ID))
-        if control_mode == CONSUMER_CONTROL_MODE_PRESS:
-            if enable_target_domain != "button":
-                errors[CONSUMER_ENABLE_TARGET_ENTITY_ID] = "invalid_enable_target"
-        elif control_mode == CONSUMER_CONTROL_MODE_ONOFF:
-            if enable_target_domain != "switch":
-                errors[CONSUMER_ENABLE_TARGET_ENTITY_ID] = "invalid_enable_target"
-
-        state_domain = _extract_domain(user_input.get(CONSUMER_STATE_ENTITY_ID))
-        if state_domain and state_domain not in {"switch", "binary_sensor", "sensor"}:
-            errors[CONSUMER_STATE_ENTITY_ID] = "invalid_state_entity_domain"
-
-        try:
-            min_power = float(user_input.get(CONSUMER_MIN_POWER_W, 0.0))
-            max_power = float(user_input.get(CONSUMER_MAX_POWER_W, 0.0))
-        except (TypeError, ValueError):
-            min_power = max_power = 0.0
-
-        if consumer_type == CONSUMER_TYPE_CONTROLLED and max_power <= min_power:
-            errors["base"] = "invalid_power_range"
-        if consumer_type == CONSUMER_TYPE_CONTROLLED:
-            power_target_domain = _extract_domain(user_input.get(CONSUMER_POWER_TARGET_ENTITY_ID))
-            if power_target_domain and power_target_domain not in {"number", "input_number"}:
-                errors[CONSUMER_POWER_TARGET_ENTITY_ID] = "invalid_power_target_domain"
-            try:
-                step_w = float(user_input.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
-                pid_deadband_pct = float(
-                    user_input.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT)
-                )
-                if not (
-                    CONSUMER_MIN_STEP_W <= step_w <= CONSUMER_MAX_STEP_W
-                    and CONSUMER_MIN_PID_DEADBAND_PCT <= pid_deadband_pct <= CONSUMER_MAX_PID_DEADBAND_PCT
-                ):
-                    errors["base"] = "invalid_consumer_settings"
-            except (TypeError, ValueError):
-                errors["base"] = "invalid_consumer_settings"
-
-        if consumer_type == CONSUMER_TYPE_BINARY:
-            try:
-                on_threshold = float(user_input.get(CONSUMER_ON_THRESHOLD_W, 0.0))
-                off_threshold = float(user_input.get(CONSUMER_OFF_THRESHOLD_W, 0.0))
-                if on_threshold < off_threshold:
-                    errors["base"] = "invalid_threshold_range"
-                assumed_power = float(
-                    user_input.get(CONSUMER_ASSUMED_POWER_W, CONSUMER_DEFAULT_ASSUMED_POWER_W)
-                )
-                if not (CONSUMER_MIN_ASSUMED_POWER_W <= assumed_power <= CONSUMER_MAX_ASSUMED_POWER_W):
-                    errors["base"] = "invalid_consumer_settings"
-            except (TypeError, ValueError):
-                errors["base"] = "invalid_threshold_range"
-        return errors
-
-    def _build_consumer(self, user_input: dict, consumer_type: str, consumer_id: str) -> dict:
-        consumer = {
-            CONSUMER_ID: consumer_id,
-            CONSUMER_NAME: user_input[CONSUMER_NAME],
-            CONSUMER_TYPE: consumer_type,
-            CONSUMER_PRIORITY: int(user_input[CONSUMER_PRIORITY]),
-            CONSUMER_ENABLE_CONTROL_MODE: user_input.get(
-                CONSUMER_ENABLE_CONTROL_MODE, CONSUMER_CONTROL_MODE_ONOFF
-            ),
-            CONSUMER_ENABLE_TARGET_ENTITY_ID: user_input.get(CONSUMER_ENABLE_TARGET_ENTITY_ID),
-            CONSUMER_STATE_ENTITY_ID: user_input.get(CONSUMER_STATE_ENTITY_ID),
-        }
-        if consumer_type == CONSUMER_TYPE_CONTROLLED:
-            consumer[CONSUMER_MIN_POWER_W] = float(user_input[CONSUMER_MIN_POWER_W])
-            consumer[CONSUMER_MAX_POWER_W] = float(user_input[CONSUMER_MAX_POWER_W])
-            consumer[CONSUMER_POWER_TARGET_ENTITY_ID] = user_input.get(CONSUMER_POWER_TARGET_ENTITY_ID, "")
-            consumer[CONSUMER_STEP_W] = float(user_input.get(CONSUMER_STEP_W, CONSUMER_DEFAULT_STEP_W))
-            consumer[CONSUMER_PID_DEADBAND_PCT] = float(
-                user_input.get(CONSUMER_PID_DEADBAND_PCT, CONSUMER_DEFAULT_PID_DEADBAND_PCT)
-            )
-        else:
-            consumer[CONSUMER_ON_THRESHOLD_W] = float(user_input[CONSUMER_ON_THRESHOLD_W])
-            consumer[CONSUMER_OFF_THRESHOLD_W] = float(user_input[CONSUMER_OFF_THRESHOLD_W])
-            consumer[CONSUMER_ASSUMED_POWER_W] = float(
-                user_input.get(CONSUMER_ASSUMED_POWER_W, CONSUMER_DEFAULT_ASSUMED_POWER_W)
-            )
-        return consumer
-
-    def _create_entry_with_consumers(self):
-        options = dict(self._config_entry.options)
-        options[CONF_CONSUMERS] = self._consumers
-        return self.async_create_entry(title="", data=options)
