@@ -200,7 +200,10 @@ class PIDControllerPopup extends LitElement {
   }
 
   _onModeChanged(ev) {
-    this._edited.runtime_mode = ev.target.value;
+    ev.stopPropagation();
+    // ha-select uses ev.detail.value, not ev.target.value
+    const value = ev.detail?.value || ev.target.value;
+    this._edited.runtime_mode = value;
     this.requestUpdate();
   }
 
@@ -232,18 +235,61 @@ class PIDControllerPopup extends LitElement {
 
     const patch = { ...this._edited };
     
-    // Call service
+    // Extract device name from status entity ID (e.g., sensor.charger_pid_status -> charger_pid)
+    const statusEntity = this.config.pid_entity;
+    const deviceName = statusEntity.replace(/^sensor\./, "").replace(/_status$/, "");
+    
     try {
-      await this.hass.callService("pid_controller", "set", {
-        entity_id: this.config.pid_entity,
-        ...patch,
-      });
+      // Update enabled switch
+      if (patch.enabled !== undefined) {
+        const enabledEntity = `switch.${deviceName}_enabled`;
+        await this.hass.callService("switch", patch.enabled ? "turn_on" : "turn_off", {
+          entity_id: enabledEntity,
+        });
+        delete patch.enabled;
+      }
       
-      // Clear edits and refresh
+      // Update runtime mode select
+      if (patch.runtime_mode !== undefined) {
+        const runtimeModeEntity = `select.${deviceName}_runtime_mode`;
+        await this.hass.callService("select", "select_option", {
+          entity_id: runtimeModeEntity,
+          option: patch.runtime_mode,
+        });
+        delete patch.runtime_mode;
+      }
+      
+      // Update number entities (kp, ki, kd, deadband, min_output, max_output, manual_out, manual_sp)
+      const numberMappings = {
+        kp: "kp",
+        ki: "ki",
+        kd: "kd",
+        deadband: "pid_deadband",
+        min_output: "min_output",
+        max_output: "max_output",
+        manual_out: "manual_out_value",
+        manual_sp: "manual_sp_value",
+      };
+      
+      for (const [key, entitySuffix] of Object.entries(numberMappings)) {
+        if (patch[key] !== undefined) {
+          const numberEntity = `number.${deviceName}_${entitySuffix}`;
+          await this.hass.callService("number", "set_value", {
+            entity_id: numberEntity,
+            value: patch[key],
+          });
+          delete patch[key];
+        }
+      }
+      
+      // Clear edits and refresh after a short delay
       this._edited = {};
-      this._updateData();
+      setTimeout(() => {
+        this._updateData();
+      }, 500);
     } catch (err) {
-      alert(`Error saving: ${err.message}`);
+      alert(`Error saving: ${err.message || err}`);
+      console.error("Error saving PID settings:", err);
     }
   }
 

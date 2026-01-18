@@ -198,6 +198,8 @@ class PIDControllerMini extends LitElement {
     const dialog = document.createElement("ha-dialog");
     dialog.heading = this.config.title || "PID Controller";
     dialog.hideActions = false;
+    dialog.scrimClickAction = "";
+    dialog.escapeKeyAction = "";
     
     const popupCard = document.createElement("pid-controller-popup");
     popupCard.hass = this.hass;
@@ -205,12 +207,14 @@ class PIDControllerMini extends LitElement {
       pid_entity: this.config.pid_entity,
     };
     
-    dialog.appendChild(popupCard);
-    
-    dialog.addEventListener("closed", () => {
+    // Add close button handler
+    const closeHandler = () => {
       document.body.removeChild(dialog);
-    });
+    };
     
+    dialog.addEventListener("closed", closeHandler);
+    
+    dialog.appendChild(popupCard);
     document.body.appendChild(dialog);
     dialog.show();
   }
