@@ -178,12 +178,12 @@ class PIDControllerPopup extends LitElement {
     this._updateReadOnlyValues();
     
     this._updateInterval = setInterval(() => {
-      if (this.hass && this.config) {
+      if (this.hass && this.config && this._editingFields.size === 0) {
         const state = this.hass.states[this.config.pid_entity];
         if (state) {
           this._updateReadOnlyValues();
           this._checkEntityStateChanges();
-          if (this._editingFields.size === 0 && (!this._lastFullUpdate || (Date.now() - this._lastFullUpdate > 2000))) {
+          if (!this._lastFullUpdate || (Date.now() - this._lastFullUpdate > 2000)) {
             this._updateData();
             this._lastFullUpdate = Date.now();
           }
@@ -194,7 +194,10 @@ class PIDControllerPopup extends LitElement {
 
   _checkEntityStateChanges() {
     if (!this.hass || !this.config) return;
-    if (this._editingFields.size > 0) return; // Don't update while user is editing any field
+    // Don't update while user is editing any field - this is critical to prevent overwriting user input
+    if (this._editingFields.size > 0) {
+      return;
+    }
     
     const state = this.hass.states[this.config.pid_entity];
     if (!state?.attributes) return;
@@ -343,6 +346,8 @@ class PIDControllerPopup extends LitElement {
 
   _updateData() {
     if (!this.hass || !this.config) return;
+    // Don't update data while user is actively editing any field
+    if (this._editingFields.size > 0) return;
 
     const state = this.hass.states[this.config.pid_entity];
     if (!state) return;
@@ -510,6 +515,12 @@ class PIDControllerPopup extends LitElement {
   }
 
   _getValue(key) {
+    // If field is being edited, always return the edited value (even if undefined/null)
+    // This ensures the input field shows what the user is typing
+    if (this._editingFields.has(key)) {
+      return this._edited[key] !== undefined ? this._edited[key] : (this._data[key] ?? "");
+    }
+    // Otherwise return edited value if exists, else data value
     return this._edited[key] !== undefined ? this._edited[key] : this._data[key];
   }
 
@@ -529,29 +540,35 @@ class PIDControllerPopup extends LitElement {
   }
 
   _onNumberChanged(key, ev) {
-    const value = parseFloat(ev.target.value);
+    const inputValue = ev.target.value;
+    const value = parseFloat(inputValue);
+    
+    // Always add to editing fields when user is typing
+    this._editingFields.add(key);
+    
     if (!isNaN(value)) {
       this._edited[key] = value;
-      this._editingFields.add(key);
       this._data[key] = value;
-      this.requestUpdate();
-    } else if (ev.target.value === "" || ev.target.value === "-") {
-      // Allow empty or minus sign while typing
+    } else if (inputValue === "" || inputValue === "-" || inputValue === "." || inputValue === "-.") {
+      // Allow empty, minus sign, or decimal point while typing
       this._edited[key] = undefined;
-      this._editingFields.add(key);
       this._data[key] = null;
-      this.requestUpdate();
     } else {
-      delete this._edited[key];
-      this._editingFields.delete(key);
+      // Invalid input - keep previous value
+      return;
     }
+    
+    this.requestUpdate();
   }
 
   async _onNumberBlur(key, ev) {
-    this._editingFields.delete(key);
+    // Don't remove from editing fields until after save completes
+    // This prevents race conditions where updates might overwrite the value
     if (this._edited[key] !== undefined) {
       await this._save();
     }
+    // Remove from editing fields after save completes
+    this._editingFields.delete(key);
     this.requestUpdate();
   }
 
@@ -774,10 +791,11 @@ class PIDControllerPopup extends LitElement {
               <div class="control-label">Manual Output</div>
               <ha-textfield
                 type="number"
-                .value=${manual_out ?? ""}
+                .value=${String(manual_out ?? "")}
                 @input=${(e) => this._onNumberChanged("manual_out", e)}
                 @blur=${(e) => this._onNumberBlur("manual_out", e)}
                 placeholder="—"
+                .disabled=${false}
               ></ha-textfield>
             </div>
 
@@ -785,10 +803,11 @@ class PIDControllerPopup extends LitElement {
               <div class="control-label">Manual Setpoint</div>
               <ha-textfield
                 type="number"
-                .value=${manual_sp ?? ""}
+                .value=${String(manual_sp ?? "")}
                 @input=${(e) => this._onNumberChanged("manual_sp", e)}
                 @blur=${(e) => this._onNumberBlur("manual_sp", e)}
                 placeholder="—"
+                .disabled=${false}
               ></ha-textfield>
             </div>
           </div>
