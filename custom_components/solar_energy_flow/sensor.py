@@ -166,8 +166,8 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
             "deadband": self._entry.options.get(CONF_PID_DEADBAND, DEFAULT_PID_DEADBAND),
             "min_output": self._entry.options.get(CONF_MIN_OUTPUT, DEFAULT_MIN_OUTPUT),
             "max_output": self._entry.options.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT),
-            "manual_out": self._entry.options.get(CONF_MANUAL_OUT_VALUE, DEFAULT_MANUAL_OUT_VALUE),
-            "manual_sp": self._entry.options.get(CONF_MANUAL_SP_VALUE, DEFAULT_MANUAL_SP_VALUE),
+            "manual_out": self.coordinator.get_manual_out_value(),
+            "manual_sp": self.coordinator.get_manual_sp_value(),
             "limiter_state": getattr(data, "limiter_state", None),
             "output_pre_rate_limit": getattr(data, "output_pre_rate_limit", None),
         }
