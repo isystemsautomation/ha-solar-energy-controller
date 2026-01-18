@@ -127,6 +127,10 @@ class PIDControllerPopup extends LitElement {
         this._updateReadOnlyValues();
       }
     }, 1000);
+    // Initial update
+    if (this.hass && this.config) {
+      this._updateReadOnlyValues();
+    }
   }
 
   disconnectedCallback() {
@@ -151,6 +155,10 @@ class PIDControllerPopup extends LitElement {
   updated(changedProperties) {
     if (changedProperties.has("hass") || changedProperties.has("config")) {
       this._updateData();
+    }
+    // Also trigger live updates when hass state changes
+    if (changedProperties.has("hass")) {
+      this._updateReadOnlyValues();
     }
   }
 
@@ -191,15 +199,26 @@ class PIDControllerPopup extends LitElement {
       
       const numberFields = ['manual_out', 'manual_sp', 'deadband', 'kp', 'ki', 'kd', 'max_output', 'min_output'];
       for (const field of numberFields) {
-        if (this._editingFields.has(field) || this._edited[field] !== undefined) {
+        if (this._editingFields.has(field)) {
+          // Currently being edited - keep edited value
           data[field] = this._edited[field] ?? this._data[field] ?? attrs[field] ?? null;
+        } else if (this._edited[field] !== undefined) {
+          // Has unsaved edits - keep edited value
+          data[field] = this._edited[field];
         } else {
+          // No edits - update from entity state if not recently saved
           const savedTime = this._savedFields.get(field);
           if (!savedTime || (now - savedTime > SAVE_TIMEOUT)) {
             if (!savedTime || Math.abs((attrs[field] ?? 0) - (this._data[field] ?? 0)) < 0.01) {
               data[field] = attrs[field] ?? null;
               this._savedFields.delete(field);
+            } else {
+              // Entity state doesn't match - keep current data value
+              data[field] = this._data[field] ?? attrs[field] ?? null;
             }
+          } else {
+            // Recently saved - keep current data value
+            data[field] = this._data[field] ?? attrs[field] ?? null;
           }
         }
       }
@@ -228,18 +247,33 @@ class PIDControllerPopup extends LitElement {
     const state = this.hass.states[this.config.pid_entity];
     if (state?.attributes) {
       const attrs = state.attributes;
-      this._data.pv_value = attrs.pv_value ?? null;
-      this._data.effective_sp = attrs.effective_sp ?? null;
-      this._data.error = attrs.error ?? null;
-      this._data.output = attrs.output ?? null;
-      this._data.p_term = attrs.p_term ?? null;
-      this._data.i_term = attrs.i_term ?? null;
-      this._data.d_term = attrs.d_term ?? null;
-      this._data.grid_power = attrs.grid_power ?? null;
-      this._data.status = attrs.status || "unknown";
-      this._data.limiter_state = attrs.limiter_state ?? null;
-      this._data.output_pre_rate_limit = attrs.output_pre_rate_limit ?? null;
-      this.requestUpdate();
+      const hasChanges = 
+        this._data.pv_value !== (attrs.pv_value ?? null) ||
+        this._data.effective_sp !== (attrs.effective_sp ?? null) ||
+        this._data.error !== (attrs.error ?? null) ||
+        this._data.output !== (attrs.output ?? null) ||
+        this._data.p_term !== (attrs.p_term ?? null) ||
+        this._data.i_term !== (attrs.i_term ?? null) ||
+        this._data.d_term !== (attrs.d_term ?? null) ||
+        this._data.grid_power !== (attrs.grid_power ?? null) ||
+        this._data.status !== (attrs.status || "unknown") ||
+        this._data.limiter_state !== (attrs.limiter_state ?? null) ||
+        this._data.output_pre_rate_limit !== (attrs.output_pre_rate_limit ?? null);
+      
+      if (hasChanges) {
+        this._data.pv_value = attrs.pv_value ?? null;
+        this._data.effective_sp = attrs.effective_sp ?? null;
+        this._data.error = attrs.error ?? null;
+        this._data.output = attrs.output ?? null;
+        this._data.p_term = attrs.p_term ?? null;
+        this._data.i_term = attrs.i_term ?? null;
+        this._data.d_term = attrs.d_term ?? null;
+        this._data.grid_power = attrs.grid_power ?? null;
+        this._data.status = attrs.status || "unknown";
+        this._data.limiter_state = attrs.limiter_state ?? null;
+        this._data.output_pre_rate_limit = attrs.output_pre_rate_limit ?? null;
+        this.requestUpdate();
+      }
     }
   }
 
