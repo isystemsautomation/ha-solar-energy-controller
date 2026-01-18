@@ -554,24 +554,47 @@ class PIDControllerMini extends LitElement {
       const shadowRoot = dialog.shadowRoot;
       if (!shadowRoot) return;
       
-      const header = shadowRoot.querySelector(".mdc-dialog__header") || 
-                     shadowRoot.querySelector("h2")?.parentElement ||
-                     shadowRoot.querySelector('[slot="heading"]')?.parentElement;
+      const allElements = shadowRoot.querySelectorAll("*");
+      let header = null;
+      let title = null;
       
-      if (header) {
-        header.style.position = "relative";
-        header.style.paddingLeft = "56px";
-        
-        const closeButton = document.createElement("mwc-icon-button");
-        closeButton.style.cssText = "position: absolute; left: 8px; top: 50%; transform: translateY(-50%); --mdc-icon-button-size: 40px; --mdc-icon-size: 24px; z-index: 10; color: var(--primary-text-color);";
-        const closeIcon = document.createElement("ha-icon");
-        closeIcon.setAttribute("icon", "mdi:close");
-        closeButton.appendChild(closeIcon);
-        closeButton.addEventListener("click", () => dialog.close());
-        
-        header.insertBefore(closeButton, header.firstChild);
+      for (const el of allElements) {
+        if (el.classList?.contains("mdc-dialog__header") || 
+            el.classList?.contains("mdc-dialog__title") ||
+            (el.tagName === "H2" && el.textContent?.includes("pid"))) {
+          header = el.classList?.contains("mdc-dialog__header") ? el : el.parentElement;
+          title = el.tagName === "H2" || el.classList?.contains("mdc-dialog__title") ? el : el.querySelector("h2") || el.querySelector(".mdc-dialog__title");
+          break;
+        }
       }
-    }, 200);
+      
+      if (!header) {
+        const h2 = shadowRoot.querySelector("h2");
+        if (h2) {
+          header = h2.parentElement;
+          title = h2;
+        }
+      }
+      
+      if (header && title) {
+        header.style.position = "relative";
+        header.style.display = "flex";
+        header.style.alignItems = "center";
+        
+        if (!header.querySelector("mwc-icon-button")) {
+          header.style.paddingLeft = "56px";
+          
+          const closeButton = document.createElement("mwc-icon-button");
+          closeButton.style.cssText = "position: absolute; left: 8px; top: 50%; transform: translateY(-50%); --mdc-icon-button-size: 40px; --mdc-icon-size: 24px; z-index: 10; color: var(--primary-text-color);";
+          const closeIcon = document.createElement("ha-icon");
+          closeIcon.setAttribute("icon", "mdi:close");
+          closeButton.appendChild(closeIcon);
+          closeButton.addEventListener("click", () => dialog.close());
+          
+          header.insertBefore(closeButton, header.firstChild);
+        }
+      }
+    }, 500);
   }
 
   render() {
