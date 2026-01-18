@@ -123,6 +123,30 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
         data = self._data
         return getattr(data, "status", None)
 
+    @property
+    def extra_state_attributes(self):
+        """Expose all PID data as attributes for the custom card."""
+        data = self._data
+        if not data:
+            return {}
+        
+        # Get runtime options from coordinator
+        options = self.coordinator._build_runtime_options()
+        
+        return {
+            "enabled": options.enabled,
+            "runtime_mode": options.runtime_mode,
+            "pv_value": getattr(data, "pv", None),
+            "effective_sp": getattr(data, "sp", None),
+            "error": getattr(data, "error", None),
+            "output": getattr(data, "out", None),
+            "status": getattr(data, "status", None),
+            "p_term": getattr(data, "p_term", None),
+            "i_term": getattr(data, "i_term", None),
+            "d_term": getattr(data, "d_term", None),
+            "grid_power": getattr(data, "grid_power", None),
+        }
+
 
 class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
     _attr_icon = "mdi:home-lightning-bolt-outline"
