@@ -103,5 +103,25 @@
         "unit_of_measurement": "points/s"
       }
     }
+  },
+  "exceptions": {
+    "number_failed_set_value": {
+      "message": "Failed to set {name} value."
+    },
+    "manual_value_wrong_mode": {
+      "message": "Cannot set {name} value: controller is in {runtime_mode} mode. Switch to {name} mode first."
+    },
+    "select_invalid_option": {
+      "message": "Invalid option '{option}' for {name}. Valid options are: {valid_options}."
+    },
+    "select_failed_set_option": {
+      "message": "Failed to set {name} option."
+    },
+    "switch_failed_update_enabled": {
+      "message": "Failed to update enabled state."
+    },
+    "switch_failed_update_state": {
+      "message": "Failed to update {name} state."
+    }
   }
 }

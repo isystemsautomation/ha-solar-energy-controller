@@ -73,7 +73,10 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to update enabled state: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="switch_failed_update_enabled",
+            ) from err
 
 
 class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
@@ -151,4 +154,8 @@ class SolarEnergyFlowGridLimiterSwitch(CoordinatorEntity, SwitchEntity):
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to update {self._attr_name} state: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="switch_failed_update_state",
+                translation_placeholders={"name": self._attr_name},
+            ) from err

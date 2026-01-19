@@ -112,8 +112,13 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         if option not in self._attr_options:
             raise ServiceValidationError(
-                f"Invalid option '{option}' for {self._attr_name}. "
-                f"Valid options are: {', '.join(self._attr_options)}"
+                translation_domain=DOMAIN,
+                translation_key="select_invalid_option",
+                translation_placeholders={
+                    "option": option,
+                    "name": self._attr_name,
+                    "valid_options": ", ".join(self._attr_options),
+                },
             )
 
         try:
@@ -150,4 +155,8 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to set {self._attr_name} option: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="select_failed_set_option",
+                translation_placeholders={"name": self._attr_name},
+            ) from err

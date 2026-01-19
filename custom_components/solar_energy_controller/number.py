@@ -266,7 +266,11 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to set {self._attr_name} value: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="number_failed_set_value",
+                translation_placeholders={"name": self._attr_name},
+            ) from err
 
 
 class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
@@ -351,8 +355,12 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
         if not allowed:
             mode_name = "Manual SP" if self._option_key == CONF_MANUAL_SP_VALUE else "Manual OUT"
             raise ServiceValidationError(
-                f"Cannot set {mode_name} value: controller is in {runtime_mode} mode. "
-                f"Switch to {mode_name} mode first."
+                translation_domain=DOMAIN,
+                translation_key="manual_value_wrong_mode",
+                translation_placeholders={
+                    "name": mode_name,
+                    "runtime_mode": runtime_mode,
+                },
             )
 
         try:
@@ -373,4 +381,8 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to set {self._attr_name} value: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="number_failed_set_value",
+                translation_placeholders={"name": self._attr_name},
+            ) from err
