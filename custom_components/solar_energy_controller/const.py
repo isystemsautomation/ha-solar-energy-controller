@@ -1,4 +1,4 @@
-DOMAIN = "solar_energy_flow"
+DOMAIN = "solar_energy_controller"
 
 CONF_PROCESS_VALUE_ENTITY = "process_value_entity"
 CONF_SETPOINT_ENTITY = "setpoint_entity"

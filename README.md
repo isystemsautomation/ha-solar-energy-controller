@@ -1,9 +1,9 @@
-# Solar Energy Flow Controller
+# Solar Energy Controller
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-41BDF5.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/github/v/release/isystemsautomation/ha-solar-energy-flow?display_name=tag)](https://github.com/isystemsautomation/ha-solar-energy-flow/releases)
-[![Issues](https://img.shields.io/github/issues/isystemsautomation/ha-solar-energy-flow)](https://github.com/isystemsautomation/ha-solar-energy-flow/issues)
+[![Version](https://img.shields.io/github/v/release/isystemsautomation/ha-solar-energy-controller?display_name=tag)](https://github.com/isystemsautomation/ha-solar-energy-controller/releases)
+[![Issues](https://img.shields.io/github/issues/isystemsautomation/ha-solar-energy-controller)](https://github.com/isystemsautomation/ha-solar-energy-controller/issues)
 
 A **PID-based control integration for Home Assistant** that regulates a numeric output entity based on a measured process value and a setpoint, with optional grid import/export limiting.
 
@@ -64,10 +64,10 @@ What this means:
 
 1. In HACS, go to **Integrations → ⋮ → Custom repositories**
 2. Add this repository URL and select **Integration**
-3. Install **Solar Energy Flow Controller**
+3. Install **Solar Energy Controller**
 4. Restart Home Assistant
 5. Go to **Settings → Devices & Services → Add Integration**
-6. Search for **Solar Energy Flow Controller**
+6. Search for **Solar Energy Controller**
 
 ---
 
@@ -76,7 +76,7 @@ What this means:
 During setup you select the entities used by the controller and define their operating ranges for normalization.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration1.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration1.png" width="300">
 </p>
 
 | Item | Description | Supported Domains |
@@ -102,7 +102,7 @@ Invalid entity domains are rejected during setup.
 After installation, you can configure signal interpretation and controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration2.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration2.png" width="300">
 </p>
 
 ### Options
@@ -123,7 +123,7 @@ After installation, you can configure signal interpretation and controller behav
 Runtime controls allow switching modes and manually overriding behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration3.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration3.png" width="200">
 </p>
 
 ### Runtime Modes
@@ -144,7 +144,7 @@ Mode transitions use **bumpless transfer** to avoid output jumps.
 The integration exposes detailed runtime sensors for transparency and tuning.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration4.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration4.png" width="200">
 </p>
 
 ### Sensors
@@ -168,7 +168,7 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 All tuning and limiter parameters are available as number and switch entities.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration5.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration5.png" width="200">
 </p>
 
 ### PID & Limits
@@ -197,7 +197,7 @@ All tuning and limiter parameters are available as number and switch entities.
 Additional diagnostic entities help understand controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-flow/main/images/Configuration6.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration6.png" width="200">
 </p>
 
 ### Diagnostic Entities
@@ -246,5 +246,5 @@ These reflect internal controller state and error conditions.
 
 ## Support
 
-- Issues: https://github.com/isystemsautomation/ha-solar-energy-flow/issues
-- Documentation: https://github.com/isystemsautomation/ha-solar-energy-flow/
+- Issues: https://github.com/isystemsautomation/ha-solar-energy-controller/issues
+- Documentation: https://github.com/isystemsautomation/ha-solar-energy-controller/

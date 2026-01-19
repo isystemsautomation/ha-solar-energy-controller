@@ -9,7 +9,7 @@
     },
     "step": {
       "user": {
-        "title": "Solar Energy Flow Controller",
+        "title": "Solar Energy Controller",
         "description": "Choose the input (process value), target (setpoint), and the entity to control (output).",
         "data": {
           "name": "Name",
@@ -73,7 +73,7 @@
   },
   "entity": {
     "select": {
-      "solar_energy_flow_runtime_mode": {
+      "solar_energy_controller_runtime_mode": {
         "name": "Runtime mode",
         "options": {
           "AUTO SP": "AUTO SP",
@@ -84,18 +84,18 @@
       }
     },
     "switch": {
-      "solar_energy_flow_rate_limiter": {
+      "solar_energy_controller_rate_limiter": {
         "name": "Rate limiter"
       }
     },
     "number": {
-      "solar_energy_flow_manual_sp_value": {
+      "solar_energy_controller_manual_sp_value": {
         "name": "Manual SP"
       },
-      "solar_energy_flow_manual_out_value": {
+      "solar_energy_controller_manual_out_value": {
         "name": "Manual OUT"
       },
-      "solar_energy_flow_rate_limit": {
+      "solar_energy_controller_rate_limit": {
         "name": "Rate limit",
         "unit_of_measurement": "points/s"
       }

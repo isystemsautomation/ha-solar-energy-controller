@@ -1,6 +1,6 @@
 {
-  "name": "Solar Energy Flow Controller",
+  "name": "Solar Energy Controller",
   "content_in_root": false,
-  "domains": ["solar_energy_flow"],
+  "domains": ["solar_energy_controller"],
   "homeassistant": "2023.9.0"
 }

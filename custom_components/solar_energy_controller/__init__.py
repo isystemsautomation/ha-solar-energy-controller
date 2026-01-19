@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    _LOGGER.info("Solar Energy Flow: Initializing integration")
+    _LOGGER.info("Solar Energy Controller: Initializing integration")
     
     version = "0.1.2"
     try:
@@ -44,9 +44,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 cache_headers=False
             )
         ])
-        _LOGGER.info("Solar Energy Flow: Registered static path: /%s/frontend -> %s", DOMAIN, frontend_path)
+        _LOGGER.info("Solar Energy Controller: Registered static path: /%s/frontend -> %s", DOMAIN, frontend_path)
     else:
-        _LOGGER.warning("Solar Energy Flow: Frontend directory not found: %s", frontend_path)
+        _LOGGER.warning("Solar Energy Controller: Frontend directory not found: %s", frontend_path)
 
     async def register_resources(_event: Event) -> None:
         _LOGGER.info("Attempting to register Lovelace resources for %s", DOMAIN)
@@ -146,7 +146,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.entry_id)},
         name=entry.title,
-        manufacturer="Solar Energy Flow",
+        manufacturer="Solar Energy Controller",
         model="PID Controller",
     )
 

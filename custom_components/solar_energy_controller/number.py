@@ -204,7 +204,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Solar Energy Flow",
+            manufacturer="Solar Energy Controller",
             model="PID Controller",
         )
 
@@ -274,7 +274,7 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Solar Energy Flow",
+            manufacturer="Solar Energy Controller",
             model="PID Controller",
         )
 
