@@ -43,9 +43,11 @@ from .const import (
 )
 from .coordinator import SolarEnergyFlowCoordinator
 
+type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator: SolarEnergyFlowCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    coordinator = entry.runtime_data
 
     entities: list[NumberEntity] = [
         SolarEnergyFlowNumber(

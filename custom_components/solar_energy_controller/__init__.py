@@ -14,6 +14,8 @@ from .coordinator import SolarEnergyFlowCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Solar Energy Controller: Initializing integration")
@@ -137,9 +139,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> bool:
     coordinator = SolarEnergyFlowCoordinator(hass, entry)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -157,8 +159,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    coordinator: SolarEnergyFlowCoordinator = hass.data[DOMAIN][entry.entry_id]
+async def _update_listener(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> None:
+    coordinator = entry.runtime_data
     new_options = dict(entry.options)
     old_options = coordinator.options_cache
 
@@ -177,8 +179,6 @@ async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await coordinator.async_request_refresh()
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
