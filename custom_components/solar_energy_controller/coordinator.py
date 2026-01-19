@@ -370,6 +370,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         manual_sp_opt = entry.options.get(CONF_MANUAL_SP_VALUE)
         self._manual_sp_value: float | None = None
         self._manual_sp_initialized = False
+        self._pv_unavailable_logged = False
+        self._sp_unavailable_logged = False
+        self._output_unavailable_logged = False
+        self._grid_unavailable_logged = False
         if manual_sp_opt is not None:
             try:
                 self._manual_sp_value = float(manual_sp_opt)
@@ -510,8 +514,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         pv_ent = _get_entity_id(self.entry, CONF_PROCESS_VALUE_ENTITY)
         grid_ent = _get_entity_id(self.entry, CONF_GRID_POWER_ENTITY)
 
-        pv = _state_to_float(self.hass.states.get(pv_ent), pv_ent) if pv_ent else None
-        grid_power = _state_to_float(self.hass.states.get(grid_ent), grid_ent) if grid_ent else None
+        pv_state = self.hass.states.get(pv_ent) if pv_ent else None
+        pv = _state_to_float(pv_state, pv_ent) if pv_ent else None
+        pv_available = pv_state is not None and pv_state.state not in ("unavailable", "unknown")
+        
+        grid_state = self.hass.states.get(grid_ent) if grid_ent else None
+        grid_power = _state_to_float(grid_state, grid_ent) if grid_ent else None
+        grid_available = grid_state is not None and grid_state.state not in ("unavailable", "unknown")
 
         if pv is not None and options.invert_pv:
             pv = -pv
@@ -519,6 +528,39 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             grid_power = -grid_power
 
         sp = self._get_normal_setpoint_value()
+        sp_ent = _get_entity_id(self.entry, CONF_SETPOINT_ENTITY)
+        sp_state = self.hass.states.get(sp_ent) if sp_ent else None
+        sp_available = sp_state is not None and sp_state.state not in ("unavailable", "unknown")
+
+        # Log PV availability changes
+        if not pv_available:
+            if not self._pv_unavailable_logged:
+                _LOGGER.info("Process value entity %s is unavailable for entry %s", pv_ent, self.entry.entry_id)
+                self._pv_unavailable_logged = True
+        else:
+            if self._pv_unavailable_logged:
+                _LOGGER.info("Process value entity %s is back online for entry %s", pv_ent, self.entry.entry_id)
+                self._pv_unavailable_logged = False
+
+        # Log SP availability changes
+        if not sp_available:
+            if not self._sp_unavailable_logged:
+                _LOGGER.info("Setpoint entity %s is unavailable for entry %s", sp_ent, self.entry.entry_id)
+                self._sp_unavailable_logged = True
+        else:
+            if self._sp_unavailable_logged:
+                _LOGGER.info("Setpoint entity %s is back online for entry %s", sp_ent, self.entry.entry_id)
+                self._sp_unavailable_logged = False
+
+        # Log Grid availability changes
+        if grid_ent and not grid_available:
+            if not self._grid_unavailable_logged:
+                _LOGGER.info("Grid power entity %s is unavailable for entry %s", grid_ent, self.entry.entry_id)
+                self._grid_unavailable_logged = True
+        else:
+            if grid_ent and self._grid_unavailable_logged:
+                _LOGGER.info("Grid power entity %s is back online for entry %s", grid_ent, self.entry.entry_id)
+                self._grid_unavailable_logged = False
 
         if not self._manual_sp_initialized and sp is not None:
             self._manual_sp_value = sp
@@ -1000,6 +1042,19 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         limiter_result = self._apply_grid_limiter(options, inputs, setpoint_context, prev_limiter_state)
 
         out_ent = _get_entity_id(self.entry, CONF_OUTPUT_ENTITY)
+        out_state = self.hass.states.get(out_ent) if out_ent else None
+        out_available = out_state is not None and out_state.state not in ("unavailable", "unknown")
+        
+        # Log Output availability changes
+        if out_ent and not out_available:
+            if not self._output_unavailable_logged:
+                _LOGGER.info("Output entity %s is unavailable for entry %s", out_ent, self.entry.entry_id)
+                self._output_unavailable_logged = True
+        else:
+            if out_ent and self._output_unavailable_logged:
+                _LOGGER.info("Output entity %s is back online for entry %s", out_ent, self.entry.entry_id)
+                self._output_unavailable_logged = False
+        
         out_domain = _get_domain(out_ent)
         if out_ent and out_domain not in _OUTPUT_DOMAINS:
             if not self._invalid_output_reported:
