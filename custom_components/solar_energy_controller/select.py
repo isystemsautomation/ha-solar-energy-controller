@@ -44,28 +44,33 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        [
-            SolarEnergyFlowSelect(
-                coordinator,
-                entry,
-                CONF_GRID_LIMITER_TYPE,
-                "Grid limiter type",
-                [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
-                DEFAULT_GRID_LIMITER_TYPE,
-                EntityCategory.CONFIG,
-            ),
-            SolarEnergyFlowSelect(
-                coordinator,
-                entry,
-                CONF_RUNTIME_MODE,
-                "Runtime mode",
-                [RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT],
-                DEFAULT_RUNTIME_MODE,
-                None,
-            ),
-        ]
-    )
+    entities: list[SelectEntity] = [
+        SolarEnergyFlowSelect(
+            coordinator,
+            entry,
+            CONF_GRID_LIMITER_TYPE,
+            "Grid limiter type",
+            [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
+            DEFAULT_GRID_LIMITER_TYPE,
+            EntityCategory.CONFIG,
+        ),
+        SolarEnergyFlowSelect(
+            coordinator,
+            entry,
+            CONF_RUNTIME_MODE,
+            "Runtime mode",
+            [RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT],
+            DEFAULT_RUNTIME_MODE,
+            None,
+        ),
+    ]
+
+    # Attach translation key for runtime mode select so it gets a translated name/options
+    for entity in entities:
+        if isinstance(entity, SolarEnergyFlowSelect) and entity._option_key == CONF_RUNTIME_MODE:
+            entity._attr_translation_key = "solar_energy_controller_runtime_mode"
+
+    async_add_entities(entities)
 
 
 class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):

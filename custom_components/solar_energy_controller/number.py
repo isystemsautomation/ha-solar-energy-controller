@@ -177,6 +177,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
         ),
     ]
 
+    # Attach translation keys for entities that have translations defined
+    for entity in entities:
+        if isinstance(entity, SolarEnergyFlowNumber):
+            if entity._option_key == CONF_RATE_LIMIT:
+                entity._attr_translation_key = "solar_energy_controller_rate_limit"
+        elif isinstance(entity, SolarEnergyFlowManualNumber):
+            if entity._option_key == CONF_MANUAL_SP_VALUE:
+                entity._attr_translation_key = "solar_energy_controller_manual_sp_value"
+            elif entity._option_key == CONF_MANUAL_OUT_VALUE:
+                entity._attr_translation_key = "solar_energy_controller_manual_out_value"
+
     async_add_entities(entities)
 
 

@@ -79,6 +79,7 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
 class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
     _attr_has_entity_name = True
     _attr_name = "Rate limiter"
+    _attr_translation_key = "solar_energy_controller_rate_limiter"
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
