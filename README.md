@@ -542,6 +542,62 @@ automation:
 
 ---
 
+## Troubleshooting
+
+### Cannot complete setup: “Entity not found” / “Entity unavailable”
+
+- **Symptom:** The configuration form shows errors like `entity_not_found` or `entity_unavailable` for PV, SP, Output, or Grid entities.
+- **Description:** The selected entities either do not exist in Home Assistant or are currently `unavailable` / `unknown`.
+- **Resolution:**
+  1. Go to **Settings → Devices & Services → Entities** and verify that the selected entities exist and have valid states.
+  2. Ensure the underlying integrations (e.g., inverter, charger, meter) are loaded and working.
+  3. Refresh the entity list in the config flow (close and reopen the flow) and reselect the entities.
+  4. If the entity is often `unavailable`, fix the underlying integration before using it with the controller.
+
+### Controller status shows `missing_input` or `grid_power_unavailable`
+
+- **Symptom:** The `Status` sensor reports `missing_input` or `grid_power_unavailable`, and the controller does not regulate as expected.
+- **Description:** One or more required inputs (PV, SP, Output, Grid) are missing or unavailable.
+- **Resolution:**
+  1. Check the **Status** sensor and the individual PV/SP/Output/Grid sensors to see which one is `unavailable` or `unknown`.
+  2. Fix the upstream integration (e.g., restore communication with the inverter or meter).
+  3. Verify the configured entities in **Settings → Devices & Services → Solar Energy Controller → Configure**.
+  4. Once all inputs are available again, the controller will automatically resume normal operation.
+
+### Controller does not change output
+
+- **Symptom:** The Output entity remains constant even when PV/SP change.
+- **Description:** The controller may be disabled, in HOLD mode, or limited by rate/step constraints.
+- **Resolution:**
+  1. Check the **Enabled** switch entity and ensure it is turned **on**.
+  2. Verify the **Runtime mode** select is set to `AUTO SP` (or the desired mode, not `HOLD`).
+  3. Check **Rate limiter** and **Max output step** values; very small limits can effectively freeze the output.
+  4. Confirm that the Output entity accepts the commanded values (no validation in the target integration blocks changes).
+
+### Cannot change Manual SP / Manual OUT values
+
+- **Symptom:** Changing `Manual SP` or `Manual OUT` results in errors or values snapping back.
+- **Description:** Manual values can only be set when the controller is in the corresponding manual mode.
+- **Resolution:**
+  1. Set **Runtime mode** to `MANUAL SP` before changing the Manual SP value, or to `MANUAL OUT` before changing the Manual OUT value.
+  2. If you see a service error like *“Cannot set Manual SP value: controller is in AUTO SP mode”*, switch to the correct mode and retry.
+  3. Verify that no automation is continuously overwriting the same entities.
+
+### Custom card not visible / “Custom element not found: pid-controller-mini”
+
+- **Symptom:** Lovelace shows `Custom element not found: pid-controller-mini` or the mini card does not load.
+- **Description:** The frontend resources for the custom card are not registered or not served.
+- **Resolution:**
+  1. Ensure the integration is installed via HACS and Home Assistant has been restarted.
+  2. If Lovelace is not in storage mode, manually add the resources:
+     - Go to **Settings → Dashboards → Resources**.
+     - Add the following URLs as **JavaScript module** resources:
+       - `/solar_energy_controller/frontend/pid-controller-mini.js`
+       - `/solar_energy_controller/frontend/pid-controller-popup.js`
+  3. Clear your browser cache and reload the dashboard.
+
+---
+
 ## Known Limitations
 
 The following are known limitations of the integration. These are design decisions and constraints, not bugs. For bug reports, please use the [issue tracker](https://github.com/isystemsautomation/ha-solar-energy-controller/issues).
