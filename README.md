@@ -506,12 +506,39 @@ automation:
 
 ---
 
-## Limitations
+## Known Limitations
 
-- Output entity **must** be `number` or `input_number`
-- Designed for slow energy systems (seconds-level dynamics)
-- Not intended for real-time control
-- No YAML configuration
+The following are known limitations of the integration. These are design decisions and constraints, not bugs. For bug reports, please use the [issue tracker](https://github.com/isystemsautomation/ha-solar-energy-controller/issues).
+
+### Entity Domain Restrictions
+
+- **Output entity**: Must be `number` or `input_number` (cannot use `sensor` entities as output)
+- **Setpoint entity**: Must be `number` or `input_number` (cannot use `sensor` entities as setpoint)
+- **Process Value entity**: Can be `sensor`, `number`, or `input_number`
+- **Grid Power entity**: Can be `sensor`, `number`, or `input_number`
+
+### Control System Limitations
+
+- **Polling-based updates**: The integration uses polling, not push-based updates. Response time is limited by the update interval (minimum: 1 second)
+- **Not real-time**: Designed for energy systems with seconds-level dynamics, not millisecond-level real-time control
+- **Update interval**: Minimum polling interval is 1 second. Very fast updates (< 5 seconds) may increase system load
+- **Single output entity**: Each controller instance can only control one output entity at a time
+
+### Configuration Limitations
+
+- **No YAML configuration**: Configuration must be done through the Home Assistant UI (config flow and options flow)
+- **No multiple instances with same entities**: The integration prevents creating multiple controller instances with the same PV, SP, and Output entity combination (enforced by unique ID)
+
+### Data and Features
+
+- **No historical data storage**: The integration does not store historical PID calculations or state changes. Use Home Assistant's history feature to track entity states
+- **No remote API**: The integration only exposes Home Assistant entities. There is no separate API or remote control interface
+- **No backup/restore of PID state**: PID internal state (integral term, previous values) is not persisted across restarts
+
+### System Requirements
+
+- **Entity availability**: All configured entities (PV, SP, Output, Grid) must be available in Home Assistant. The controller will log warnings if entities become unavailable
+- **Home Assistant version**: Requires Home Assistant 2023.9.0 or later
 
 ---
 
