@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     DOMAIN,
@@ -119,31 +123,49 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not errors:
                 # Test connection: verify all entities exist and are accessible
                 try:
-                    pv_entity = user_input[CONF_PROCESS_VALUE_ENTITY]
-                    sp_entity = user_input[CONF_SETPOINT_ENTITY]
-                    output_entity = user_input[CONF_OUTPUT_ENTITY]
-                    grid_entity = user_input[CONF_GRID_POWER_ENTITY]
+                    pv_entity = user_input.get(CONF_PROCESS_VALUE_ENTITY)
+                    sp_entity = user_input.get(CONF_SETPOINT_ENTITY)
+                    output_entity = user_input.get(CONF_OUTPUT_ENTITY)
+                    grid_entity = user_input.get(CONF_GRID_POWER_ENTITY)
 
-                    if pv_entity not in self.hass.states:
+                    # Check if entity IDs are provided
+                    if not pv_entity:
+                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
+                    elif pv_entity not in self.hass.states:
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
                     elif self.hass.states[pv_entity].state in ("unavailable", "unknown"):
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
 
-                    if sp_entity not in self.hass.states:
+                    if not sp_entity:
+                        errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
+                    elif sp_entity not in self.hass.states:
                         errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
                     elif self.hass.states[sp_entity].state in ("unavailable", "unknown"):
                         errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
 
-                    if output_entity not in self.hass.states:
+                    if not output_entity:
+                        errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
+                    elif output_entity not in self.hass.states:
                         errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
                     elif self.hass.states[output_entity].state in ("unavailable", "unknown"):
                         errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
 
-                    if grid_entity not in self.hass.states:
+                    if not grid_entity:
+                        errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
+                    elif grid_entity not in self.hass.states:
                         errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
                     elif self.hass.states[grid_entity].state in ("unavailable", "unknown"):
                         errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
-                except Exception:
+                except KeyError as e:
+                    # Missing required field
+                    missing_key = str(e).strip("'")
+                    if missing_key in (CONF_PROCESS_VALUE_ENTITY, CONF_SETPOINT_ENTITY, CONF_OUTPUT_ENTITY, CONF_GRID_POWER_ENTITY):
+                        errors[missing_key] = "entity_not_found"
+                    else:
+                        errors["base"] = "connection_failed"
+                except Exception as e:
+                    # Log the actual exception for debugging
+                    _LOGGER.exception("Error validating entities: %s", e)
                     errors["base"] = "connection_failed"
 
             if errors:
@@ -383,31 +405,49 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             if not errors:
                 # Test connection: verify all entities exist and are accessible
                 try:
-                    pv_entity = cleaned[CONF_PROCESS_VALUE_ENTITY]
-                    sp_entity = cleaned[CONF_SETPOINT_ENTITY]
-                    output_entity = cleaned[CONF_OUTPUT_ENTITY]
-                    grid_entity = cleaned[CONF_GRID_POWER_ENTITY]
+                    pv_entity = cleaned.get(CONF_PROCESS_VALUE_ENTITY)
+                    sp_entity = cleaned.get(CONF_SETPOINT_ENTITY)
+                    output_entity = cleaned.get(CONF_OUTPUT_ENTITY)
+                    grid_entity = cleaned.get(CONF_GRID_POWER_ENTITY)
 
-                    if pv_entity not in self.hass.states:
+                    # Check if entity IDs are provided
+                    if not pv_entity:
+                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
+                    elif pv_entity not in self.hass.states:
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
                     elif self.hass.states[pv_entity].state in ("unavailable", "unknown"):
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
 
-                    if sp_entity not in self.hass.states:
+                    if not sp_entity:
+                        errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
+                    elif sp_entity not in self.hass.states:
                         errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
                     elif self.hass.states[sp_entity].state in ("unavailable", "unknown"):
                         errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
 
-                    if output_entity not in self.hass.states:
+                    if not output_entity:
+                        errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
+                    elif output_entity not in self.hass.states:
                         errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
                     elif self.hass.states[output_entity].state in ("unavailable", "unknown"):
                         errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
 
-                    if grid_entity not in self.hass.states:
+                    if not grid_entity:
+                        errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
+                    elif grid_entity not in self.hass.states:
                         errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
                     elif self.hass.states[grid_entity].state in ("unavailable", "unknown"):
                         errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
-                except Exception:
+                except KeyError as e:
+                    # Missing required field
+                    missing_key = str(e).strip("'")
+                    if missing_key in (CONF_PROCESS_VALUE_ENTITY, CONF_SETPOINT_ENTITY, CONF_OUTPUT_ENTITY, CONF_GRID_POWER_ENTITY):
+                        errors[missing_key] = "entity_not_found"
+                    else:
+                        errors["base"] = "connection_failed"
+                except Exception as e:
+                    # Log the actual exception for debugging
+                    _LOGGER.exception("Error validating entities: %s", e)
                     errors["base"] = "connection_failed"
 
             if errors:
