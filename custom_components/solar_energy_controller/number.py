@@ -354,12 +354,14 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
 
         if not allowed:
             mode_name = "Manual SP" if self._option_key == CONF_MANUAL_SP_VALUE else "Manual OUT"
+            required_mode = RUNTIME_MODE_MANUAL_SP if self._option_key == CONF_MANUAL_SP_VALUE else RUNTIME_MODE_MANUAL_OUT
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="manual_value_wrong_mode",
                 translation_placeholders={
                     "name": mode_name,
                     "runtime_mode": runtime_mode,
+                    "required_mode": required_mode,
                 },
             )
 

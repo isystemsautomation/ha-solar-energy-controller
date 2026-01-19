@@ -109,7 +109,7 @@
       "message": "Failed to set {name} value."
     },
     "manual_value_wrong_mode": {
-      "message": "Cannot set {name} value: controller is in {runtime_mode} mode. Switch to {name} mode first."
+      "message": "Cannot set {name} value because the controller is in {runtime_mode} mode. Please switch the Runtime mode to {required_mode} mode first."
     },
     "select_invalid_option": {
       "message": "Invalid option '{option}' for {name}. Valid options are: {valid_options}."
