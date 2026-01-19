@@ -375,6 +375,137 @@ The Solar Energy Controller integration uses a **polling-based data update mecha
 
 ---
 
+## Examples
+
+The following automation examples demonstrate common use cases for the Solar Energy Controller integration.
+
+### Example 1: Adjust Setpoint Based on Solar Production
+
+Automatically adjust the setpoint based on available solar power:
+
+```yaml
+automation:
+  - alias: "Adjust PID Setpoint Based on Solar"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.solar_power
+        above: 0
+    condition:
+      - condition: state
+        entity_id: select.charger_pid_runtime_mode
+        state: "AUTO SP"
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.charger_pid_setpoint
+        data:
+          value: "{{ states('sensor.solar_power') | float }}"
+```
+
+### Example 2: Disable Controller During Night
+
+Disable the controller when solar production is zero (nighttime):
+
+```yaml
+automation:
+  - alias: "Disable PID Controller at Night"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.solar_power
+        below: 100
+    condition:
+      - condition: state
+        entity_id: switch.charger_pid_enabled
+        state: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.charger_pid_enabled
+```
+
+### Example 3: Enable Grid Limiter During Peak Hours
+
+Automatically enable the grid limiter during peak electricity hours:
+
+```yaml
+automation:
+  - alias: "Enable Grid Limiter During Peak Hours"
+    trigger:
+      - platform: time
+        at: "14:00:00"  # Start of peak hours
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.charger_pid_grid_limiter_enabled
+      - service: number.set_value
+        target:
+          entity_id: number.charger_pid_grid_limiter_limit
+        data:
+          value: 1000  # Limit to 1000W import
+
+  - alias: "Disable Grid Limiter After Peak Hours"
+    trigger:
+      - platform: time
+        at: "22:00:00"  # End of peak hours
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.charger_pid_grid_limiter_enabled
+```
+
+### Example 4: Switch to Manual Mode When Battery is Low
+
+Switch to manual output mode and set a low output value when battery is low:
+
+```yaml
+automation:
+  - alias: "Switch to Manual Mode When Battery Low"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.battery_soc
+        below: 20
+    condition:
+      - condition: state
+        entity_id: select.charger_pid_runtime_mode
+        state: "AUTO SP"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.charger_pid_runtime_mode
+        data:
+          option: "MANUAL OUT"
+      - service: number.set_value
+        target:
+          entity_id: number.charger_pid_manual_out_value
+        data:
+          value: 1000  # Set low output (1000W)
+```
+
+### Example 5: Monitor Controller Status
+
+Send a notification when the controller encounters an error:
+
+```yaml
+automation:
+  - alias: "Notify on PID Controller Error"
+    trigger:
+      - platform: state
+        entity_id: sensor.charger_pid_status
+        to:
+          - "missing_input"
+          - "invalid_output"
+          - "output_write_failed"
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "PID Controller Alert"
+          message: "Controller status: {{ states('sensor.charger_pid_status') }}"
+```
+
+> **Note:** Replace entity IDs (e.g., `charger_pid_*`) with your actual entity names. Entity names are based on the name you gave your controller instance during setup.
+
+---
+
 ## Limitations
 
 - Output entity **must** be `number` or `input_number`
