@@ -166,12 +166,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             missing_entities.append(key)
             continue
 
-        if entity_id not in hass.states:
+        state = hass.states.get(entity_id)
+        if state is None:
             missing_entities.append(key)
-        else:
-            state = hass.states[entity_id]
-            if state.state in ("unavailable", "unknown"):
-                unavailable_entities.append(key)
+        elif state.state in ("unavailable", "unknown"):
+            unavailable_entities.append(key)
 
     if missing_entities:
         entity_names = {

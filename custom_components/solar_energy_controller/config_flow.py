@@ -131,31 +131,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # Check if entity IDs are provided
                     if not pv_entity:
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
-                    elif pv_entity not in self.hass.states:
-                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
-                    elif self.hass.states[pv_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
+                    else:
+                        pv_state = self.hass.states.get(pv_entity)
+                        if pv_state is None:
+                            errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
+                        elif pv_state.state in ("unavailable", "unknown"):
+                            errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
 
                     if not sp_entity:
                         errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
-                    elif sp_entity not in self.hass.states:
-                        errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
-                    elif self.hass.states[sp_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
+                    else:
+                        sp_state = self.hass.states.get(sp_entity)
+                        if sp_state is None:
+                            errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
+                        elif sp_state.state in ("unavailable", "unknown"):
+                            errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
 
                     if not output_entity:
                         errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
-                    elif output_entity not in self.hass.states:
-                        errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
-                    elif self.hass.states[output_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
+                    else:
+                        output_state = self.hass.states.get(output_entity)
+                        if output_state is None:
+                            errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
+                        elif output_state.state in ("unavailable", "unknown"):
+                            errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
 
                     if not grid_entity:
                         errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
-                    elif grid_entity not in self.hass.states:
-                        errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
-                    elif self.hass.states[grid_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
+                    else:
+                        grid_state = self.hass.states.get(grid_entity)
+                        if grid_state is None:
+                            errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
+                        elif grid_state.state in ("unavailable", "unknown"):
+                            errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
                 except KeyError as e:
                     # Missing required field
                     missing_key = str(e).strip("'")
@@ -413,31 +421,39 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                     # Check if entity IDs are provided
                     if not pv_entity:
                         errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
-                    elif pv_entity not in self.hass.states:
-                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
-                    elif self.hass.states[pv_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
+                    else:
+                        pv_state = self.hass.states.get(pv_entity)
+                        if pv_state is None:
+                            errors[CONF_PROCESS_VALUE_ENTITY] = "entity_not_found"
+                        elif pv_state.state in ("unavailable", "unknown"):
+                            errors[CONF_PROCESS_VALUE_ENTITY] = "entity_unavailable"
 
                     if not sp_entity:
                         errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
-                    elif sp_entity not in self.hass.states:
-                        errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
-                    elif self.hass.states[sp_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
+                    else:
+                        sp_state = self.hass.states.get(sp_entity)
+                        if sp_state is None:
+                            errors[CONF_SETPOINT_ENTITY] = "entity_not_found"
+                        elif sp_state.state in ("unavailable", "unknown"):
+                            errors[CONF_SETPOINT_ENTITY] = "entity_unavailable"
 
                     if not output_entity:
                         errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
-                    elif output_entity not in self.hass.states:
-                        errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
-                    elif self.hass.states[output_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
+                    else:
+                        output_state = self.hass.states.get(output_entity)
+                        if output_state is None:
+                            errors[CONF_OUTPUT_ENTITY] = "entity_not_found"
+                        elif output_state.state in ("unavailable", "unknown"):
+                            errors[CONF_OUTPUT_ENTITY] = "entity_unavailable"
 
                     if not grid_entity:
                         errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
-                    elif grid_entity not in self.hass.states:
-                        errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
-                    elif self.hass.states[grid_entity].state in ("unavailable", "unknown"):
-                        errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
+                    else:
+                        grid_state = self.hass.states.get(grid_entity)
+                        if grid_state is None:
+                            errors[CONF_GRID_POWER_ENTITY] = "entity_not_found"
+                        elif grid_state.state in ("unavailable", "unknown"):
+                            errors[CONF_GRID_POWER_ENTITY] = "entity_unavailable"
                 except KeyError as e:
                     # Missing required field
                     missing_key = str(e).strip("'")
