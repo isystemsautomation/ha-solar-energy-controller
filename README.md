@@ -120,20 +120,57 @@ During setup you select the entities used by the controller and define their ope
   <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration1.png" width="300">
 </p>
 
-### Required Configuration
+### Installation Parameters
 
-| Item | Description | Supported Domains | Default Range |
-|---|---|---|---|
-| **Name** | Friendly name for the controller instance | N/A | N/A |
-| **Process Value (PV)** | Measured value for control | `sensor`, `number`, `input_number` | N/A |
-| **Setpoint (SP)** | Target value | `number`, `input_number` | N/A |
-| **Output** | Controlled output | `number`, `input_number` | N/A |
-| **Grid Power** | Grid power measurement (required for grid limiter) | `sensor`, `number`, `input_number` | N/A |
-| **PV min / max** | Scaling range for process value normalization | N/A | -5000.0 to 5000.0 |
-| **SP min / max** | Scaling range for setpoint normalization | N/A | -5000.0 to 5000.0 |
-| **Grid min / max** | Scaling range for grid power normalization | N/A | -5000.0 to 5000.0 |
+The following parameters are required during the initial setup:
 
-These ranges are used only to scale signals internally to 0–100%. Invalid entity domains are rejected during setup.
+**Name:**
+- Description: A friendly name for this controller instance (e.g., "Solar Inverter Controller", "EV Charger PID").
+- Where to find: Choose any descriptive name that helps you identify this controller in Home Assistant.
+
+**Process Value Entity (PV):**
+- Description: The entity that provides the measured process value that the PID controller will regulate. This is the "sensor" that tells you the current state.
+- Where to find: Go to **Settings → Devices & Services → Entities** and search for your sensor. Examples: `sensor.solar_power`, `sensor.grid_voltage`, `number.current_setpoint`.
+- Supported domains: `sensor`, `number`, `input_number`
+- Example: If controlling solar inverter power, this would be your power sensor (e.g., `sensor.solar_inverter_power`).
+
+**Setpoint Entity (SP):**
+- Description: The entity that provides the target setpoint value. The PID controller will try to keep the process value equal to this setpoint.
+- Where to find: Go to **Settings → Devices & Services → Entities** and search for your setpoint entity. This is typically a `number` or `input_number` entity that you can set manually or via automation.
+- Supported domains: `number`, `input_number`
+- Example: If you want to maintain 5000W, create an `input_number` entity (e.g., `input_number.target_power`) and set it to 5000.
+
+**Output Entity:**
+- Description: The entity that the PID controller will write to. This is the "actuator" that controls your system (e.g., inverter power limit, charger current).
+- Where to find: Go to **Settings → Devices & Services → Entities** and search for your output entity. This must be a `number` or `input_number` entity that accepts numeric values.
+- Supported domains: `number`, `input_number`
+- Example: If controlling an inverter, this would be the power limit entity (e.g., `number.inverter_max_power`).
+
+**Grid Power Entity:**
+- Description: The entity that provides grid power measurement (signed import/export). Required if you plan to use the grid limiter feature.
+- Where to find: Go to **Settings → Devices & Services → Entities** and search for your grid power sensor. This should be a sensor that reports positive values when importing from grid and negative when exporting.
+- Supported domains: `sensor`, `number`, `input_number`
+- Example: `sensor.grid_power` where positive = importing, negative = exporting.
+
+**PV min / max:**
+- Description: The minimum and maximum expected values for the process value in raw units. These define the range used to normalize the PV to 0–100% internally.
+- Where to find: Check your process value sensor's typical operating range. For example, if your power sensor reads 0–10000W, set min=0, max=10000.
+- Default: -5000.0 to 5000.0
+- Example: If your PV sensor measures power in watts and ranges from 0W to 10000W, set PV min=0, PV max=10000.
+
+**SP min / max:**
+- Description: The minimum and maximum expected values for the setpoint in raw units. These define the range used to normalize the SP to 0–100% internally.
+- Where to find: Check what range your setpoint entity accepts. This should match the range you want to control.
+- Default: -5000.0 to 5000.0
+- Example: If your setpoint can be set from 0W to 10000W, set SP min=0, SP max=10000.
+
+**Grid min / max:**
+- Description: The minimum and maximum expected values for grid power in raw units. These define the range used to normalize grid power to 0–100% internally (used by the grid limiter).
+- Where to find: Check your grid power sensor's typical operating range. For example, if your grid sensor reads -5000W (export) to +5000W (import), set min=-5000, max=5000.
+- Default: -5000.0 to 5000.0
+- Example: If your grid sensor measures from -10000W (export) to +10000W (import), set Grid min=-10000, Grid max=10000.
+
+> **Note:** These min/max ranges are used only to scale signals internally to 0–100% for PID calculation. They do not limit the actual sensor values or output. Invalid entity domains are rejected during setup.
 
 ---
 
