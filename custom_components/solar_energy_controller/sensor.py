@@ -61,12 +61,28 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
     def _data(self):
         return getattr(self.coordinator, "data", None)
 
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None
+
 
 class SolarEnergyFlowEffectiveSPSensor(_BaseFlowSensor):
     _attr_icon = "mdi:target-variant"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "Effective SP", "effective_sp")
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None and getattr(data, "sp", None) is not None
 
     @property
     def native_value(self):
@@ -82,6 +98,14 @@ class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
         super().__init__(coordinator, entry, "PV value", "pv_value")
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None and getattr(data, "pv", None) is not None
+
+    @property
     def native_value(self):
         data = self._data
         value = getattr(data, "pv", None)
@@ -93,6 +117,14 @@ class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "Output", "output")
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None and getattr(data, "out", None) is not None
 
     @property
     def native_value(self):
@@ -108,6 +140,15 @@ class SolarEnergyFlowErrorSensor(_BaseFlowSensor):
         super().__init__(coordinator, entry, "Error", "error")
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # Error can be None when PV or SP is missing, which is valid
+        return data is not None
+
+    @property
     def native_value(self):
         data = self._data
         value = getattr(data, "error", None)
@@ -119,6 +160,14 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "Status", "status")
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None and getattr(data, "status", None) is not None
 
     @property
     def native_value(self):
@@ -182,6 +231,15 @@ class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
         super().__init__(coordinator, entry, "Grid power", "grid_power")
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # Grid power can be None if grid sensor is unavailable, which is valid
+        return data is not None
+
+    @property
     def native_value(self):
         data = self._data
         value = getattr(data, "grid_power", None)
@@ -193,6 +251,15 @@ class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "P term", "p_term")
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # P term can be None when PID is not active, which is valid
+        return data is not None
 
     @property
     def native_value(self):
@@ -208,6 +275,15 @@ class SolarEnergyFlowITermSensor(_BaseFlowSensor):
         super().__init__(coordinator, entry, "I term", "i_term")
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # I term can be None when PID is not active, which is valid
+        return data is not None
+
+    @property
     def native_value(self):
         data = self._data
         value = getattr(data, "i_term", None)
@@ -219,6 +295,15 @@ class SolarEnergyFlowDTermSensor(_BaseFlowSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "D term", "d_term")
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # D term can be None when PID is not active, which is valid
+        return data is not None
 
     @property
     def native_value(self):
@@ -234,6 +319,14 @@ class SolarEnergyFlowLimiterStateSensor(_BaseFlowSensor):
         super().__init__(coordinator, entry, "Limiter state", "limiter_state", EntityCategory.DIAGNOSTIC)
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        return data is not None and getattr(data, "limiter_state", None) is not None
+
+    @property
     def native_value(self):
         data = self._data
         return getattr(data, "limiter_state", None)
@@ -246,6 +339,15 @@ class SolarEnergyFlowOutputPreRateLimitSensor(_BaseFlowSensor):
         super().__init__(
             coordinator, entry, "Output (pre rate limit)", "output_pre_rate_limit", EntityCategory.DIAGNOSTIC
         )
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not super().available:
+            return False
+        data = self._data
+        # Output pre rate limit can be None when output is not calculated, which is valid
+        return data is not None
 
     @property
     def native_value(self):
