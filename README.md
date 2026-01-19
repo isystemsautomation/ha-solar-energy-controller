@@ -19,6 +19,42 @@ The integration is developed and maintained as an open-source project. For more 
 
 ---
 
+## Supported Devices
+
+This integration is **generic** and does not talk directly to a specific hardware brand or model. It works with any devices that expose the required Home Assistant entities.
+
+### Known Supported Setups
+
+The following types of setups are known to work well with Solar Energy Controller, as long as they expose compatible entities:
+
+- **Solar inverters** with a numeric power limit entity (e.g., `number.inverter_max_power`) and power sensor (e.g., `sensor.solar_power`)
+- **EV chargers** with a numeric current or power limit entity (e.g., `number.ev_charger_limit`) and power/current sensors
+- **Battery systems** where charge/discharge power can be controlled via a `number`/`input_number` entity
+- **Smart relays or load controllers** that expose a numeric control for power/current/percentage
+- **Any energy or load control scenario** where:
+  - The process value (PV) is available as a `sensor`, `number`, or `input_number`
+  - The setpoint (SP) is available as a `number` or `input_number`
+  - The output (actuator) is a `number` or `input_number` entity
+
+> **Note:** The integration does not depend on a specific inverter/charger brand. As long as the device is already integrated into Home Assistant and exposes compatible entities, it can be used.
+
+### Known Unsupported / Not Recommended Setups
+
+The following setups are **not** supported or not recommended:
+
+- Devices that **do not expose a numeric control entity** (e.g., only `switch` or `binary_sensor` without a `number`/`input_number` output)
+- **On/off-only devices** where control is purely binary (no numeric output to regulate)
+- High-speed real-time control systems that require **sub-second response** (e.g., motor drives, fast robotics)
+- Devices that are **not integrated into Home Assistant** or do not provide entities for PV/SP/Output
+
+If you are unsure whether your device is supported, check if you can:
+
+- Read the measurement you want to control (PV) as a `sensor`, `number`, or `input_number`
+- Write a numeric value to a `number` or `input_number` entity that affects the device (Output)
+- Optionally read grid power as a `sensor`, `number`, or `input_number` for the grid limiter
+
+---
+
 ## Features
 
 - PID controller (Kp / Ki / Kd)
