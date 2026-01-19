@@ -34,6 +34,8 @@ from custom_components.solar_energy_controller.const import (
 )
 from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
 from custom_components.solar_energy_controller.const import (
+    CONF_PV_MIN,
+    CONF_PV_MAX,
     DEFAULT_GRID_MIN,
     DEFAULT_GRID_MAX,
     DEFAULT_PV_MIN,
@@ -360,11 +362,12 @@ def test_coordinator_build_runtime_options(mock_hass, mock_entry):
     options = coordinator._build_runtime_options()
     
     assert options.enabled == DEFAULT_ENABLED
-    assert options.kp == DEFAULT_KP
-    assert options.ki == DEFAULT_KI
-    assert options.kd == DEFAULT_KD
     assert options.min_output == DEFAULT_MIN_OUTPUT
     assert options.max_output == DEFAULT_MAX_OUTPUT
+    assert options.pv_min == DEFAULT_PV_MIN
+    assert options.pv_max == DEFAULT_PV_MAX
+    assert options.sp_min == DEFAULT_SP_MIN
+    assert options.sp_max == DEFAULT_SP_MAX
 
 
 def test_coordinator_get_range_value(mock_hass, mock_entry):
@@ -446,8 +449,8 @@ def test_coordinator_build_pid_config_from_options(mock_hass, mock_entry):
     """Test coordinator _build_pid_config_from_options."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
-    pid_config = coordinator._build_pid_config_from_options(options)
+    # _build_pid_config_from_options expects entry.options (Mapping), not RuntimeOptions
+    pid_config = coordinator._build_pid_config_from_options(mock_entry.options)
     
     assert pid_config.kp == DEFAULT_KP
     assert pid_config.ki == DEFAULT_KI
@@ -477,19 +480,23 @@ def test_coordinator_apply_grid_limiter(mock_hass, mock_entry):
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
     from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
-    from custom_components.solar_energy_controller.const import GRID_LIMITER_STATE_NORMAL
+    from custom_components.solar_energy_controller.const import GRID_LIMITER_STATE_NORMAL, GRID_LIMITER_TYPE_IMPORT
     
     options = coordinator._build_runtime_options()
     options.limiter_enabled = True
+    options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0
+    options.limiter_deadband_w = 50.0
     
     inputs = InputValues(pv=50.0, sp=60.0, grid_power=1500.0)
     setpoint = SetpointContext(
         runtime_mode=RUNTIME_MODE_AUTO_SP,
+        manual_sp_value=None,
+        manual_sp_display_value=None,
         pv_for_pid=50.0,
         sp_for_pid=60.0,
         status="running",
-        manual_sp_display_value=None,
+        mode_changed=False,
     )
     
     result = coordinator._apply_grid_limiter(options, inputs, setpoint, GRID_LIMITER_STATE_NORMAL)

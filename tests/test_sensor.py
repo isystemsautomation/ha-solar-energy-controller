@@ -46,7 +46,8 @@ class MockFlowState:
 def mock_coordinator():
     """Create a mock coordinator."""
     coordinator = MagicMock(spec=SolarEnergyFlowCoordinator)
-    coordinator.data = MockFlowState(
+    # Set data as a property that can be accessed
+    mock_data = MockFlowState(
         pv=50.0,
         sp=60.0,
         out=55.0,
@@ -59,6 +60,9 @@ def mock_coordinator():
         limiter_state="normal",
         output_pre_rate_limit=55.0,
     )
+    type(coordinator).data = mock_data
+    # CoordinatorEntity requires last_update_success
+    coordinator.last_update_success = True
     coordinator._build_runtime_options = MagicMock(return_value=MagicMock(
         enabled=True,
         runtime_mode="AUTO SP",
@@ -94,7 +98,7 @@ def test_effective_sp_sensor(mock_coordinator, mock_entry):
     assert sensor.native_value == 60.0
     
     # Test with None data
-    mock_coordinator.data = MockFlowState(sp=None)
+    type(mock_coordinator).data = MockFlowState(sp=None)
     assert sensor.available is False
     assert sensor.native_value is None
 
@@ -108,7 +112,7 @@ def test_pv_value_sensor(mock_coordinator, mock_entry):
     assert sensor.native_value == 50.0
     
     # Test with None data
-    mock_coordinator.data = MockFlowState(pv=None)
+    type(mock_coordinator).data = MockFlowState(pv=None)
     assert sensor.available is False
     assert sensor.native_value is None
 
@@ -122,7 +126,7 @@ def test_output_sensor(mock_coordinator, mock_entry):
     assert sensor.native_value == 55.0
     
     # Test with None data
-    mock_coordinator.data = MockFlowState(out=None)
+    type(mock_coordinator).data = MockFlowState(out=None)
     assert sensor.available is False
     assert sensor.native_value is None
 
@@ -136,7 +140,7 @@ def test_error_sensor(mock_coordinator, mock_entry):
     assert sensor.native_value == 10.0
     
     # Error can be None, but sensor should still be available
-    mock_coordinator.data = MockFlowState(error=None)
+    type(mock_coordinator).data = MockFlowState(error=None)
     assert sensor.available is True
     assert sensor.native_value is None
 
