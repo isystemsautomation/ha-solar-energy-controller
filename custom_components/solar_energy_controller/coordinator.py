@@ -684,27 +684,17 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
         if limiter_active and new_limiter_state == GRID_LIMITER_STATE_LIMITING_IMPORT:
             pv_for_pid = inputs.grid_power
+            # Target is the configured positive import limit
             sp_for_pid = options.limiter_limit_w
-            # Apply reverse mode: invert setpoint if reverse mode is enabled
-            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
-                sp_for_pid = -sp_for_pid
             pv_pct = grid_pct
             sp_pct = limit_pct
-            # Invert setpoint percentage for reverse mode
-            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
-                sp_pct = -limit_pct if limit_pct is not None else None
             status = GRID_LIMITER_STATE_LIMITING_IMPORT
         elif limiter_active and new_limiter_state == GRID_LIMITER_STATE_LIMITING_EXPORT:
             pv_for_pid = inputs.grid_power
+            # Target is the configured export limit (negative raw value)
             sp_for_pid = -options.limiter_limit_w
-            # Apply reverse mode: invert setpoint if reverse mode is enabled
-            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
-                sp_for_pid = -sp_for_pid
             pv_pct = grid_pct
             sp_pct = limit_pct
-            # Invert setpoint percentage for reverse mode
-            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
-                sp_pct = -limit_pct if limit_pct is not None else None
             status = GRID_LIMITER_STATE_LIMITING_EXPORT
         elif options.limiter_enabled and (inputs.grid_power is None or grid_pct is None or limit_pct is None):
             status = "grid_power_unavailable"
@@ -903,9 +893,18 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
         error_raw: float | None = None
         if pv_for_pid_raw is not None and sp_for_pid_raw is not None:
+            # Base error is SP - PV
             error_raw = sp_for_pid_raw - pv_for_pid_raw
-            if options.pid_mode == PID_MODE_REVERSE:
-                error_raw = -error_raw
+
+            if limiter_result.limiter_state != GRID_LIMITER_STATE_NORMAL:
+                # When grid limiter is active, its mode controls the sign,
+                # regardless of the global PID mode.
+                if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
+                    error_raw = -error_raw
+            else:
+                # Normal PID operation: use configured PID mode.
+                if options.pid_mode == PID_MODE_REVERSE:
+                    error_raw = -error_raw
 
         if not options.enabled:
             self.pid.reset()
