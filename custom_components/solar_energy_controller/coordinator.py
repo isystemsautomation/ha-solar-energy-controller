@@ -39,7 +39,6 @@ from .const import (
     CONF_GRID_POWER_INVERT,
     CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_LIMITER_TYPE,
-    CONF_GRID_LIMITER_MODE,
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
@@ -61,7 +60,6 @@ from .const import (
     DEFAULT_PID_MODE,
     DEFAULT_GRID_LIMITER_ENABLED,
     DEFAULT_GRID_LIMITER_TYPE,
-    DEFAULT_GRID_LIMITER_MODE,
     DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
@@ -142,7 +140,6 @@ class RuntimeOptions:
     runtime_mode: str
     max_output_step: float
     output_epsilon: float
-    limiter_mode: str = DEFAULT_GRID_LIMITER_MODE
 
 
 @dataclass
@@ -479,7 +476,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             grid_power_invert=self.entry.options.get(CONF_GRID_POWER_INVERT, DEFAULT_GRID_POWER_INVERT),
             limiter_enabled=self.entry.options.get(CONF_GRID_LIMITER_ENABLED, DEFAULT_GRID_LIMITER_ENABLED),
             limiter_type=_get_limiter_type(self.entry),
-            limiter_mode=self.entry.options.get(CONF_GRID_LIMITER_MODE, DEFAULT_GRID_LIMITER_MODE),
             limiter_limit_w=max(
                 0.0,
                 _coerce_float(

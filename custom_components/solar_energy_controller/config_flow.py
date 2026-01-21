@@ -332,7 +332,6 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_INVERT_SP: o.get(CONF_INVERT_SP, DEFAULT_INVERT_SP),
             CONF_GRID_POWER_INVERT: o.get(CONF_GRID_POWER_INVERT, DEFAULT_GRID_POWER_INVERT),
             CONF_PID_MODE: self._normalize_pid_mode(o.get(CONF_PID_MODE)),
-            CONF_GRID_LIMITER_MODE: o.get(CONF_GRID_LIMITER_MODE, DEFAULT_GRID_LIMITER_MODE),
             CONF_UPDATE_INTERVAL: self._coerce_int(
                 o.get(CONF_UPDATE_INTERVAL),
                 DEFAULT_UPDATE_INTERVAL,
