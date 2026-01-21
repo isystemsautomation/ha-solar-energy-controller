@@ -894,8 +894,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             # more import (PV > SP) → negative error → output down
             # Normal PID operation: use configured PID mode.
             if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-            if options.pid_mode == PID_MODE_REVERSE:
-                error_raw = -error_raw
+                if options.pid_mode == PID_MODE_REVERSE:
+                    error_raw = -error_raw
 
         if not options.enabled:
             self.pid.reset()
