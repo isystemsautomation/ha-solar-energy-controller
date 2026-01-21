@@ -153,7 +153,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             0.0,
             10000.0,
             EntityCategory.CONFIG,
-            "points/s",
         ),
         SolarEnergyFlowManualNumber(
             coordinator,
