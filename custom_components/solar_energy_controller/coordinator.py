@@ -894,8 +894,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             # more import (PV > SP) → negative error → output down
             # Normal PID operation: use configured PID mode.
             if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-                if options.pid_mode == PID_MODE_REVERSE:
-                    error_raw = -error_raw
+            if options.pid_mode == PID_MODE_REVERSE:
+                error_raw = -error_raw
 
         if not options.enabled:
             self.pid.reset()
@@ -1007,8 +1007,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         # more import (PV > SP) → negative error → output down.
         # Only apply PID mode inversion when limiter is not active.
         if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-            if options.pid_mode == PID_MODE_REVERSE:
-                error_pct = -error_pct
+        if options.pid_mode == PID_MODE_REVERSE:
+            error_pct = -error_pct
 
         if (
             limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
@@ -1049,20 +1049,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
         output_raw = self._output_raw_from_percent(step_result.output, options)
         output_pre_rate_raw = self._output_raw_from_percent(step_result.output_pre_rate_limit, options)
-
-        # Extra safety: when actively limiting grid import, never allow the
-        # controller to increase output while import is still above the target.
-        if limiter_result.limiter_state == GRID_LIMITER_STATE_LIMITING_IMPORT:
-            if (
-                pv_for_pid_raw is not None
-                and sp_for_pid_raw is not None
-                and pv_for_pid_raw > sp_for_pid_raw
-                and self._last_output_raw is not None
-                and output_raw is not None
-            ):
-                output_raw = min(output_raw, self._last_output_raw)
-                if output_pre_rate_raw is not None:
-                    output_pre_rate_raw = min(output_pre_rate_raw, self._last_output_raw)
         if runtime_mode != RUNTIME_MODE_MANUAL_OUT and output_raw is not None:
             self._manual_out_value = output_raw
             # Store the current output as last auto OUT value when not in MANUAL OUT mode
