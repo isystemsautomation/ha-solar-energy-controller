@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js";
-import Chart from "/local/vendor/chart.umd.min.js";
+import Chart from "./vendor/chart.umd.min.js";
 
 class PIDControllerPopup extends LitElement {
   static properties = {
