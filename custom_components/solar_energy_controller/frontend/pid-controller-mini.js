@@ -308,6 +308,7 @@ class PIDControllerMini extends LitElement {
             borderColor: "#2196F3",
             backgroundColor: "transparent",
             tension: 0.1,
+            yAxisID: "y_pv_sp",
           },
           {
             label: "SP",
@@ -315,6 +316,7 @@ class PIDControllerMini extends LitElement {
             borderColor: "#FF9800",
             backgroundColor: "transparent",
             tension: 0.1,
+            yAxisID: "y_pv_sp",
           },
           {
             label: "OUTPUT",
@@ -322,6 +324,7 @@ class PIDControllerMini extends LitElement {
             borderColor: "#9C27B0",
             backgroundColor: "transparent",
             tension: 0.1,
+            yAxisID: "y_out",
           },
         ],
       },
@@ -360,15 +363,19 @@ class PIDControllerMini extends LitElement {
                 size: 10,
               },
               maxTicksLimit: 5,
-              callback: function(value, index, ticks) {
+              callback: function (value) {
                 const label = this.getLabelForValue(value);
                 if (!label) return "";
                 const date = new Date(label);
-                return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                return date.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
               },
             },
           },
-          y: {
+          y_pv_sp: {
+            position: "left",
             grid: {
               color: "var(--divider-color, #ddd)",
             },
@@ -377,7 +384,22 @@ class PIDControllerMini extends LitElement {
               font: {
                 size: 10,
               },
-              callback: function(value) {
+              callback: function (value) {
+                return value.toFixed(0);
+              },
+            },
+          },
+          y_out: {
+            position: "right",
+            grid: {
+              drawOnChartArea: false,
+            },
+            ticks: {
+              color: "var(--secondary-text-color, #888)",
+              font: {
+                size: 10,
+              },
+              callback: function (value) {
                 return value.toFixed(0);
               },
             },
