@@ -1007,8 +1007,8 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         # more import (PV > SP) → negative error → output down.
         # Only apply PID mode inversion when limiter is not active.
         if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-        if options.pid_mode == PID_MODE_REVERSE:
-            error_pct = -error_pct
+            if options.pid_mode == PID_MODE_REVERSE:
+                error_pct = -error_pct
 
         if (
             limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
@@ -1021,10 +1021,22 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
 
         current_output_pct = self._last_output_pct
         bumpless_needed = prev_runtime_mode in (RUNTIME_MODE_MANUAL_OUT, RUNTIME_MODE_HOLD)
-        if not bumpless_needed and current_output_pct is not None:
-            if limiter_result.limiter_state != prev_limiter_state:
+        limiter_state_changed = limiter_result.limiter_state != prev_limiter_state
+        
+        # When limiter activates (enters limiting mode), reset integral to avoid
+        # old I term fighting the new negative error. When limiter deactivates
+        # (returns to normal), do bumpless transfer to smooth the transition.
+        if limiter_state_changed:
+            if limiter_result.limiter_state != GRID_LIMITER_STATE_NORMAL:
+                # Entering limiter mode: reset integral so PID can drive output down
+                # based purely on the new error, without old I term interference.
+                self.pid.reset()
+            else:
+                # Exiting limiter mode: do bumpless transfer to smooth return to normal
                 bumpless_needed = True
-            elif prev_sp_for_pid is not None and sp_for_pid is not None and sp_for_pid != prev_sp_for_pid:
+        
+        if not bumpless_needed and current_output_pct is not None:
+            if prev_sp_for_pid is not None and sp_for_pid is not None and sp_for_pid != prev_sp_for_pid:
                 bumpless_needed = True
 
         if prev_runtime_mode == RUNTIME_MODE_MANUAL_OUT:
