@@ -35,6 +35,7 @@ from .const import (
     CONF_PID_MODE,
     CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_LIMITER_TYPE,
+    CONF_GRID_LIMITER_MODE,
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
@@ -54,6 +55,7 @@ from .const import (
     DEFAULT_PID_MODE,
     DEFAULT_GRID_LIMITER_ENABLED,
     DEFAULT_GRID_LIMITER_TYPE,
+    DEFAULT_GRID_LIMITER_MODE,
     DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
@@ -69,6 +71,8 @@ from .const import (
     DEFAULT_GRID_MAX,
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
+    GRID_LIMITER_MODE_DIRECT,
+    GRID_LIMITER_MODE_REVERSE,
 )
 
 _PV_DOMAINS = {"sensor", "number", "input_number"}
@@ -277,6 +281,10 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                     default=defaults.get(CONF_PID_MODE, DEFAULT_PID_MODE),
                 ): vol.In([PID_MODE_DIRECT, PID_MODE_REVERSE]),
                 vol.Optional(
+                    CONF_GRID_LIMITER_MODE,
+                    default=defaults.get(CONF_GRID_LIMITER_MODE, DEFAULT_GRID_LIMITER_MODE),
+                ): vol.In([GRID_LIMITER_MODE_DIRECT, GRID_LIMITER_MODE_REVERSE]),
+                vol.Optional(
                     CONF_UPDATE_INTERVAL,
                     default=defaults.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -303,6 +311,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_MAX_OUTPUT: o.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT),
             CONF_GRID_LIMITER_ENABLED: o.get(CONF_GRID_LIMITER_ENABLED, DEFAULT_GRID_LIMITER_ENABLED),
             CONF_GRID_LIMITER_TYPE: o.get(CONF_GRID_LIMITER_TYPE, DEFAULT_GRID_LIMITER_TYPE),
+            CONF_GRID_LIMITER_MODE: o.get(CONF_GRID_LIMITER_MODE, DEFAULT_GRID_LIMITER_MODE),
             CONF_GRID_LIMITER_LIMIT_W: o.get(CONF_GRID_LIMITER_LIMIT_W, DEFAULT_GRID_LIMITER_LIMIT_W),
             CONF_GRID_LIMITER_DEADBAND_W: o.get(
                 CONF_GRID_LIMITER_DEADBAND_W, DEFAULT_GRID_LIMITER_DEADBAND_W

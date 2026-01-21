@@ -126,6 +126,13 @@
           "import": "Import",
           "export": "Export"
         }
+      },
+      "solar_energy_controller_grid_limiter_mode": {
+        "name": "Grid limiter direction",
+        "options": {
+          "direct": "Direct (normal)",
+          "reverse": "Reverse (inverted)"
+        }
       }
     },
     "switch": {

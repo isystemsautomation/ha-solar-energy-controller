@@ -44,6 +44,7 @@
           "invert_sp": "Invert SP (setpoint sign)",
           "grid_power_invert": "Invert grid power sign",
           "pid_mode": "PID mode",
+          "grid_limiter_mode": "Grid limiter direction",
           "update_interval": "Update interval (seconds)",
           "pv_min": "PV min (raw units)",
           "pv_max": "PV max (raw units)",
@@ -57,6 +58,12 @@
             "options": {
               "direct": "Positive error increases output",
               "reverse": "Positive error decreases output"
+            }
+          },
+          "grid_limiter_mode": {
+            "options": {
+              "direct": "Direct (normal)",
+              "reverse": "Reverse (inverted)"
             }
           }
         }

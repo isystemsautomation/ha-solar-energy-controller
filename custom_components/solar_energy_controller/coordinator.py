@@ -39,6 +39,7 @@ from .const import (
     CONF_GRID_POWER_INVERT,
     CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_LIMITER_TYPE,
+    CONF_GRID_LIMITER_MODE,
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
@@ -60,6 +61,7 @@ from .const import (
     DEFAULT_PID_MODE,
     DEFAULT_GRID_LIMITER_ENABLED,
     DEFAULT_GRID_LIMITER_TYPE,
+    DEFAULT_GRID_LIMITER_MODE,
     DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
@@ -131,6 +133,7 @@ class RuntimeOptions:
     grid_power_invert: bool
     limiter_enabled: bool
     limiter_type: str
+    limiter_mode: str
     limiter_limit_w: float
     limiter_deadband_w: float
     rate_limiter_enabled: bool
@@ -476,6 +479,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             grid_power_invert=self.entry.options.get(CONF_GRID_POWER_INVERT, DEFAULT_GRID_POWER_INVERT),
             limiter_enabled=self.entry.options.get(CONF_GRID_LIMITER_ENABLED, DEFAULT_GRID_LIMITER_ENABLED),
             limiter_type=_get_limiter_type(self.entry),
+            limiter_mode=self.entry.options.get(CONF_GRID_LIMITER_MODE, DEFAULT_GRID_LIMITER_MODE),
             limiter_limit_w=max(
                 0.0,
                 _coerce_float(
@@ -679,14 +683,26 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         if limiter_active and new_limiter_state == GRID_LIMITER_STATE_LIMITING_IMPORT:
             pv_for_pid = inputs.grid_power
             sp_for_pid = options.limiter_limit_w
+            # Apply reverse mode: invert setpoint if reverse mode is enabled
+            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
+                sp_for_pid = -sp_for_pid
             pv_pct = grid_pct
             sp_pct = limit_pct
+            # Invert setpoint percentage for reverse mode
+            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
+                sp_pct = -limit_pct if limit_pct is not None else None
             status = GRID_LIMITER_STATE_LIMITING_IMPORT
         elif limiter_active and new_limiter_state == GRID_LIMITER_STATE_LIMITING_EXPORT:
             pv_for_pid = inputs.grid_power
             sp_for_pid = -options.limiter_limit_w
+            # Apply reverse mode: invert setpoint if reverse mode is enabled
+            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
+                sp_for_pid = -sp_for_pid
             pv_pct = grid_pct
             sp_pct = limit_pct
+            # Invert setpoint percentage for reverse mode
+            if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
+                sp_pct = -limit_pct if limit_pct is not None else None
             status = GRID_LIMITER_STATE_LIMITING_EXPORT
         elif options.limiter_enabled and (inputs.grid_power is None or grid_pct is None or limit_pct is None):
             status = "grid_power_unavailable"
