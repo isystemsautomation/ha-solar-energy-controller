@@ -80,8 +80,6 @@ from .const import (
     DEFAULT_GRID_MAX,
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
-    GRID_LIMITER_MODE_DIRECT,
-    GRID_LIMITER_MODE_REVERSE,
     GRID_LIMITER_TYPE_EXPORT,
     GRID_LIMITER_TYPE_IMPORT,
     GRID_LIMITER_STATE_NORMAL,
@@ -896,13 +894,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             # Base error is SP - PV
             error_raw = sp_for_pid_raw - pv_for_pid_raw
 
-            if limiter_result.limiter_state != GRID_LIMITER_STATE_NORMAL:
-                # When grid limiter is active, its mode controls the sign,
-                # regardless of the global PID mode.
-                if options.limiter_mode == GRID_LIMITER_MODE_REVERSE:
-                    error_raw = -error_raw
-            else:
-                # Normal PID operation: use configured PID mode.
+            # When grid limiter is active, always use direct behavior:
+            # more import (PV > SP) → negative error → output down
+            # Normal PID operation: use configured PID mode.
+            if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
                 if options.pid_mode == PID_MODE_REVERSE:
                     error_raw = -error_raw
 
