@@ -106,6 +106,10 @@ What this means:
 
 ## Installation
 
+Starting with Home Assistant **2026.3**, brand images ship inside the integration at
+`custom_components/solar_energy_controller/brand/` (icon and logo for light/dark themes).
+No separate submission to the Home Assistant brands repository is required.
+
 ### Prerequisites
 
 - Home Assistant 2023.9.0 or later
@@ -583,12 +587,18 @@ automation:
   2. If you see a service error like *“Cannot set Manual SP value: controller is in AUTO SP mode”*, switch to the correct mode and retry.
   3. Verify that no automation is continuously overwriting the same entities.
 
+### Integration shows a setup error after every Home Assistant restart
+
+- **Symptom:** After HA reboot the Solar Energy Controller entry is in *Failed to set up* until you reload it manually, usually because the inverter integration is still starting.
+- **Description:** Older versions refused to start while PV/SP/Output/Grid entities reported `unavailable`. Home Assistant then retried setup and eventually gave up.
+- **Resolution:** Update to **v1.0.9** or later. The integration now starts immediately, reports `missing_input` until upstream entities come online, and refreshes automatically when they do.
+
 ### Custom card opens but click does not show the editor (Home Assistant 2026.3+)
 
 - **Symptom:** The mini card renders PV/SP/output and the chart, but tapping the card or **Open Editor** does nothing.
 - **Description:** Home Assistant 2026.3 migrated `ha-dialog` to the Web Awesome / native `<dialog>` stack. Integrations that called the legacy MDC `dialog.show()` API silently fail on newer frontends.
 - **Resolution:**
-  1. Update **Solar Energy Controller** to **v1.0.8** or later via HACS.
+  1. Update **Solar Energy Controller** to **v1.0.9** or later via HACS.
   2. Restart Home Assistant and hard-refresh the dashboard (Ctrl+F5).
   3. If the card was added before the update, remove and re-add the Lovelace resources under **Settings → Dashboards → Resources** so the browser loads the new JavaScript modules.
 

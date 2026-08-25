@@ -4,9 +4,10 @@ import logging
 import os
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryError, ConfigEntryNotReady
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.components.http import StaticPathConfig
 
@@ -21,7 +22,7 @@ type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Solar Energy Controller: Initializing integration")
     
-    version = "1.0.8"
+    version = "1.0.9"
     try:
         import json
         
@@ -149,8 +150,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
         CONF_GRID_POWER_ENTITY,
     )
 
-    # Validate that all required entities exist and are accessible
-    # Check both entry.data and entry.options (entities can be in either)
+    entity_registry = er.async_get(hass)
+
+    # Validate configured entities exist in the registry. Do not block setup when
+    # upstream integrations (for example an inverter) are still starting and report
+    # unavailable — the coordinator already runs in missing_input until data arrives.
     required_entities = {
         CONF_PROCESS_VALUE_ENTITY: entry.options.get(CONF_PROCESS_VALUE_ENTITY) or entry.data.get(CONF_PROCESS_VALUE_ENTITY),
         CONF_SETPOINT_ENTITY: entry.options.get(CONF_SETPOINT_ENTITY) or entry.data.get(CONF_SETPOINT_ENTITY),
@@ -159,18 +163,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
     }
 
     missing_entities = []
-    unavailable_entities = []
+    waiting_entities: list[str] = []
 
     for key, entity_id in required_entities.items():
         if not entity_id:
             missing_entities.append(key)
             continue
 
-        state = hass.states.get(entity_id)
-        if state is None:
+        if entity_registry.async_get(entity_id) is None:
             missing_entities.append(key)
-        elif state.state in ("unavailable", "unknown"):
-            unavailable_entities.append(key)
+            continue
+
+        state = hass.states.get(entity_id)
+        if state is None or state.state in ("unavailable", "unknown"):
+            waiting_entities.append(entity_id)
 
     if missing_entities:
         entity_names = {
@@ -185,17 +191,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             "Please check your configuration and ensure all entities exist."
         )
 
-    if unavailable_entities:
-        entity_names = {
-            CONF_PROCESS_VALUE_ENTITY: "Process Value",
-            CONF_SETPOINT_ENTITY: "Setpoint",
-            CONF_OUTPUT_ENTITY: "Output",
-            CONF_GRID_POWER_ENTITY: "Grid Power",
-        }
-        unavailable_names = [entity_names[key] for key in unavailable_entities]
-        raise ConfigEntryNotReady(
-            f"Required entities are unavailable: {', '.join(unavailable_names)}. "
-            "Please ensure the entities are working and try again."
+    if waiting_entities:
+        _LOGGER.info(
+            "Solar Energy Controller %s starting while upstream entities are not ready yet: %s",
+            entry.title,
+            ", ".join(waiting_entities),
         )
 
     coordinator = SolarEnergyFlowCoordinator(hass, entry)
@@ -206,10 +206,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.entry_id)},
         name=entry.title,
-        manufacturer="Solar Energy Controller",
+        manufacturer="HomeMaster",
         model="PID Controller",
         entry_type=DeviceEntryType.SERVICE,
     )
+
+    tracked_entities = {entity_id for entity_id in required_entities.values() if entity_id}
+
+    @callback
+    def _handle_entity_state_change(event: Event) -> None:
+        entity_id = event.data.get("entity_id")
+        if entity_id not in tracked_entities:
+            return
+        new_state = event.data.get("new_state")
+        if new_state is None or new_state.state in ("unavailable", "unknown"):
+            return
+        hass.async_create_task(coordinator.async_request_refresh())
+
+    entry.async_on_unload(hass.bus.async_listen("state_changed", _handle_entity_state_change))
 
     try:
         await coordinator.async_config_entry_first_refresh()
