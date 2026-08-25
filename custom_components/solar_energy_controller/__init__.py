@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryError, ConfigEntryNotReady
 from homeassistant.core import CoreState, HomeAssistant, Event, callback
@@ -9,6 +10,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.event import async_call_later
 from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS
@@ -18,9 +20,15 @@ _LOGGER = logging.getLogger(__name__)
 
 type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 
+_LOVELACE_RESOURCE_URLS = (
+    f"/{DOMAIN}/frontend/pid-controller-mini.js",
+    f"/{DOMAIN}/frontend/pid-controller-popup.js",
+)
+_MAX_RESOURCE_REGISTER_ATTEMPTS = 24
+
 
 def _get_integration_version() -> str:
-    version = "1.0.12"
+    version = "1.0.13"
     try:
         import json
 
@@ -34,206 +42,148 @@ def _get_integration_version() -> str:
     return version
 
 
-async def _async_register_lovelace_resources(hass: HomeAssistant) -> None:
-    """Register custom-card JS modules in Lovelace (storage mode)."""
-    import asyncio
+def _get_lovelace(hass: HomeAssistant) -> Any | None:
+    if "lovelace" in hass.data:
+        return hass.data["lovelace"]
+    return getattr(hass, "lovelace", None)
 
+
+async def _async_register_lovelace_resources(
+    hass: HomeAssistant, *, attempt: int = 0
+) -> None:
+    """Register custom-card JS modules in Lovelace (storage mode)."""
     version = _get_integration_version()
     resources = [
         {
-            "url": f"/{DOMAIN}/frontend/pid-controller-mini.js?v={version}",
+            "url": f"{url}?v={version}",
             "res_type": "module",
-        },
-        {
-            "url": f"/{DOMAIN}/frontend/pid-controller-popup.js?v={version}",
-            "res_type": "module",
-        },
+        }
+        for url in _LOVELACE_RESOURCE_URLS
     ]
 
-    _LOGGER.info("Attempting to register Lovelace resources for %s", DOMAIN)
-
-    try:
-        await asyncio.sleep(1)
-
-        lovelace_obj = None
-        if hasattr(hass, "lovelace"):
-            lovelace_obj = hass.lovelace
-        elif "lovelace" in hass.data:
-            lovelace_obj = hass.data["lovelace"]
-        if not lovelace_obj:
-            _LOGGER.warning(
-                "Lovelace not available. Please add cards manually: "
-                "Settings → Dashboards → Resources. URLs: %s",
-                [r["url"] for r in resources],
-            )
-            return
-
-        lovelace_mode = getattr(lovelace_obj, "mode", None)
-        if lovelace_mode != "storage":
-            _LOGGER.info(
-                "Lovelace is in %s mode. Auto-registration only works in storage mode. "
-                "Please add cards manually: %s",
-                lovelace_mode,
-                [r["url"] for r in resources],
-            )
-            return
-
-        existing_resources = []
-        try:
-            resources_api = lovelace_obj.resources
-            existing_items = resources_api.async_items()
-            existing_resources = [
-                item.get("url", "") if isinstance(item, dict) else str(item)
-                for item in existing_items
-                if item
-            ]
-        except Exception as err:
-            _LOGGER.debug("Could not get existing resources: %s", err)
-            return
-
-        registered_count = 0
-        for resource in resources:
-            resource_url = resource["url"]
-            url_base = resource_url.split("?")[0]
-            if any(url_base in existing for existing in existing_resources):
-                _LOGGER.debug("Lovelace resource already exists: %s", url_base)
-                continue
-
-            try:
-                await resources_api.async_create_item(
-                    {"url": resource_url, "res_type": resource["res_type"]}
-                )
-                _LOGGER.info(
-                    "✓ Registered Lovelace resource: %s (%s)",
-                    resource_url,
-                    resource["res_type"],
-                )
-                registered_count += 1
-            except Exception as err:
-                _LOGGER.warning(
-                    "Failed to register Lovelace resource %s: %s", resource_url, err
-                )
-
-        if registered_count > 0:
-            _LOGGER.info(
-                "Successfully registered %d Lovelace resource(s) for %s",
-                registered_count,
+    lovelace_obj = _get_lovelace(hass)
+    if not lovelace_obj:
+        if attempt < _MAX_RESOURCE_REGISTER_ATTEMPTS:
+            _LOGGER.debug(
+                "Lovelace not ready yet for %s (attempt %d/%d)",
                 DOMAIN,
+                attempt + 1,
+                _MAX_RESOURCE_REGISTER_ATTEMPTS,
             )
-        else:
-            _LOGGER.debug("All resources already registered or registration skipped")
-
-    except Exception as err:
+            async_call_later(
+                hass,
+                5,
+                lambda _now: hass.async_create_task(
+                    _async_register_lovelace_resources(hass, attempt=attempt + 1)
+                ),
+            )
+            return
         _LOGGER.warning(
-            "Error accessing Lovelace resources API: %s. Please add cards manually: "
+            "Lovelace not available after retries. Add resources manually: "
             "Settings → Dashboards → Resources. URLs: %s",
-            err,
             [r["url"] for r in resources],
+        )
+        return
+
+    lovelace_mode = getattr(lovelace_obj, "mode", None)
+    if lovelace_mode != "storage":
+        _LOGGER.info(
+            "Lovelace is in %s mode. Auto-registration only works in storage mode. "
+            "Add resources manually: %s",
+            lovelace_mode,
+            [r["url"] for r in resources],
+        )
+        return
+
+    resources_api = lovelace_obj.resources
+    if not getattr(resources_api, "loaded", False):
+        if attempt < _MAX_RESOURCE_REGISTER_ATTEMPTS:
+            _LOGGER.debug(
+                "Lovelace resources collection not loaded yet for %s (attempt %d/%d)",
+                DOMAIN,
+                attempt + 1,
+                _MAX_RESOURCE_REGISTER_ATTEMPTS,
+            )
+            async_call_later(
+                hass,
+                5,
+                lambda _now: hass.async_create_task(
+                    _async_register_lovelace_resources(hass, attempt=attempt + 1)
+                ),
+            )
+            return
+        _LOGGER.warning(
+            "Lovelace resources collection never loaded. Add resources manually: %s",
+            [r["url"] for r in resources],
+        )
+        return
+
+    existing_resources: list[str] = []
+    try:
+        existing_resources = [
+            item.get("url", "") if isinstance(item, dict) else str(item)
+            for item in resources_api.async_items()
+            if item
+        ]
+    except Exception as err:
+        _LOGGER.warning("Could not read Lovelace resources: %s", err)
+        return
+
+    registered_count = 0
+    for resource in resources:
+        resource_url = resource["url"]
+        url_base = resource_url.split("?")[0]
+        if any(url_base in existing for existing in existing_resources):
+            _LOGGER.debug("Lovelace resource already exists: %s", url_base)
+            continue
+
+        try:
+            await resources_api.async_create_item(
+                {"url": resource_url, "res_type": resource["res_type"]}
+            )
+            _LOGGER.info(
+                "Registered Lovelace resource: %s (%s)",
+                resource_url,
+                resource["res_type"],
+            )
+            registered_count += 1
+        except Exception as err:
+            _LOGGER.warning(
+                "Failed to register Lovelace resource %s: %s", resource_url, err
+            )
+
+    if registered_count:
+        _LOGGER.info(
+            "Registered %d Lovelace resource(s) for %s", registered_count, DOMAIN
         )
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Solar Energy Controller: Initializing integration")
-    
+
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
     if os.path.isdir(frontend_path):
         await hass.http.async_register_static_paths([
             StaticPathConfig(
                 url_path=f"/{DOMAIN}/frontend",
                 path=frontend_path,
-                cache_headers=False
+                cache_headers=False,
             )
         ])
-        _LOGGER.info("Solar Energy Controller: Registered static path: /%s/frontend -> %s", DOMAIN, frontend_path)
+        _LOGGER.info(
+            "Solar Energy Controller: Registered static path: /%s/frontend -> %s",
+            DOMAIN,
+            frontend_path,
+        )
     else:
-        _LOGGER.warning("Solar Energy Controller: Frontend directory not found: %s", frontend_path)
+        _LOGGER.warning(
+            "Solar Energy Controller: Frontend directory not found: %s", frontend_path
+        )
 
-    async def register_resources(_event: Event) -> None:
-        _LOGGER.info("Attempting to register Lovelace resources for %s", DOMAIN)
+    async def register_resources_on_start(_event: Event) -> None:
+        await _async_register_lovelace_resources(hass)
 
-        resources = [
-            {
-                "url": f"/{DOMAIN}/frontend/pid-controller-mini.js?v={version}",
-                "res_type": "module",
-            },
-            {
-                "url": f"/{DOMAIN}/frontend/pid-controller-popup.js?v={version}",
-                "res_type": "module",
-            },
-        ]
-
-        try:
-            import asyncio
-            await asyncio.sleep(1)
-            
-            lovelace_obj = None
-            if hasattr(hass, "lovelace"):
-                lovelace_obj = hass.lovelace
-            elif "lovelace" in hass.data:
-                lovelace_obj = hass.data["lovelace"]
-            if not lovelace_obj:
-                _LOGGER.warning(
-                    "Lovelace not available. Please add cards manually: "
-                    "Settings → Dashboards → Resources. URLs: %s",
-                    [r["url"] for r in resources]
-                )
-                return
-            
-            lovelace_mode = getattr(lovelace_obj, "mode", None)
-            if lovelace_mode != "storage":
-                _LOGGER.info(
-                    "Lovelace is in %s mode. Auto-registration only works in storage mode. "
-                    "Please add cards manually: %s",
-                    lovelace_mode, [r["url"] for r in resources]
-                )
-                return
-            
-            existing_resources = []
-            try:
-                resources_api = lovelace_obj.resources
-                existing_items = resources_api.async_items()
-                existing_resources = [
-                    item.get("url", "") if isinstance(item, dict) else str(item)
-                    for item in existing_items
-                    if item
-                ]
-            except Exception as err:
-                _LOGGER.debug("Could not get existing resources: %s", err)
-
-            registered_count = 0
-            for resource in resources:
-                resource_url = resource["url"]
-                url_base = resource_url.split("?")[0]
-                if any(url_base in existing for existing in existing_resources):
-                    _LOGGER.debug("Lovelace resource already exists: %s", url_base)
-                    continue
-
-                try:
-                    await resources_api.async_create_item(
-                        {"url": resource_url, "res_type": resource["res_type"]}
-                    )
-                    _LOGGER.info(
-                        "✓ Registered Lovelace resource: %s (%s)", resource_url, resource["res_type"]
-                    )
-                    registered_count += 1
-                except Exception as err:
-                    _LOGGER.warning(
-                        "Failed to register Lovelace resource %s: %s", resource_url, err
-                    )
-            
-            if registered_count > 0:
-                _LOGGER.info("Successfully registered %d Lovelace resource(s) for %s", registered_count, DOMAIN)
-            else:
-                _LOGGER.debug("All resources already registered or registration skipped")
-                
-        except Exception as err:
-            _LOGGER.warning(
-                "Error accessing Lovelace resources API: %s. Please add cards manually: "
-                "Settings → Dashboards → Resources. URLs: %s",
-                err, [r["url"] for r in resources]
-            )
-
-    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, register_resources)
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, register_resources_on_start)
     return True
 
 

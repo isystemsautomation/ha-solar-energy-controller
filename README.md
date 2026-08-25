@@ -606,13 +606,13 @@ automation:
 
 - **Symptom:** The PID card shows **Configuration error** (red banner) or an empty panel.
 - **Cause:** The dashboard still references `custom:pid-controller-mini`, but the JavaScript modules were removed from **Settings → Dashboards → Resources**.
-- **Resolution (pick one):**
-  1. **Restart Home Assistant** — the integration re-registers both scripts on startup.
-  2. **Settings → Devices & services → Solar Energy Controller → ⋮ → Reload** (v1.0.12+) — same effect without a full restart.
-  3. **Manual restore:** **Settings → Dashboards → Resources → Add resource** (JavaScript module):
+- **Resolution (fastest first):**
+  1. **Manual restore (works immediately):** **Settings → Dashboards → Resources → Add resource** → type **JavaScript module** → add:
      - `/solar_energy_controller/frontend/pid-controller-mini.js`
      - `/solar_energy_controller/frontend/pid-controller-popup.js`
-  4. Hard-refresh the dashboard (Ctrl+F5).
+     Then **Ctrl+F5** on the dashboard.
+  2. Update to **v1.0.13+** and **Restart Home Assistant** — fixes a startup bug that prevented auto-registration in v1.0.12.
+  3. **Settings → Devices & services → Solar Energy Controller → ⋮ → Reload** — re-registers scripts without a full restart (v1.0.12+).
 
 ### Custom card not visible / “Custom element not found: pid-controller-mini”
 
