@@ -600,20 +600,25 @@ automation:
 - **Resolution:**
   1. Update **Solar Energy Controller** to **v1.0.10** or later via HACS.
   2. Restart Home Assistant and hard-refresh the dashboard (Ctrl+F5).
-  3. In **Settings → Dashboards → Resources**, remove old `pid-controller-mini.js` / `pid-controller-popup.js` entries if present, restart HA once more so the integration re-registers them with the new version query string.
+  3. Hard-refresh the dashboard (Ctrl+F5). **Do not delete** the Lovelace resources — the integration registers them automatically.
+
+### “Configuration error” / card blank after deleting JavaScript resources
+
+- **Symptom:** The PID card shows **Configuration error** (red banner) or an empty panel.
+- **Cause:** The dashboard still references `custom:pid-controller-mini`, but the JavaScript modules were removed from **Settings → Dashboards → Resources**.
+- **Resolution (pick one):**
+  1. **Restart Home Assistant** — the integration re-registers both scripts on startup.
+  2. **Settings → Devices & services → Solar Energy Controller → ⋮ → Reload** (v1.0.12+) — same effect without a full restart.
+  3. **Manual restore:** **Settings → Dashboards → Resources → Add resource** (JavaScript module):
+     - `/solar_energy_controller/frontend/pid-controller-mini.js`
+     - `/solar_energy_controller/frontend/pid-controller-popup.js`
+  4. Hard-refresh the dashboard (Ctrl+F5).
 
 ### Custom card not visible / “Custom element not found: pid-controller-mini”
 
 - **Symptom:** Lovelace shows `Custom element not found: pid-controller-mini` or the mini card does not load.
 - **Description:** The frontend resources for the custom card are not registered or not served.
-- **Resolution:**
-  1. Ensure the integration is installed via HACS and Home Assistant has been restarted.
-  2. If Lovelace is not in storage mode, manually add the resources:
-     - Go to **Settings → Dashboards → Resources**.
-     - Add the following URLs as **JavaScript module** resources:
-       - `/solar_energy_controller/frontend/pid-controller-mini.js`
-       - `/solar_energy_controller/frontend/pid-controller-popup.js`
-  3. Clear your browser cache and reload the dashboard.
+- **Resolution:** Use the steps in **“Configuration error”** above. If Lovelace is not in storage mode, step 3 (manual add) is required on every update.
 
 ---
 
