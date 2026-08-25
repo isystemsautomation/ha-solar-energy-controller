@@ -2,8 +2,8 @@
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-41BDF5.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/github/v/release/isystemsautomation/ha-solar-energy-controller?display_name=tag)](https://github.com/isystemsautomation/ha-solar-energy-controller/releases)
-[![Issues](https://img.shields.io/github/issues/isystemsautomation/ha-solar-energy-controller)](https://github.com/isystemsautomation/ha-solar-energy-controller/issues)
+[![Version](https://img.shields.io/github/v/release/isystemsautomation/hm-solar-energy-controller?display_name=tag)](https://github.com/isystemsautomation/hm-solar-energy-controller/releases)
+[![Issues](https://img.shields.io/github/issues/isystemsautomation/hm-solar-energy-controller)](https://github.com/isystemsautomation/hm-solar-energy-controller/issues)
 
 A **PID-based control integration for Home Assistant** that regulates a numeric output entity based on a measured process value and a setpoint, with optional grid import/export limiting.
 
@@ -15,7 +15,7 @@ Designed for **energy flow control** scenarios such as inverter power limiting, 
 
 Solar Energy Controller is an open-source PID control integration for Home Assistant, designed to provide flexible energy flow control for solar and grid-connected systems. This integration enables precise control of energy systems through a normalized, percent-based PID algorithm that works across different sensor types and units.
 
-The integration is developed and maintained as an open-source project. For more information, visit the [GitHub repository](https://github.com/isystemsautomation/ha-solar-energy-controller/).
+The integration is developed and maintained as an open-source project. For more information, visit the [GitHub repository](https://github.com/isystemsautomation/hm-solar-energy-controller/).
 
 ---
 
@@ -119,7 +119,7 @@ If you don't have HACS installed yet:
 ### Installation Steps
 
 1. In HACS, go to **Integrations → ⋮ → Custom repositories**
-2. Add this repository URL: `https://github.com/isystemsautomation/ha-solar-energy-controller` and select **Integration** as the category
+2. Add this repository URL: `https://github.com/isystemsautomation/hm-solar-energy-controller` and select **Integration** as the category
 3. Click **Add** and wait for the repository to be added
 4. Search for **Solar Energy Controller** in HACS
 5. Click **Download** to install the integration
@@ -153,7 +153,7 @@ To remove the Solar Energy Controller integration:
 During setup you select the entities used by the controller and define their operating ranges for normalization.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration1.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration1.png" width="300">
 </p>
 
 ### Installation Parameters
@@ -215,7 +215,7 @@ The following parameters are required during the initial setup:
 After installation, you can configure signal interpretation and controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration2.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration2.png" width="300">
 </p>
 
 ### Options
@@ -246,7 +246,7 @@ After installation, you can configure signal interpretation and controller behav
 Runtime controls allow switching modes and manually overriding behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration3.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration3.png" width="200">
 </p>
 
 ### Runtime Modes
@@ -274,7 +274,7 @@ Mode transitions use **bumpless transfer** to avoid output jumps.
 The integration exposes detailed runtime sensors for transparency and tuning.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration4.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration4.png" width="200">
 </p>
 
 ### Sensors
@@ -298,7 +298,7 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 All tuning and limiter parameters are available as number and switch entities.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration5.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration5.png" width="200">
 </p>
 
 ### PID & Limits
@@ -342,7 +342,7 @@ All tuning and limiter parameters are available as number and switch entities.
 Additional diagnostic entities help understand controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/ha-solar-energy-controller/main/images/Configuration6.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration6.png" width="200">
 </p>
 
 ### Diagnostic Entities
@@ -583,6 +583,15 @@ automation:
   2. If you see a service error like *“Cannot set Manual SP value: controller is in AUTO SP mode”*, switch to the correct mode and retry.
   3. Verify that no automation is continuously overwriting the same entities.
 
+### Custom card opens but click does not show the editor (Home Assistant 2026.3+)
+
+- **Symptom:** The mini card renders PV/SP/output and the chart, but tapping the card or **Open Editor** does nothing.
+- **Description:** Home Assistant 2026.3 migrated `ha-dialog` to the Web Awesome / native `<dialog>` stack. Integrations that called the legacy MDC `dialog.show()` API silently fail on newer frontends.
+- **Resolution:**
+  1. Update **Solar Energy Controller** to **v1.0.8** or later via HACS.
+  2. Restart Home Assistant and hard-refresh the dashboard (Ctrl+F5).
+  3. If the card was added before the update, remove and re-add the Lovelace resources under **Settings → Dashboards → Resources** so the browser loads the new JavaScript modules.
+
 ### Custom card not visible / “Custom element not found: pid-controller-mini”
 
 - **Symptom:** Lovelace shows `Custom element not found: pid-controller-mini` or the mini card does not load.
@@ -600,7 +609,7 @@ automation:
 
 ## Known Limitations
 
-The following are known limitations of the integration. These are design decisions and constraints, not bugs. For bug reports, please use the [issue tracker](https://github.com/isystemsautomation/ha-solar-energy-controller/issues).
+The following are known limitations of the integration. These are design decisions and constraints, not bugs. For bug reports, please use the [issue tracker](https://github.com/isystemsautomation/hm-solar-energy-controller/issues).
 
 ### Entity Domain Restrictions
 
@@ -636,5 +645,5 @@ The following are known limitations of the integration. These are design decisio
 
 ## Support
 
-- Issues: https://github.com/isystemsautomation/ha-solar-energy-controller/issues
-- Documentation: https://github.com/isystemsautomation/ha-solar-energy-controller/
+- Issues: https://github.com/isystemsautomation/hm-solar-energy-controller/issues
+- Documentation: https://github.com/isystemsautomation/hm-solar-energy-controller/

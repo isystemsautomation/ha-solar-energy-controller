@@ -106,6 +106,16 @@ class PIDControllerMini extends LitElement {
       display: block;
       width: 100%;
       max-width: 100%;
+      pointer-events: none;
+    }
+
+    .card-clickable {
+      cursor: pointer;
+    }
+
+    .card-clickable:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
   `;
 
@@ -634,17 +644,211 @@ class PIDControllerMini extends LitElement {
     };
   }
 
+  _ensureNativeDialogStyles() {
+    if (document.getElementById("pid-controller-native-dialog-styles")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "pid-controller-native-dialog-styles";
+    style.textContent = `
+      dialog.pid-controller-native-dialog {
+        border: none;
+        padding: 0;
+        margin: auto;
+        width: min(920px, 95vw);
+        max-height: 90vh;
+        overflow: auto;
+        background: var(--card-background-color, #1c1c1c);
+        color: var(--primary-text-color, #fff);
+        border-radius: var(--ha-card-border-radius, 12px);
+        box-shadow: var(--ha-card-box-shadow, 0 8px 24px rgba(0, 0, 0, 0.35));
+      }
+      dialog.pid-controller-native-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .pid-controller-native-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 16px 0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--card-background-color, #1c1c1c);
+      }
+      .pid-controller-native-dialog-title {
+        font-size: 20px;
+        font-weight: 500;
+      }
+      .pid-controller-native-dialog-close {
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 24px;
+        line-height: 1;
+        padding: 4px 8px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  _createPopupCard() {
+    const popupCard = document.createElement("pid-controller-popup");
+    popupCard.setConfig({ pid_entity: this.config.pid_entity });
+    popupCard.hass = this.hass;
+    popupCard._hassInterval = setInterval(() => {
+      if (this.hass) {
+        popupCard.hass = this.hass;
+      }
+    }, 1000);
+    return popupCard;
+  }
+
+  _cleanupPopupCard(popupCard) {
+    if (popupCard?._hassInterval) {
+      clearInterval(popupCard._hassInterval);
+      popupCard._hassInterval = null;
+    }
+  }
+
+  _closeDialogElement(dialog) {
+    if (!dialog) {
+      return;
+    }
+    if (typeof dialog.close === "function") {
+      try {
+        dialog.close();
+      } catch (err) {
+        dialog.open = false;
+      }
+      return;
+    }
+    if ("open" in dialog) {
+      dialog.open = false;
+    }
+  }
+
+  _attachDialogCleanup(dialog, popupCard) {
+    const cleanup = () => {
+      this._cleanupPopupCard(popupCard);
+      if (dialog.parentNode) {
+        dialog.parentNode.removeChild(dialog);
+      }
+    };
+    dialog.addEventListener("closed", cleanup, { once: true });
+    dialog.addEventListener("close", cleanup, { once: true });
+  }
+
+  _tryHaDialog(title, popupCard) {
+    if (!customElements.get("ha-dialog")) {
+      return false;
+    }
+
+    try {
+      const dialog = document.createElement("ha-dialog");
+      dialog.open = true;
+
+      if (customElements.get("ha-dialog-header")) {
+        const header = document.createElement("ha-dialog-header");
+        header.setAttribute("slot", "heading");
+
+        const heading = document.createElement("span");
+        heading.setAttribute("slot", "title");
+        heading.textContent = title;
+        header.appendChild(heading);
+
+        if (customElements.get("ha-icon-button")) {
+          const closeButton = document.createElement("ha-icon-button");
+          closeButton.setAttribute("slot", "navigationIcon");
+          closeButton.setAttribute("label", "Close");
+          const closeIcon = document.createElement("ha-icon");
+          closeIcon.setAttribute("icon", "mdi:close");
+          closeButton.appendChild(closeIcon);
+          closeButton.addEventListener("click", () => this._closeDialogElement(dialog));
+          header.appendChild(closeButton);
+        }
+
+        dialog.appendChild(header);
+      } else {
+        dialog.heading = title;
+        dialog.hideActions = true;
+        dialog.scrimClickAction = "close";
+        dialog.escapeKeyAction = "close";
+      }
+
+      dialog.appendChild(popupCard);
+      this._attachDialogCleanup(dialog, popupCard);
+      document.body.appendChild(dialog);
+
+      if (!dialog.open && typeof dialog.show === "function") {
+        dialog.show();
+      }
+
+      return true;
+    } catch (err) {
+      console.warn("Solar Energy Controller: ha-dialog failed, using native dialog", err);
+      return false;
+    }
+  }
+
+  _openNativeDialog(title, popupCard) {
+    this._ensureNativeDialogStyles();
+
+    const dialog = document.createElement("dialog");
+    dialog.className = "pid-controller-native-dialog";
+
+    const header = document.createElement("div");
+    header.className = "pid-controller-native-dialog-header";
+
+    const heading = document.createElement("div");
+    heading.className = "pid-controller-native-dialog-title";
+    heading.textContent = title;
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "pid-controller-native-dialog-close";
+    closeButton.setAttribute("aria-label", "Close");
+    closeButton.textContent = "×";
+    closeButton.addEventListener("click", () => this._closeDialogElement(dialog));
+
+    header.appendChild(heading);
+    header.appendChild(closeButton);
+    dialog.appendChild(header);
+    dialog.appendChild(popupCard);
+
+    this._attachDialogCleanup(dialog, popupCard);
+    document.body.appendChild(dialog);
+
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) {
+        this._closeDialogElement(dialog);
+      }
+    });
+
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+    } else if (typeof dialog.show === "function") {
+      dialog.show();
+    } else {
+      dialog.open = true;
+    }
+  }
+
   _openPopup(ev) {
     if (ev) {
       ev.stopPropagation();
+      ev.preventDefault();
     }
 
+    const title = this.config.title || "PID Controller";
+
     if (
-      this.hass.services["browser_mod"] &&
-      this.hass.services["browser_mod"]["popup"]
+      this.hass?.services?.browser_mod?.popup
     ) {
       this.hass.callService("browser_mod", "popup", {
-        title: this.config.title || "PID Controller",
+        title,
         card: {
           type: "custom:pid-controller-popup",
           pid_entity: this.config.pid_entity,
@@ -654,62 +858,21 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    const dialog = document.createElement("ha-dialog");
-    dialog.heading = this.config.title || "PID Controller";
-    dialog.hideActions = false;
-    dialog.scrimClickAction = "close";
-    dialog.escapeKeyAction = "close";
-    
-    const popupCard = document.createElement("pid-controller-popup");
-    popupCard.setConfig({ pid_entity: this.config.pid_entity });
-    popupCard.hass = this.hass;
-    
-    const updateHass = () => {
-      if (this.hass) {
-        popupCard.hass = this.hass;
-      }
-    };
-    
-    const hassUpdateInterval = setInterval(updateHass, 1000);
-    
-    dialog.addEventListener("closed", () => {
-      clearInterval(hassUpdateInterval);
-      if (dialog.parentNode === document.body) {
-        try {
-          document.body.removeChild(dialog);
-        } catch (e) {
-          // Ignore
-        }
-      }
-    });
-    
-    dialog.appendChild(popupCard);
-    document.body.appendChild(dialog);
-    dialog.show();
-    
-    setTimeout(() => {
-      const shadowRoot = dialog.shadowRoot;
-      if (!shadowRoot) return;
-      
-      const header = shadowRoot.querySelector(".mdc-dialog__header") || 
-                     shadowRoot.querySelector("h2")?.parentElement;
-      
-      if (header && !header.querySelector("mwc-icon-button")) {
-        header.style.position = "relative";
-        header.style.display = "flex";
-        header.style.alignItems = "center";
-        header.style.paddingLeft = "56px";
-        
-        const closeButton = document.createElement("mwc-icon-button");
-        closeButton.style.cssText = "position: absolute; left: 8px; top: 50%; transform: translateY(-50%); --mdc-icon-button-size: 40px; --mdc-icon-size: 24px; z-index: 10; color: var(--primary-text-color);";
-        const closeIcon = document.createElement("ha-icon");
-        closeIcon.setAttribute("icon", "mdi:close");
-        closeButton.appendChild(closeIcon);
-        closeButton.addEventListener("click", () => dialog.close());
-        
-        header.insertBefore(closeButton, header.firstChild);
-      }
-    }, 500);
+    const popupCard = this._createPopupCard();
+
+    if (this._tryHaDialog(title, popupCard)) {
+      return;
+    }
+
+    this._cleanupPopupCard(popupCard);
+    this._openNativeDialog(title, this._createPopupCard());
+  }
+
+  _onCardKeydown(ev) {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      this._openPopup(ev);
+    }
   }
 
   render() {
@@ -722,7 +885,15 @@ class PIDControllerMini extends LitElement {
       d.status === "running" ? "running" : d.enabled === false ? "disabled" : "";
 
     return html`
-      <ha-card @click=${this._openPopup}>
+      <ha-card>
+        <div
+          class="card-clickable"
+          role="button"
+          tabindex="0"
+          aria-label="Open PID controller editor"
+          @click=${this._openPopup}
+          @keydown=${this._onCardKeydown}
+        >
         <div class="header">
           <div class="title">${this.config.title}</div>
         </div>
@@ -783,6 +954,7 @@ class PIDControllerMini extends LitElement {
 
         <div class="actions">
           <mwc-button outlined label="Open Editor" @click=${this._openPopup}></mwc-button>
+        </div>
         </div>
       </ha-card>
     `;

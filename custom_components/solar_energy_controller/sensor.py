@@ -191,9 +191,11 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
         # Get values from entry options
         from .const import (
             CONF_KP, CONF_KI, CONF_KD, CONF_MIN_OUTPUT, CONF_MAX_OUTPUT,
-            CONF_PID_DEADBAND,
+            CONF_PID_DEADBAND, CONF_GRID_LIMITER_ENABLED, CONF_RATE_LIMITER_ENABLED,
+            CONF_GRID_LIMITER_LIMIT_W, CONF_RATE_LIMIT,
             DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_MIN_OUTPUT, DEFAULT_MAX_OUTPUT,
-            DEFAULT_PID_DEADBAND,
+            DEFAULT_PID_DEADBAND, DEFAULT_GRID_LIMITER_ENABLED, DEFAULT_RATE_LIMITER_ENABLED,
+            DEFAULT_GRID_LIMITER_LIMIT_W, DEFAULT_RATE_LIMIT,
             RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT,
         )
         
@@ -215,6 +217,10 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
             "i_term": getattr(data, "i_term", None),
             "d_term": getattr(data, "d_term", None),
             "grid_power": getattr(data, "grid_power", None),
+            "grid_limiter_enabled": self._entry.options.get(CONF_GRID_LIMITER_ENABLED, DEFAULT_GRID_LIMITER_ENABLED),
+            "rate_limiter_enabled": self._entry.options.get(CONF_RATE_LIMITER_ENABLED, DEFAULT_RATE_LIMITER_ENABLED),
+            "grid_limiter_limit": self._entry.options.get(CONF_GRID_LIMITER_LIMIT_W, DEFAULT_GRID_LIMITER_LIMIT_W),
+            "rate_limit": self._entry.options.get(CONF_RATE_LIMIT, DEFAULT_RATE_LIMIT),
             "kp": self._entry.options.get(CONF_KP, DEFAULT_KP),
             "ki": self._entry.options.get(CONF_KI, DEFAULT_KI),
             "kd": self._entry.options.get(CONF_KD, DEFAULT_KD),

@@ -21,7 +21,7 @@ type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Solar Energy Controller: Initializing integration")
     
-    version = "1.0.0"
+    version = "1.0.8"
     try:
         import json
         

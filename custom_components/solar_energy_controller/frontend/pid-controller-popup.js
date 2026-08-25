@@ -829,9 +829,25 @@ class PIDControllerPopup extends LitElement {
   }
 
   _close() {
-    const dialog = this.closest("ha-dialog");
-    if (dialog) {
-      dialog.close();
+    const dialog =
+      this.closest("ha-dialog") ||
+      this.closest("dialog") ||
+      this.closest(".pid-controller-native-dialog");
+    if (!dialog) {
+      return;
+    }
+    if (typeof dialog.close === "function") {
+      try {
+        dialog.close();
+      } catch (err) {
+        if ("open" in dialog) {
+          dialog.open = false;
+        }
+      }
+      return;
+    }
+    if ("open" in dialog) {
+      dialog.open = false;
     }
   }
 
