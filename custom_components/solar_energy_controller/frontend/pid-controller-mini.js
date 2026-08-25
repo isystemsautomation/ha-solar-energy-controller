@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "./lit-core.min.js";
+import "./pid-controller-popup.js";
 
 class PIDControllerMini extends LitElement {
   static properties = {
@@ -694,7 +695,35 @@ class PIDControllerMini extends LitElement {
     document.head.appendChild(style);
   }
 
+  _popupScriptPromise = null;
+
+  async _ensurePopupElementReady() {
+    if (customElements.get("pid-controller-popup")) {
+      return true;
+    }
+
+    if (!this._popupScriptPromise) {
+      this._popupScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.type = "module";
+        script.src = `/solar_energy_controller/frontend/pid-controller-popup.js?v=${this._frontendVersion || "1.0.10"}`;
+        script.onload = () => resolve(customElements.get("pid-controller-popup") !== undefined);
+        script.onerror = () => reject(new Error("Failed to load pid-controller-popup.js"));
+        document.head.appendChild(script);
+      }).catch((err) => {
+        this._popupScriptPromise = null;
+        throw err;
+      });
+    }
+
+    return this._popupScriptPromise;
+  }
+
   _createPopupCard() {
+    if (!customElements.get("pid-controller-popup")) {
+      throw new Error("pid-controller-popup custom element is not registered");
+    }
+
     const popupCard = document.createElement("pid-controller-popup");
     popupCard.setConfig({ pid_entity: this.config.pid_entity });
     popupCard.hass = this.hass;
@@ -837,6 +866,10 @@ class PIDControllerMini extends LitElement {
   }
 
   _openPopup(ev) {
+    void this._openPopupAsync(ev);
+  }
+
+  async _openPopupAsync(ev) {
     if (ev) {
       ev.stopPropagation();
       ev.preventDefault();
@@ -844,9 +877,7 @@ class PIDControllerMini extends LitElement {
 
     const title = this.config.title || "PID Controller";
 
-    if (
-      this.hass?.services?.browser_mod?.popup
-    ) {
+    if (this.hass?.services?.browser_mod?.popup) {
       this.hass.callService("browser_mod", "popup", {
         title,
         card: {
@@ -858,14 +889,24 @@ class PIDControllerMini extends LitElement {
       return;
     }
 
-    const popupCard = this._createPopupCard();
-
-    if (this._tryHaDialog(title, popupCard)) {
+    try {
+      await this._ensurePopupElementReady();
+    } catch (err) {
+      console.error("Solar Energy Controller: could not load popup editor", err);
       return;
     }
 
-    this._cleanupPopupCard(popupCard);
-    this._openNativeDialog(title, this._createPopupCard());
+    let popupCard;
+    try {
+      popupCard = this._createPopupCard();
+    } catch (err) {
+      console.error("Solar Energy Controller: popup editor element missing", err);
+      return;
+    }
+
+    // Prefer the native <dialog> element. ha-dialog on HA 2026.3+ often accepts
+    // open=true but renders nothing, which blocked the fallback in earlier builds.
+    this._openNativeDialog(title, popupCard);
   }
 
   _onCardKeydown(ev) {

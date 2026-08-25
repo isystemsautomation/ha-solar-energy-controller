@@ -49,7 +49,7 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Solar Energy Controller",
+            manufacturer="HomeMaster",
             model="PID Controller",
             entry_type=DeviceEntryType.SERVICE,
         )
@@ -92,7 +92,7 @@ class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Solar Energy Controller",
+            manufacturer="HomeMaster",
             model="PID Controller",
             entry_type=DeviceEntryType.SERVICE,
         )
@@ -129,7 +129,7 @@ class SolarEnergyFlowGridLimiterSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Solar Energy Controller",
+            manufacturer="HomeMaster",
             model="PID Controller",
             entry_type=DeviceEntryType.SERVICE,
         )
