@@ -1,0 +1,207 @@
+"""Lovelace JavaScript module registration for Solar Energy Controller."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+from typing import Any
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_call_later
+
+from ..const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+URL_BASE = f"/{DOMAIN}/frontend"
+JSMODULES = (
+    {"name": "PID Controller Mini", "filename": "pid-controller-mini.js"},
+    {"name": "PID Controller Popup", "filename": "pid-controller-popup.js"},
+)
+
+_REGISTER_LOCK = asyncio.Lock()
+_MAX_ATTEMPTS = 30
+
+
+def get_integration_version() -> str:
+    version = "1.0.14"
+    manifest_path = os.path.join(os.path.dirname(__file__), "..", "manifest.json")
+    try:
+        with open(manifest_path, encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+        version = manifest.get("version", version)
+    except OSError:
+        pass
+    except json.JSONDecodeError:
+        pass
+    return version
+
+
+def _get_lovelace(hass: HomeAssistant) -> Any | None:
+    return hass.data.get("lovelace") or getattr(hass, "lovelace", None)
+
+
+def _url_path(url: str) -> str:
+    return url.split("?", 1)[0]
+
+
+def _url_version(url: str) -> str:
+    if "?v=" not in url:
+        return ""
+    return url.split("?v=", 1)[1]
+
+
+class JSModuleRegistration:
+    """Register dashboard card scripts in Lovelace storage resources."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+        self._version = get_integration_version()
+
+    async def async_register(self) -> bool:
+        """Ensure both card modules are present in Lovelace resources."""
+        async with _REGISTER_LOCK:
+            return await self._async_register_with_retries()
+
+    async def _async_register_with_retries(self, attempt: int = 0) -> bool:
+        lovelace = _get_lovelace(self.hass)
+        if lovelace is None:
+            if attempt >= _MAX_ATTEMPTS:
+                _LOGGER.error(
+                    "Lovelace is unavailable; PID card scripts were not registered"
+                )
+                return False
+            _schedule_retry(self.hass, attempt + 1)
+            return False
+
+        mode = getattr(lovelace, "mode", getattr(lovelace, "resource_mode", "yaml"))
+        if mode != "storage":
+            _LOGGER.info(
+                "Lovelace is in %s mode; automatic card registration is not supported",
+                mode,
+            )
+            return False
+
+        resources_api = lovelace.resources
+        if not getattr(resources_api, "loaded", False):
+            try:
+                await resources_api.async_load()
+            except Exception as err:
+                _LOGGER.debug("Could not load Lovelace resources collection: %s", err)
+
+        if not getattr(resources_api, "loaded", False):
+            if attempt >= _MAX_ATTEMPTS:
+                _LOGGER.error(
+                    "Lovelace resources collection did not load; PID card scripts were not registered"
+                )
+                return False
+            _schedule_retry(self.hass, attempt + 1)
+            return False
+
+        existing = [
+            item
+            for item in resources_api.async_items()
+            if isinstance(item, dict) and item.get("url", "").startswith(URL_BASE)
+        ]
+
+        registered = 0
+        updated = 0
+        for module in JSMODULES:
+            url = f"{URL_BASE}/{module['filename']}"
+            target_url = f"{url}?v={self._version}"
+            matched = next(
+                (resource for resource in existing if _url_path(resource["url"]) == url),
+                None,
+            )
+
+            if matched is None:
+                try:
+                    await resources_api.async_create_item(
+                        {"res_type": "module", "url": target_url}
+                    )
+                    registered += 1
+                    _LOGGER.info(
+                        "Registered Lovelace resource %s v%s",
+                        module["name"],
+                        self._version,
+                    )
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Failed to register Lovelace resource %s: %s", target_url, err
+                    )
+                continue
+
+            if _url_version(matched["url"]) != self._version:
+                try:
+                    await resources_api.async_update_item(
+                        matched["id"],
+                        {"res_type": "module", "url": target_url},
+                    )
+                    updated += 1
+                    _LOGGER.info(
+                        "Updated Lovelace resource %s to v%s",
+                        module["name"],
+                        self._version,
+                    )
+                except Exception as err:
+                    _LOGGER.warning(
+                        "Failed to update Lovelace resource %s: %s", target_url, err
+                    )
+
+        if registered or updated:
+            _LOGGER.info(
+                "Solar Energy Controller Lovelace resources ready "
+                "(registered=%d, updated=%d, version=%s)",
+                registered,
+                updated,
+                self._version,
+            )
+            return True
+
+        if self._resources_complete(existing):
+            _LOGGER.debug(
+                "Solar Energy Controller Lovelace resources already present (v%s)",
+                self._version,
+            )
+            return True
+
+        if attempt >= _MAX_ATTEMPTS:
+            _LOGGER.error(
+                "PID card scripts are still missing from Lovelace resources after retries"
+            )
+            return False
+
+        _schedule_retry(self.hass, attempt + 1)
+        return False
+
+    def _resources_complete(self, existing: list[dict[str, Any]]) -> bool:
+        paths = {_url_path(item["url"]) for item in existing}
+        required = {f"{URL_BASE}/{module['filename']}" for module in JSMODULES}
+        if paths != required:
+            return False
+        for item in existing:
+            if _url_version(item["url"]) != self._version:
+                return False
+        return True
+
+
+def _schedule_retry(hass: HomeAssistant, attempt: int) -> None:
+    _LOGGER.debug(
+        "Retrying Lovelace resource registration for %s (attempt %d/%d)",
+        DOMAIN,
+        attempt,
+        _MAX_ATTEMPTS,
+    )
+
+    async def _retry(_now: Any) -> None:
+        registrar = JSModuleRegistration(hass)
+        await registrar._async_register_with_retries(attempt=attempt)
+
+    async_call_later(hass, 5, _retry)
+
+
+async def async_register_frontend(hass: HomeAssistant) -> None:
+    """Register card JavaScript after Home Assistant is ready."""
+    await JSModuleRegistration(hass).async_register()

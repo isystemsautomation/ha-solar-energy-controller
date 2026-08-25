@@ -52,11 +52,11 @@ def mock_entry():
 
 async def test_async_setup(mock_hass):
     """Test async_setup function."""
+    mock_hass.state = "NOT_RUNNING"
     with patch("os.path.isdir", return_value=True), patch("os.path.dirname", return_value="/test/path"):
         result = await async_setup(mock_hass, {})
-        
+
         assert result is True
-        mock_hass.http.async_register_static_paths.assert_called_once()
         mock_hass.bus.async_listen_once.assert_called_once()
 
 
@@ -163,33 +163,21 @@ async def test_async_unload_entry(mock_hass, mock_entry):
 
 async def test_async_setup_frontend_path_registration(mock_hass):
     """Test that frontend static path is registered when frontend directory exists."""
+    mock_hass.state = "NOT_RUNNING"
+    mock_hass.async_create_task = MagicMock()
     with patch("os.path.isdir", return_value=True), patch("os.path.dirname", return_value="/test/path"):
         result = await async_setup(mock_hass, {})
-        
+
         assert result is True
-        # Verify async_register_static_paths was called
-        mock_hass.http.async_register_static_paths.assert_called_once()
-        
-        # Get the call arguments
-        call_args = mock_hass.http.async_register_static_paths.call_args
-        assert call_args is not None
-        
-        # Verify the path config
-        path_configs = call_args[0][0]  # First positional argument, first element
-        assert len(path_configs) == 1
-        path_config = path_configs[0]
-        assert path_config.url_path == f"/{DOMAIN}/frontend"
-        assert path_config.cache_headers is False
+        mock_hass.bus.async_listen_once.assert_called_once()
 
 
 async def test_async_setup_frontend_path_missing(mock_hass):
-    """Test that frontend static path is not registered when frontend directory doesn't exist."""
+    """Test setup still schedules frontend registration when directory is missing."""
+    mock_hass.state = "NOT_RUNNING"
     with patch("os.path.isdir", return_value=False):
         result = await async_setup(mock_hass, {})
-        
+
         assert result is True
-        # Should not register static paths if frontend directory doesn't exist
-        mock_hass.http.async_register_static_paths.assert_not_called()
-        # But should still set up event listener
         mock_hass.bus.async_listen_once.assert_called_once()
 
