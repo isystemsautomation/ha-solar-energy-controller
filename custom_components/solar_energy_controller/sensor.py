@@ -190,13 +190,30 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
         
         # Get values from entry options
         from .const import (
-            CONF_KP, CONF_KI, CONF_KD, CONF_MIN_OUTPUT, CONF_MAX_OUTPUT,
-            CONF_PID_DEADBAND, CONF_GRID_LIMITER_ENABLED, CONF_RATE_LIMITER_ENABLED,
-            CONF_GRID_LIMITER_LIMIT_W, CONF_RATE_LIMIT,
-            DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_MIN_OUTPUT, DEFAULT_MAX_OUTPUT,
-            DEFAULT_PID_DEADBAND, DEFAULT_GRID_LIMITER_ENABLED, DEFAULT_RATE_LIMITER_ENABLED,
-            DEFAULT_GRID_LIMITER_LIMIT_W, DEFAULT_RATE_LIMIT,
-            RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT,
+            CONF_GRID_LIMITER_ENABLED,
+            CONF_GRID_LIMITER_LIMIT_W,
+            CONF_KD,
+            CONF_KI,
+            CONF_KP,
+            CONF_MAX_OUTPUT,
+            CONF_MIN_OUTPUT,
+            CONF_PID_DEADBAND,
+            CONF_RATE_LIMIT,
+            CONF_RATE_LIMITER_ENABLED,
+            DEFAULT_GRID_LIMITER_ENABLED,
+            DEFAULT_GRID_LIMITER_LIMIT_W,
+            DEFAULT_KD,
+            DEFAULT_KI,
+            DEFAULT_KP,
+            DEFAULT_MAX_OUTPUT,
+            DEFAULT_MIN_OUTPUT,
+            DEFAULT_PID_DEADBAND,
+            DEFAULT_RATE_LIMIT,
+            DEFAULT_RATE_LIMITER_ENABLED,
+            RUNTIME_MODE_AUTO_SP,
+            RUNTIME_MODE_HOLD,
+            RUNTIME_MODE_MANUAL_OUT,
+            RUNTIME_MODE_MANUAL_SP,
         )
         
         return {

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
+from homeassistant.loader import async_get_loaded_integration
 
 from ..const import DOMAIN
 
@@ -23,20 +22,6 @@ JSMODULES = (
 
 _REGISTER_LOCK = asyncio.Lock()
 _MAX_ATTEMPTS = 30
-
-
-def get_integration_version() -> str:
-    version = "1.0.15"
-    manifest_path = os.path.join(os.path.dirname(__file__), "..", "manifest.json")
-    try:
-        with open(manifest_path, encoding="utf-8") as manifest_file:
-            manifest = json.load(manifest_file)
-        version = manifest.get("version", version)
-    except OSError:
-        pass
-    except json.JSONDecodeError:
-        pass
-    return version
 
 
 def _get_lovelace(hass: HomeAssistant) -> Any | None:
@@ -58,11 +43,13 @@ class JSModuleRegistration:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self._version = get_integration_version()
+        self._version = ""
 
     async def async_register(self) -> bool:
         """Ensure both card modules are present in Lovelace resources."""
         async with _REGISTER_LOCK:
+            integration = async_get_loaded_integration(self.hass, DOMAIN)
+            self._version = integration.version
             return await self._async_register_with_retries()
 
     async def _async_register_with_retries(self, attempt: int = 0) -> bool:
@@ -88,7 +75,7 @@ class JSModuleRegistration:
         if not getattr(resources_api, "loaded", False):
             try:
                 await resources_api.async_load()
-            except Exception as err:
+            except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as err:
                 _LOGGER.debug("Could not load Lovelace resources collection: %s", err)
 
         if not getattr(resources_api, "loaded", False):
@@ -127,7 +114,7 @@ class JSModuleRegistration:
                         module["name"],
                         self._version,
                     )
-                except Exception as err:
+                except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as err:
                     _LOGGER.warning(
                         "Failed to register Lovelace resource %s: %s", target_url, err
                     )
@@ -145,7 +132,7 @@ class JSModuleRegistration:
                         module["name"],
                         self._version,
                     )
-                except Exception as err:
+                except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as err:
                     _LOGGER.warning(
                         "Failed to update Lovelace resource %s: %s", target_url, err
                     )
@@ -196,8 +183,7 @@ def _schedule_retry(hass: HomeAssistant, attempt: int) -> None:
     )
 
     async def _retry(_now: Any) -> None:
-        registrar = JSModuleRegistration(hass)
-        await registrar._async_register_with_retries(attempt=attempt)
+        await JSModuleRegistration(hass).async_register()
 
     async_call_later(hass, 5, _retry)
 

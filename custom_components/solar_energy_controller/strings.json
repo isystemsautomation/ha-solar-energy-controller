@@ -53,12 +53,7 @@
           "grid_max": "Grid max (raw units)"
         },
         "data_description": {
-          "pid_mode": {
-            "options": {
-              "direct": "Positive error increases output",
-              "reverse": "Positive error decreases output"
-            }
-          }
+          "pid_mode": "Direct: positive error increases output. Reverse: positive error decreases output."
         }
       }
     },
@@ -72,36 +67,6 @@
       "invalid_pv_range": "PV max must be greater than PV min.",
       "invalid_sp_range": "SP max must be greater than SP min.",
       "invalid_grid_range": "Grid max must be greater than Grid min."
-    }
-  },
-  "entity": {
-    "select": {
-      "solar_energy_controller_runtime_mode": {
-        "name": "Runtime mode",
-        "options": {
-          "AUTO SP": "AUTO SP",
-          "MANUAL SP": "MANUAL SP",
-          "HOLD": "HOLD",
-          "MANUAL OUT": "MANUAL OUT"
-        }
-      }
-    },
-    "switch": {
-      "solar_energy_controller_rate_limiter": {
-        "name": "Rate limiter"
-      }
-    },
-    "number": {
-      "solar_energy_controller_manual_sp_value": {
-        "name": "Manual SP"
-      },
-      "solar_energy_controller_manual_out_value": {
-        "name": "Manual OUT"
-      },
-      "solar_energy_controller_rate_limit": {
-        "name": "Rate limit",
-        "unit_of_measurement": "points/s"
-      }
     }
   },
   "exceptions": {

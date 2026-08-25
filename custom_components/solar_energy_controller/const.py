@@ -1,5 +1,7 @@
 DOMAIN = "solar_energy_controller"
 
+from homeassistant.const import Platform
+
 CONF_PROCESS_VALUE_ENTITY = "process_value_entity"
 CONF_SETPOINT_ENTITY = "setpoint_entity"
 CONF_OUTPUT_ENTITY = "output_entity"
@@ -82,4 +84,4 @@ RUNTIME_MODE_MANUAL_SP = "MANUAL SP"
 RUNTIME_MODE_HOLD = "HOLD"
 RUNTIME_MODE_MANUAL_OUT = "MANUAL OUT"
 
-PLATFORMS = ["sensor", "switch", "number", "select"]
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.SELECT]

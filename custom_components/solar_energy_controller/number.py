@@ -11,38 +11,35 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CONF_ENABLED,
+    CONF_GRID_LIMITER_DEADBAND_W,
+    CONF_GRID_LIMITER_LIMIT_W,
     CONF_KD,
     CONF_KI,
     CONF_KP,
+    CONF_MANUAL_OUT_VALUE,
+    CONF_MANUAL_SP_VALUE,
     CONF_MAX_OUTPUT,
+    CONF_MAX_OUTPUT_STEP,
     CONF_MIN_OUTPUT,
-    CONF_GRID_LIMITER_LIMIT_W,
-    CONF_GRID_LIMITER_DEADBAND_W,
+    CONF_OUTPUT_EPSILON,
     CONF_PID_DEADBAND,
     CONF_RATE_LIMIT,
     CONF_RUNTIME_MODE,
-    CONF_MANUAL_SP_VALUE,
-    CONF_MANUAL_OUT_VALUE,
-    CONF_MAX_OUTPUT_STEP,
-    CONF_OUTPUT_EPSILON,
     DEFAULT_ENABLED,
+    DEFAULT_GRID_LIMITER_DEADBAND_W,
+    DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_KD,
     DEFAULT_KI,
     DEFAULT_KP,
+    DEFAULT_MANUAL_OUT_VALUE,
+    DEFAULT_MANUAL_SP_VALUE,
     DEFAULT_MAX_OUTPUT,
+    DEFAULT_MAX_OUTPUT_STEP,
     DEFAULT_MIN_OUTPUT,
-    DEFAULT_GRID_LIMITER_LIMIT_W,
-    DEFAULT_GRID_LIMITER_DEADBAND_W,
+    DEFAULT_OUTPUT_EPSILON,
     DEFAULT_PID_DEADBAND,
     DEFAULT_RATE_LIMIT,
-    DEFAULT_RUNTIME_MODE,
-    DEFAULT_MANUAL_SP_VALUE,
-    DEFAULT_MANUAL_OUT_VALUE,
-    DEFAULT_MAX_OUTPUT_STEP,
-    DEFAULT_OUTPUT_EPSILON,
     DOMAIN,
-    RUNTIME_MODE_AUTO_SP,
-    RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
 )
@@ -207,6 +204,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
         if isinstance(entity, SolarEnergyFlowNumber):
             if entity._option_key == CONF_RATE_LIMIT:
                 entity._attr_translation_key = "solar_energy_controller_rate_limit"
+            elif entity._option_key == CONF_MAX_OUTPUT_STEP:
+                entity._attr_translation_key = "solar_energy_controller_max_output_step"
+            elif entity._option_key == CONF_OUTPUT_EPSILON:
+                entity._attr_translation_key = "solar_energy_controller_output_epsilon"
         elif isinstance(entity, SolarEnergyFlowManualNumber):
             if entity._option_key == CONF_MANUAL_SP_VALUE:
                 entity._attr_translation_key = "solar_energy_controller_manual_sp_value"

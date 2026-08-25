@@ -10,39 +10,36 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.solar_energy_controller.const import (
     CONF_ENABLED,
-    CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_POWER_ENTITY,
-    CONF_KP,
-    CONF_KI,
     CONF_KD,
+    CONF_KI,
+    CONF_KP,
     CONF_MAX_OUTPUT,
     CONF_MIN_OUTPUT,
     CONF_OUTPUT_ENTITY,
     CONF_PROCESS_VALUE_ENTITY,
-    CONF_RATE_LIMITER_ENABLED,
+    CONF_PV_MAX,
+    CONF_PV_MIN,
     CONF_RUNTIME_MODE,
     CONF_SETPOINT_ENTITY,
     DEFAULT_ENABLED,
-    DEFAULT_KP,
-    DEFAULT_KI,
     DEFAULT_KD,
+    DEFAULT_KI,
+    DEFAULT_KP,
     DEFAULT_MAX_OUTPUT,
     DEFAULT_MIN_OUTPUT,
+    DEFAULT_PV_MAX,
+    DEFAULT_PV_MIN,
+    DEFAULT_SP_MAX,
+    DEFAULT_SP_MIN,
     RUNTIME_MODE_AUTO_SP,
     RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
 )
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator, OutputWriteResult
-from custom_components.solar_energy_controller.const import (
-    CONF_PV_MIN,
-    CONF_PV_MAX,
-    DEFAULT_GRID_MIN,
-    DEFAULT_GRID_MAX,
-    DEFAULT_PV_MIN,
-    DEFAULT_PV_MAX,
-    DEFAULT_SP_MIN,
-    DEFAULT_SP_MAX,
+from custom_components.solar_energy_controller.coordinator import (
+    OutputWriteResult,
+    SolarEnergyFlowCoordinator,
 )
 
 
@@ -506,7 +503,9 @@ def test_coordinator_compute_setpoint_context(mock_hass, mock_entry):
     """Test coordinator _compute_setpoint_context."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, RuntimeOptions
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+    )
     
     options = coordinator._build_runtime_options()
     inputs = InputValues(pv=50.0, sp=60.0, grid_power=100.0)
@@ -522,8 +521,14 @@ def test_coordinator_apply_grid_limiter(mock_hass, mock_entry):
     """Test coordinator _apply_grid_limiter."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
-    from custom_components.solar_energy_controller.const import GRID_LIMITER_STATE_NORMAL, GRID_LIMITER_TYPE_IMPORT
+    from custom_components.solar_energy_controller.const import (
+        GRID_LIMITER_STATE_NORMAL,
+        GRID_LIMITER_TYPE_IMPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
+    )
     
     options = coordinator._build_runtime_options()
     options.limiter_enabled = True
@@ -577,11 +582,11 @@ async def test_coordinator_maybe_write_output_no_entity(mock_hass, mock_entry):
 def test_calculate_output_plan_disabled(mock_hass, mock_entry):
     """Test _calculate_output_plan when controller is disabled."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -649,17 +654,17 @@ def test_calculate_output_plan_disabled(mock_hass, mock_entry):
     assert plan.p_term is None
     assert plan.i_term is None
     assert plan.d_term is None
-    assert coordinator._last_output_raw == 0.0
+    assert coordinator._last_output_raw == 50.0
 
 
 def test_calculate_output_plan_hold_mode(mock_hass, mock_entry):
     """Test _calculate_output_plan in HOLD mode."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -732,11 +737,11 @@ def test_calculate_output_plan_hold_mode(mock_hass, mock_entry):
 def test_calculate_output_plan_manual_out_mode(mock_hass, mock_entry):
     """Test _calculate_output_plan in MANUAL_OUT mode."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -815,11 +820,11 @@ def test_calculate_output_plan_manual_out_mode(mock_hass, mock_entry):
 def test_calculate_output_plan_missing_inputs(mock_hass, mock_entry):
     """Test _calculate_output_plan when inputs are missing."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -890,11 +895,11 @@ def test_calculate_output_plan_missing_inputs(mock_hass, mock_entry):
 def test_calculate_output_plan_normal_pid_operation(mock_hass, mock_entry):
     """Test _calculate_output_plan in normal PID operation."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -968,11 +973,11 @@ def test_calculate_output_plan_normal_pid_operation(mock_hass, mock_entry):
 def test_calculate_output_plan_with_deadband(mock_hass, mock_entry):
     """Test _calculate_output_plan with PID deadband."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -1042,11 +1047,11 @@ def test_calculate_output_plan_with_deadband(mock_hass, mock_entry):
 def test_calculate_output_plan_bumpless_transfer_from_hold(mock_hass, mock_entry):
     """Test _calculate_output_plan with bumpless transfer from HOLD mode."""
     from custom_components.solar_energy_controller.coordinator import (
-        RuntimeOptions,
-        InputValues,
-        SetpointContext,
-        LimiterResult,
         GRID_LIMITER_STATE_NORMAL,
+        InputValues,
+        LimiterResult,
+        RuntimeOptions,
+        SetpointContext,
     )
     
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
@@ -1122,11 +1127,14 @@ def test_grid_limiter_import_activation(mock_hass, mock_entry):
     """Test grid limiter activates when import limit is exceeded."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
     from custom_components.solar_energy_controller.const import (
-        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_STATE_LIMITING_IMPORT,
+        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_TYPE_IMPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
     )
     
     options = coordinator._build_runtime_options()
@@ -1161,11 +1169,14 @@ def test_grid_limiter_import_deadband_hysteresis(mock_hass, mock_entry):
     """Test grid limiter deadband hysteresis prevents oscillation."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
     from custom_components.solar_energy_controller.const import (
-        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_STATE_LIMITING_IMPORT,
+        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_TYPE_IMPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
     )
     
     options = coordinator._build_runtime_options()
@@ -1206,11 +1217,14 @@ def test_grid_limiter_export_activation(mock_hass, mock_entry):
     """Test grid limiter activates when export limit is exceeded."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
     from custom_components.solar_energy_controller.const import (
-        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_STATE_LIMITING_EXPORT,
+        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_TYPE_EXPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
     )
     
     options = coordinator._build_runtime_options()
@@ -1245,11 +1259,14 @@ def test_grid_limiter_export_deadband_hysteresis(mock_hass, mock_entry):
     """Test grid limiter export deadband hysteresis."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
     from custom_components.solar_energy_controller.const import (
-        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_STATE_LIMITING_EXPORT,
+        GRID_LIMITER_STATE_NORMAL,
         GRID_LIMITER_TYPE_EXPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
     )
     
     options = coordinator._build_runtime_options()
@@ -1290,8 +1307,14 @@ def test_grid_limiter_missing_grid_power(mock_hass, mock_entry):
     """Test grid limiter handles missing grid power gracefully."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
-    from custom_components.solar_energy_controller.const import GRID_LIMITER_STATE_NORMAL, GRID_LIMITER_TYPE_IMPORT
+    from custom_components.solar_energy_controller.const import (
+        GRID_LIMITER_STATE_NORMAL,
+        GRID_LIMITER_TYPE_IMPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
+    )
     
     options = coordinator._build_runtime_options()
     options.limiter_enabled = True
@@ -1322,8 +1345,14 @@ def test_grid_limiter_disabled(mock_hass, mock_entry):
     """Test grid limiter does nothing when disabled."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    from custom_components.solar_energy_controller.coordinator import InputValues, SetpointContext, RuntimeOptions
-    from custom_components.solar_energy_controller.const import GRID_LIMITER_STATE_NORMAL, GRID_LIMITER_TYPE_IMPORT
+    from custom_components.solar_energy_controller.const import (
+        GRID_LIMITER_STATE_NORMAL,
+        GRID_LIMITER_TYPE_IMPORT,
+    )
+    from custom_components.solar_energy_controller.coordinator import (
+        InputValues,
+        SetpointContext,
+    )
     
     options = coordinator._build_runtime_options()
     options.limiter_enabled = False

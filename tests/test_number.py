@@ -15,7 +15,6 @@ from custom_components.solar_energy_controller.const import (
     CONF_MANUAL_SP_VALUE,
     CONF_MAX_OUTPUT,
     CONF_MIN_OUTPUT,
-    CONF_RUNTIME_MODE,
     DEFAULT_KP,
     DEFAULT_MANUAL_OUT_VALUE,
     DEFAULT_MANUAL_SP_VALUE,
@@ -23,7 +22,9 @@ from custom_components.solar_energy_controller.const import (
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
 )
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
+from custom_components.solar_energy_controller.coordinator import (
+    SolarEnergyFlowCoordinator,
+)
 from custom_components.solar_energy_controller.number import (
     SolarEnergyFlowManualNumber,
     SolarEnergyFlowNumber,

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.solar_energy_controller.frontend import JSModuleRegistration, URL_BASE
+from custom_components.solar_energy_controller.frontend import (
+    URL_BASE,
+    JSModuleRegistration,
+)
 
 
 @pytest.fixture
@@ -30,7 +33,20 @@ def mock_hass(mock_lovelace_resources):
     return hass
 
 
-async def test_registers_missing_modules(mock_hass, mock_lovelace_resources):
+@pytest.fixture
+def mock_integration_version():
+    integration = MagicMock()
+    integration.version = "1.0.16"
+    with patch(
+        "custom_components.solar_energy_controller.frontend.async_get_loaded_integration",
+        return_value=integration,
+    ):
+        yield integration
+
+
+async def test_registers_missing_modules(
+    mock_hass, mock_lovelace_resources, mock_integration_version
+):
     registrar = JSModuleRegistration(mock_hass)
 
     result = await registrar.async_register()
@@ -39,10 +55,12 @@ async def test_registers_missing_modules(mock_hass, mock_lovelace_resources):
     assert mock_lovelace_resources.async_create_item.await_count == 2
     first_call = mock_lovelace_resources.async_create_item.await_args_list[0].args[0]
     assert first_call["res_type"] == "module"
-    assert first_call["url"].startswith(f"{URL_BASE}/pid-controller-mini.js?v=")
+    assert first_call["url"] == f"{URL_BASE}/pid-controller-mini.js?v=1.0.16"
 
 
-async def test_updates_stale_module_version(mock_hass, mock_lovelace_resources):
+async def test_updates_stale_module_version(
+    mock_hass, mock_lovelace_resources, mock_integration_version
+):
     mock_lovelace_resources.async_items.return_value = [
         {
             "id": "abc",

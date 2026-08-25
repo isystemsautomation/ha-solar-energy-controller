@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.16
+
+- HACS/default readiness: MIT LICENSE, repo topics, validate CI, sorted manifest, `iot_class`
+- Minimum Home Assistant version raised to **2024.7.0**
+- Fix `output_epsilon` / `max_output_step` blocking writes in HOLD, MANUAL OUT, and disabled modes
+- Fix hassfest translation errors; move `strings.json` to integration root
+- Use `async_track_state_change_event` instead of global `state_changed` listener
+- Use `async_get_loaded_integration()` for Lovelace resource version (no blocking I/O)
+- Pass `config_entry` to `DataUpdateCoordinator`; use `Platform` enum for `PLATFORMS`
+- Fix entity translations (`translation_key` without conflicting `_attr_name`)
+- PID: remove dead anti-windup back-calculation; align reported I term with output step
+- Fix failing init tests; update TESTING.md
+
 ## 1.0.15
 
 - Fix popup editor manual SP/OUT sync (runtime mode strings now match Python: `AUTO SP`, not `AUTO_SP`)

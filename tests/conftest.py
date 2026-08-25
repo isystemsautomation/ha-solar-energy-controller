@@ -17,10 +17,20 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 @pytest.fixture(autouse=True)
 def mock_hass_frontend():
     """Mock hass_frontend module since it's not available in test environment.
-    
+
     The frontend component requires hass_frontend, which is not available as
     a pip package. We mock it here so frontend can be set up in tests.
     """
     with patch.dict("sys.modules", {"hass_frontend": MagicMock()}):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def disable_lovelace_registration():
+    """Prevent Lovelace retry timers from lingering after HA test teardown."""
+    with patch(
+        "custom_components.solar_energy_controller.async_register_frontend",
+        new=AsyncMock(),
+    ):
         yield
 

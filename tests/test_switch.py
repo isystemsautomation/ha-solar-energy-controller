@@ -13,10 +13,10 @@ from custom_components.solar_energy_controller.const import (
     CONF_GRID_LIMITER_ENABLED,
     CONF_RATE_LIMITER_ENABLED,
     DEFAULT_ENABLED,
-    DEFAULT_GRID_LIMITER_ENABLED,
-    DEFAULT_RATE_LIMITER_ENABLED,
 )
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
+from custom_components.solar_energy_controller.coordinator import (
+    SolarEnergyFlowCoordinator,
+)
 from custom_components.solar_energy_controller.switch import (
     SolarEnergyFlowEnabledSwitch,
     SolarEnergyFlowGridLimiterSwitch,
@@ -93,7 +93,7 @@ async def test_enabled_switch_error_handling(mock_coordinator, mock_entry):
     switch = SolarEnergyFlowEnabledSwitch(mock_coordinator, mock_entry)
     switch.hass = mock_entry.hass
     
-    mock_coordinator.apply_options.side_effect = Exception("Test error")
+    mock_coordinator.apply_options.side_effect = RuntimeError("Test error")
 
     with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()
@@ -142,7 +142,7 @@ async def test_grid_limiter_switch_error_handling(mock_coordinator, mock_entry):
     switch = SolarEnergyFlowGridLimiterSwitch(mock_coordinator, mock_entry)
     switch.hass = mock_entry.hass
     
-    mock_coordinator.apply_options.side_effect = Exception("Test error")
+    mock_coordinator.apply_options.side_effect = RuntimeError("Test error")
 
     with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()

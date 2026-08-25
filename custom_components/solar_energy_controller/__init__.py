@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 
-from homeassistant.config_entries import ConfigEntry, ConfigEntryError, ConfigEntryNotReady
-from homeassistant.core import CoreState, HomeAssistant, Event, callback
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CoreState, Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SolarEnergyFlowCoordinator
@@ -19,14 +24,15 @@ _LOGGER = logging.getLogger(__name__)
 
 type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 
+_FRONTEND_PATH = Path(__file__).parent / "frontend"
+
 
 async def _async_setup_frontend(hass: HomeAssistant) -> None:
-    frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
-    if os.path.isdir(frontend_path):
+    if await hass.async_add_executor_job(_FRONTEND_PATH.is_dir):
         await hass.http.async_register_static_paths([
             StaticPathConfig(
                 url_path=f"/{DOMAIN}/frontend",
-                path=frontend_path,
+                path=_FRONTEND_PATH,
                 cache_headers=False,
             )
         ])
@@ -36,7 +42,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
         )
     else:
         _LOGGER.warning(
-            "Solar Energy Controller: Frontend directory not found: %s", frontend_path
+            "Solar Energy Controller: Frontend directory not found: %s", _FRONTEND_PATH
         )
 
     await async_register_frontend(hass)
@@ -59,10 +65,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> bool:
     """Set up Solar Energy Controller from a config entry."""
     from .const import (
+        CONF_GRID_POWER_ENTITY,
+        CONF_OUTPUT_ENTITY,
         CONF_PROCESS_VALUE_ENTITY,
         CONF_SETPOINT_ENTITY,
-        CONF_OUTPUT_ENTITY,
-        CONF_GRID_POWER_ENTITY,
     )
 
     entity_registry = er.async_get(hass)
@@ -123,19 +129,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
         entry_type=DeviceEntryType.SERVICE,
     )
 
-    tracked_entities = {entity_id for entity_id in required_entities.values() if entity_id}
+    tracked_entities = tuple(
+        entity_id for entity_id in required_entities.values() if entity_id
+    )
 
     @callback
     def _handle_entity_state_change(event: Event) -> None:
-        entity_id = event.data.get("entity_id")
-        if entity_id not in tracked_entities:
-            return
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in ("unavailable", "unknown"):
             return
         hass.async_create_task(coordinator.async_request_refresh())
 
-    entry.async_on_unload(hass.bus.async_listen("state_changed", _handle_entity_state_change))
+    if tracked_entities:
+        entry.async_on_unload(
+            async_track_state_change_event(hass, tracked_entities, _handle_entity_state_change)
+        )
 
     try:
         await coordinator.async_config_entry_first_refresh()

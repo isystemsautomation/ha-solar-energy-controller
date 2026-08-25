@@ -3,86 +3,86 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Mapping, Any, Tuple
+from typing import Any
 
-from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    DOMAIN,
-    CONF_PROCESS_VALUE_ENTITY,
-    CONF_SETPOINT_ENTITY,
-    CONF_OUTPUT_ENTITY,
-    CONF_KP,
-    CONF_KI,
-    CONF_KD,
-    CONF_MIN_OUTPUT,
-    CONF_MAX_OUTPUT,
-    CONF_MAX_OUTPUT_STEP,
-    CONF_UPDATE_INTERVAL,
     CONF_ENABLED,
-    DEFAULT_KP,
-    DEFAULT_KI,
-    DEFAULT_KD,
-    DEFAULT_MIN_OUTPUT,
-    DEFAULT_MAX_OUTPUT,
-    DEFAULT_UPDATE_INTERVAL,
-    DEFAULT_ENABLED,
-    CONF_INVERT_PV,
-    CONF_INVERT_SP,
-    CONF_PID_MODE,
+    CONF_GRID_LIMITER_DEADBAND_W,
+    CONF_GRID_LIMITER_ENABLED,
+    CONF_GRID_LIMITER_LIMIT_W,
+    CONF_GRID_LIMITER_TYPE,
+    CONF_GRID_MAX,
+    CONF_GRID_MIN,
     CONF_GRID_POWER_ENTITY,
     CONF_GRID_POWER_INVERT,
-    CONF_GRID_LIMITER_ENABLED,
-    CONF_GRID_LIMITER_TYPE,
-    CONF_GRID_LIMITER_LIMIT_W,
-    CONF_GRID_LIMITER_DEADBAND_W,
+    CONF_INVERT_PV,
+    CONF_INVERT_SP,
+    CONF_KD,
+    CONF_KI,
+    CONF_KP,
+    CONF_MANUAL_OUT_VALUE,
+    CONF_MANUAL_SP_VALUE,
+    CONF_MAX_OUTPUT,
+    CONF_MAX_OUTPUT_STEP,
+    CONF_MIN_OUTPUT,
+    CONF_OUTPUT_ENTITY,
+    CONF_OUTPUT_EPSILON,
     CONF_PID_DEADBAND,
+    CONF_PID_MODE,
+    CONF_PROCESS_VALUE_ENTITY,
+    CONF_PV_MAX,
+    CONF_PV_MIN,
     CONF_RATE_LIMIT,
     CONF_RATE_LIMITER_ENABLED,
     CONF_RUNTIME_MODE,
-    CONF_MANUAL_OUT_VALUE,
-    CONF_MANUAL_SP_VALUE,
-    CONF_OUTPUT_EPSILON,
-    CONF_PV_MIN,
-    CONF_PV_MAX,
-    CONF_SP_MIN,
+    CONF_SETPOINT_ENTITY,
     CONF_SP_MAX,
-    CONF_GRID_MIN,
-    CONF_GRID_MAX,
+    CONF_SP_MIN,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_ENABLED,
+    DEFAULT_GRID_LIMITER_DEADBAND_W,
+    DEFAULT_GRID_LIMITER_ENABLED,
+    DEFAULT_GRID_LIMITER_LIMIT_W,
+    DEFAULT_GRID_LIMITER_TYPE,
+    DEFAULT_GRID_MAX,
+    DEFAULT_GRID_MIN,
+    DEFAULT_GRID_POWER_INVERT,
     DEFAULT_INVERT_PV,
     DEFAULT_INVERT_SP,
-    DEFAULT_GRID_POWER_INVERT,
-    DEFAULT_PID_MODE,
-    DEFAULT_GRID_LIMITER_ENABLED,
-    DEFAULT_GRID_LIMITER_TYPE,
-    DEFAULT_GRID_LIMITER_LIMIT_W,
-    DEFAULT_GRID_LIMITER_DEADBAND_W,
+    DEFAULT_KD,
+    DEFAULT_KI,
+    DEFAULT_KP,
+    DEFAULT_MANUAL_OUT_VALUE,
+    DEFAULT_MAX_OUTPUT,
+    DEFAULT_MAX_OUTPUT_STEP,
+    DEFAULT_MIN_OUTPUT,
+    DEFAULT_OUTPUT_EPSILON,
     DEFAULT_PID_DEADBAND,
+    DEFAULT_PID_MODE,
+    DEFAULT_PV_MAX,
+    DEFAULT_PV_MIN,
     DEFAULT_RATE_LIMIT,
     DEFAULT_RATE_LIMITER_ENABLED,
     DEFAULT_RUNTIME_MODE,
-    DEFAULT_MANUAL_OUT_VALUE,
-    DEFAULT_MANUAL_SP_VALUE,
-    DEFAULT_MAX_OUTPUT_STEP,
-    DEFAULT_OUTPUT_EPSILON,
-    DEFAULT_PV_MIN,
-    DEFAULT_PV_MAX,
-    DEFAULT_SP_MIN,
     DEFAULT_SP_MAX,
-    DEFAULT_GRID_MIN,
-    DEFAULT_GRID_MAX,
-    PID_MODE_DIRECT,
-    PID_MODE_REVERSE,
+    DEFAULT_SP_MIN,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
+    GRID_LIMITER_STATE_LIMITING_EXPORT,
+    GRID_LIMITER_STATE_LIMITING_IMPORT,
+    GRID_LIMITER_STATE_NORMAL,
     GRID_LIMITER_TYPE_EXPORT,
     GRID_LIMITER_TYPE_IMPORT,
-    GRID_LIMITER_STATE_NORMAL,
-    GRID_LIMITER_STATE_LIMITING_IMPORT,
-    GRID_LIMITER_STATE_LIMITING_EXPORT,
+    PID_MODE_DIRECT,
+    PID_MODE_REVERSE,
     RUNTIME_MODE_AUTO_SP,
     RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
@@ -354,6 +354,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             _LOGGER,
             name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=interval),
+            config_entry=entry,
         )
 
         cfg = PIDConfig(
@@ -702,7 +703,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             limiter_state=new_limiter_state,
         )
 
-    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> Tuple[float, bool]:
+    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> tuple[float | None, bool]:
         if not math.isfinite(desired_output):
             _LOGGER.warning(
                 "Invalid (non-finite) desired output %s for %s; skipping write",
@@ -901,8 +902,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             self.pid.reset()
             self._limiter_state = GRID_LIMITER_STATE_NORMAL
             safe_output = options.min_output
-            self._last_output_raw = safe_output
-            self._last_output_pct = self._output_percent_from_raw(safe_output, options)
             self._last_pv_pct = None
             self._last_sp_pct = None
             self._manual_out_value = safe_output
@@ -928,8 +927,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             held_output = self._last_output_raw if self._last_output_raw is not None else options.min_output
             self._limiter_state = GRID_LIMITER_STATE_NORMAL
             self._manual_out_value = held_output
-            self._last_output_raw = held_output
-            self._last_output_pct = self._output_percent_from_raw(held_output, options)
             self._previous_runtime_mode = runtime_mode
             self._log_runtime_mode_change(prev_runtime_mode, runtime_mode, setpoint.manual_sp_value, manual_sp_display_value)
             # When not in MANUAL OUT mode, display the current output
@@ -960,8 +957,6 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             self._limiter_state = GRID_LIMITER_STATE_NORMAL
             self._previous_runtime_mode = runtime_mode
             self._log_runtime_mode_change(prev_runtime_mode, runtime_mode, setpoint.manual_sp_value, manual_sp_display_value)
-            self._last_output_raw = manual_out_value
-            self._last_output_pct = self._output_percent_from_raw(manual_out_value, options)
             # In MANUAL OUT mode, display the last auto OUT value that was active before switching
             manual_out_display_value = self._last_auto_out_value if self._last_auto_out_value is not None else self._manual_out_value
             return OutputPlan(

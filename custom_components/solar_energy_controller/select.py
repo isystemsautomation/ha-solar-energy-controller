@@ -15,15 +15,15 @@ from .const import (
     CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_TYPE,
+    CONF_MANUAL_SP_VALUE,
     CONF_PID_DEADBAND,
     CONF_RUNTIME_MODE,
-    CONF_MANUAL_SP_VALUE,
     DEFAULT_ENABLED,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_GRID_LIMITER_ENABLED,
     DEFAULT_GRID_LIMITER_LIMIT_W,
-    DEFAULT_PID_DEADBAND,
     DEFAULT_GRID_LIMITER_TYPE,
+    DEFAULT_PID_DEADBAND,
     DEFAULT_RUNTIME_MODE,
     DOMAIN,
     GRID_LIMITER_TYPE_EXPORT,
@@ -49,26 +49,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             coordinator,
             entry,
             CONF_GRID_LIMITER_TYPE,
-            "Grid limiter type",
             [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
             DEFAULT_GRID_LIMITER_TYPE,
             EntityCategory.CONFIG,
+            translation_key="solar_energy_controller_grid_limiter_type",
         ),
         SolarEnergyFlowSelect(
             coordinator,
             entry,
             CONF_RUNTIME_MODE,
-            "Runtime mode",
             [RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT],
             DEFAULT_RUNTIME_MODE,
             None,
+            translation_key="solar_energy_controller_runtime_mode",
         ),
     ]
-
-    # Attach translation key for runtime mode select so it gets a translated name/options
-    for entity in entities:
-        if isinstance(entity, SolarEnergyFlowSelect) and entity._option_key == CONF_RUNTIME_MODE:
-            entity._attr_translation_key = "solar_energy_controller_runtime_mode"
 
     async_add_entities(entities)
 
@@ -81,16 +76,16 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
         coordinator: SolarEnergyFlowCoordinator,
         entry: ConfigEntry,
         option_key: str,
-        name: str,
         options: list[str],
         default: str,
         entity_category: EntityCategory | None,
+        translation_key: str,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
         self._option_key = option_key
         self._default = default
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{option_key}"
         self._attr_options = options
         self._attr_entity_category = entity_category
@@ -116,7 +111,7 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
                 translation_key="select_invalid_option",
                 translation_placeholders={
                     "option": option,
-                    "name": self._attr_name,
+                    "name": self.entity_id or self._option_key,
                     "valid_options": ", ".join(self._attr_options),
                 },
             )
@@ -154,9 +149,9 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
-        except Exception as err:
+        except (TypeError, ValueError, HomeAssistantError, ServiceValidationError, RuntimeError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="select_failed_set_option",
-                translation_placeholders={"name": self._attr_name},
+                translation_placeholders={"name": self.entity_id or self._option_key},
             ) from err

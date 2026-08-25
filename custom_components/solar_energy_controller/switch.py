@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
 
 class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
     _attr_has_entity_name = True
-    _attr_name = "Enabled"
+    _attr_translation_key = "solar_energy_controller_enabled"
 
     def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
@@ -72,7 +72,7 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
-        except Exception as err:
+        except (TypeError, ValueError, HomeAssistantError, RuntimeError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="switch_failed_update_enabled",
@@ -81,7 +81,6 @@ class SolarEnergyFlowEnabledSwitch(CoordinatorEntity, SwitchEntity):
 
 class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
     _attr_has_entity_name = True
-    _attr_name = "Rate limiter"
     _attr_translation_key = "solar_energy_controller_rate_limiter"
     _attr_entity_category = EntityCategory.CONFIG
 
@@ -119,7 +118,7 @@ class SolarEnergyFlowRateLimiterSwitch(CoordinatorEntity, SwitchEntity):
 
 class SolarEnergyFlowGridLimiterSwitch(CoordinatorEntity, SwitchEntity):
     _attr_has_entity_name = True
-    _attr_name = "Grid limiter enabled"
+    _attr_translation_key = "solar_energy_controller_grid_limiter"
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: SolarEnergyFlowCoordinator, entry: ConfigEntry) -> None:
@@ -153,9 +152,9 @@ class SolarEnergyFlowGridLimiterSwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
-        except Exception as err:
+        except (TypeError, ValueError, HomeAssistantError, RuntimeError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="switch_failed_update_state",
-                translation_placeholders={"name": self._attr_name},
+                translation_placeholders={"name": "Grid limiter enabled"},
             ) from err

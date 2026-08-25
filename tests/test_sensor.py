@@ -8,6 +8,9 @@ import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from custom_components.solar_energy_controller.coordinator import (
+    SolarEnergyFlowCoordinator,
+)
 from custom_components.solar_energy_controller.sensor import (
     SolarEnergyFlowDTermSensor,
     SolarEnergyFlowEffectiveSPSensor,
@@ -22,8 +25,6 @@ from custom_components.solar_energy_controller.sensor import (
     SolarEnergyFlowStatusSensor,
     async_setup_entry,
 )
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
-from custom_components.solar_energy_controller.const import DOMAIN
 
 
 @dataclass

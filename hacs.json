@@ -2,6 +2,5 @@
   "name": "Solar Energy Controller",
   "render_readme": true,
   "content_in_root": false,
-  "domains": ["solar_energy_controller"],
-  "homeassistant": "2023.9.0"
+  "homeassistant": "2024.7.0"
 }

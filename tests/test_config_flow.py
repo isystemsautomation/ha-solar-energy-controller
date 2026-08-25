@@ -1,8 +1,6 @@
 """Test the Solar Energy Controller config flow."""
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
@@ -28,7 +26,6 @@ from custom_components.solar_energy_controller.const import (
     DEFAULT_SP_MAX,
     DEFAULT_SP_MIN,
 )
-
 
 # enable_custom_integrations fixture is provided by pytest_homeassistant_custom_component
 # and should work automatically. No wrapper needed.

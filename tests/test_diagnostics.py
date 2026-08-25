@@ -1,20 +1,19 @@
 """Test diagnostics support for Solar Energy Controller."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 
-from custom_components.solar_energy_controller import DOMAIN
 from custom_components.solar_energy_controller.const import (
     CONF_GRID_MAX,
     CONF_GRID_MIN,
     CONF_GRID_POWER_ENTITY,
-    CONF_KP,
-    CONF_KI,
     CONF_KD,
+    CONF_KI,
+    CONF_KP,
     CONF_MAX_OUTPUT,
     CONF_MIN_OUTPUT,
     CONF_OUTPUT_ENTITY,
@@ -26,9 +25,9 @@ from custom_components.solar_energy_controller.const import (
     CONF_SP_MIN,
     DEFAULT_GRID_MAX,
     DEFAULT_GRID_MIN,
+    DEFAULT_KD,
     DEFAULT_KI,
     DEFAULT_KP,
-    DEFAULT_KD,
     DEFAULT_MAX_OUTPUT,
     DEFAULT_MIN_OUTPUT,
     DEFAULT_PV_MAX,
@@ -37,8 +36,12 @@ from custom_components.solar_energy_controller.const import (
     DEFAULT_SP_MIN,
     RUNTIME_MODE_AUTO_SP,
 )
-from custom_components.solar_energy_controller.diagnostics import async_get_config_entry_diagnostics
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
+from custom_components.solar_energy_controller.coordinator import (
+    SolarEnergyFlowCoordinator,
+)
+from custom_components.solar_energy_controller.diagnostics import (
+    async_get_config_entry_diagnostics,
+)
 
 
 @pytest.fixture
@@ -139,7 +142,6 @@ def mock_coordinator(mock_entry):
     mock_pid._integral = 3.0
     mock_pid._prev_pv = 50.0
     mock_pid._prev_t = 123456.789
-    mock_pid._prev_error = 10.0
     coordinator.pid = mock_pid
     
     # Mock coordinator metadata
@@ -191,7 +193,6 @@ async def test_diagnostics_with_data(hass: HomeAssistant, mock_entry, mock_coord
     assert result["pid_state"]["integral"] == 3.0
     assert result["pid_state"]["prev_pv"] == 50.0
     assert result["pid_state"]["prev_t"] == 123456.789
-    assert result["pid_state"]["prev_error"] == 10.0
 
 
 async def test_diagnostics_without_data(hass: HomeAssistant, mock_entry, mock_coordinator) -> None:

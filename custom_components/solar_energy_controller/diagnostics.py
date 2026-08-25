@@ -8,7 +8,6 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 from .coordinator import SolarEnergyFlowCoordinator
 
 type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
@@ -97,8 +96,7 @@ async def async_get_config_entry_diagnostics(
         pid_state = {
             "integral": coordinator.pid._integral,
             "prev_pv": coordinator.pid._prev_pv,
-            "prev_t": coordinator.pid._prev_t,  # This is a float (time.monotonic()), not a datetime
-            "prev_error": coordinator.pid._prev_error,
+            "prev_t": coordinator.pid._prev_t,
         }
     except Exception:
         pass

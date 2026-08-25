@@ -4,15 +4,24 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntry, ConfigEntryError, ConfigEntryNotReady
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
+from homeassistant.core import CoreState, HomeAssistant
 
-from custom_components.solar_energy_controller import DOMAIN, async_setup, async_setup_entry, async_unload_entry
+from custom_components.solar_energy_controller import (
+    async_setup,
+    async_setup_entry,
+    async_unload_entry,
+)
 from custom_components.solar_energy_controller.const import (
     CONF_GRID_POWER_ENTITY,
     CONF_OUTPUT_ENTITY,
     CONF_PROCESS_VALUE_ENTITY,
     CONF_SETPOINT_ENTITY,
+    PLATFORMS,
 )
 
 
@@ -28,6 +37,9 @@ def mock_hass():
     hass.config_entries = MagicMock()
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+    hass.state = CoreState.running
+    hass.async_create_task = MagicMock()
+    hass.data = {}
     return hass
 
 
@@ -52,8 +64,12 @@ def mock_entry():
 
 async def test_async_setup(mock_hass):
     """Test async_setup function."""
-    mock_hass.state = "NOT_RUNNING"
-    with patch("os.path.isdir", return_value=True), patch("os.path.dirname", return_value="/test/path"):
+    mock_hass.state = CoreState.not_running
+    mock_hass.async_add_executor_job = AsyncMock(return_value=True)
+    with patch(
+        "custom_components.solar_energy_controller.async_register_frontend",
+        new=AsyncMock(),
+    ):
         result = await async_setup(mock_hass, {})
 
         assert result is True
@@ -64,26 +80,31 @@ async def test_async_setup_entry_success(mock_hass, mock_entry):
     """Test successful async_setup_entry."""
     mock_hass.states.get = MagicMock(return_value=MagicMock(state="100"))
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
+    mock_hass.async_create_task = MagicMock()
     mock_entity_registry = MagicMock()
     mock_entity_registry.async_get = MagicMock(return_value=MagicMock(entity_id="sensor.pv"))
 
     with patch("custom_components.solar_energy_controller.__init__.er.async_get", return_value=mock_entity_registry):
         with patch("custom_components.solar_energy_controller.SolarEnergyFlowCoordinator") as mock_coordinator_class:
-            mock_coordinator = MagicMock()
-            mock_coordinator.async_config_entry_first_refresh = AsyncMock()
-            mock_coordinator_class.return_value = mock_coordinator
+            with patch(
+                "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
+                return_value=MagicMock(),
+            ):
+                mock_coordinator = MagicMock()
+                mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+                mock_coordinator_class.return_value = mock_coordinator
 
-            with patch("custom_components.solar_energy_controller.__init__.dr.async_get") as mock_dr:
-                mock_dr_instance = MagicMock()
-                mock_dr_instance.async_get_or_create = MagicMock()
-                mock_dr.return_value = mock_dr_instance
+                with patch("custom_components.solar_energy_controller.__init__.dr.async_get") as mock_dr:
+                    mock_dr_instance = MagicMock()
+                    mock_dr_instance.async_get_or_create = MagicMock()
+                    mock_dr.return_value = mock_dr_instance
 
-                result = await async_setup_entry(mock_hass, mock_entry)
+                    result = await async_setup_entry(mock_hass, mock_entry)
 
-                assert result is True
-                assert mock_entry.runtime_data == mock_coordinator
-                mock_coordinator.async_config_entry_first_refresh.assert_called_once()
-                mock_hass.config_entries.async_forward_entry_setups.assert_called_once()
+                    assert result is True
+                    assert mock_entry.runtime_data == mock_coordinator
+                    mock_coordinator.async_config_entry_first_refresh.assert_called_once()
+                    mock_hass.config_entries.async_forward_entry_setups.assert_called_once()
 
 
 async def test_async_setup_entry_missing_entities(mock_hass, mock_entry):
@@ -108,6 +129,7 @@ async def test_async_setup_entry_unavailable_entities(mock_hass, mock_entry):
     mock_state.state = "unavailable"
     mock_hass.states.get = MagicMock(return_value=mock_state)
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
+    mock_hass.async_create_task = MagicMock()
     if not hasattr(mock_hass, "data"):
         mock_hass.data = {}
     if not hasattr(mock_hass, "config"):
@@ -119,38 +141,47 @@ async def test_async_setup_entry_unavailable_entities(mock_hass, mock_entry):
 
     with patch("custom_components.solar_energy_controller.__init__.er.async_get", return_value=mock_entity_registry):
         with patch("custom_components.solar_energy_controller.SolarEnergyFlowCoordinator") as mock_coordinator_class:
-            mock_coordinator = MagicMock()
-            mock_coordinator.async_config_entry_first_refresh = AsyncMock()
-            mock_coordinator_class.return_value = mock_coordinator
+            with patch(
+                "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
+                return_value=MagicMock(),
+            ):
+                mock_coordinator = MagicMock()
+                mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+                mock_coordinator_class.return_value = mock_coordinator
 
-            with patch("custom_components.solar_energy_controller.__init__.dr.async_get") as mock_dr:
-                mock_dr_instance = MagicMock()
-                mock_dr_instance.async_get_or_create = MagicMock()
-                mock_dr.return_value = mock_dr_instance
+                with patch("custom_components.solar_energy_controller.__init__.dr.async_get") as mock_dr:
+                    mock_dr_instance = MagicMock()
+                    mock_dr_instance.async_get_or_create = MagicMock()
+                    mock_dr.return_value = mock_dr_instance
 
-                result = await async_setup_entry(mock_hass, mock_entry)
+                    result = await async_setup_entry(mock_hass, mock_entry)
 
-                assert result is True
-                mock_coordinator.async_config_entry_first_refresh.assert_called_once()
-                mock_hass.config_entries.async_forward_entry_setups.assert_called_once()
+                    assert result is True
+                    mock_coordinator.async_config_entry_first_refresh.assert_called_once()
+                    mock_hass.config_entries.async_forward_entry_setups.assert_called_once()
 
 
 async def test_async_setup_entry_coordinator_failure(mock_hass, mock_entry):
     """Test async_setup_entry when coordinator initialization fails."""
     mock_hass.states.get = MagicMock(return_value=MagicMock(state="100"))
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
+    mock_hass.async_create_task = MagicMock()
     mock_entity_registry = MagicMock()
     mock_entity_registry.async_get = MagicMock(return_value=MagicMock(entity_id="sensor.pv"))
 
     with patch("custom_components.solar_energy_controller.__init__.er.async_get", return_value=mock_entity_registry):
         with patch("custom_components.solar_energy_controller.SolarEnergyFlowCoordinator") as mock_coordinator_class:
-            mock_coordinator = MagicMock()
-            mock_coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=Exception("Test error"))
-            mock_coordinator_class.return_value = mock_coordinator
+            with patch(
+                "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
+                return_value=MagicMock(),
+            ):
+                mock_coordinator = MagicMock()
+                mock_coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=Exception("Test error"))
+                mock_coordinator_class.return_value = mock_coordinator
 
-            with patch("custom_components.solar_energy_controller.__init__.dr.async_get"):
-                with pytest.raises(ConfigEntryNotReady, match="Failed to initialize coordinator"):
-                    await async_setup_entry(mock_hass, mock_entry)
+                with patch("custom_components.solar_energy_controller.__init__.dr.async_get"):
+                    with pytest.raises(ConfigEntryNotReady, match="Failed to initialize coordinator"):
+                        await async_setup_entry(mock_hass, mock_entry)
 
 
 async def test_async_unload_entry(mock_hass, mock_entry):
@@ -158,14 +189,19 @@ async def test_async_unload_entry(mock_hass, mock_entry):
     result = await async_unload_entry(mock_hass, mock_entry)
     
     assert result is True
-    mock_hass.config_entries.async_unload_platforms.assert_called_once_with(mock_entry, ["sensor", "switch", "number", "select"])
+    mock_hass.config_entries.async_unload_platforms.assert_called_once_with(mock_entry, PLATFORMS)
 
 
 async def test_async_setup_frontend_path_registration(mock_hass):
     """Test that frontend static path is registered when frontend directory exists."""
-    mock_hass.state = "NOT_RUNNING"
+    mock_hass.state = CoreState.not_running
     mock_hass.async_create_task = MagicMock()
-    with patch("os.path.isdir", return_value=True), patch("os.path.dirname", return_value="/test/path"):
+    mock_hass.async_add_executor_job = AsyncMock(return_value=True)
+    mock_hass.http.async_register_static_paths = AsyncMock()
+    with patch(
+        "custom_components.solar_energy_controller.async_register_frontend",
+        new=AsyncMock(),
+    ):
         result = await async_setup(mock_hass, {})
 
         assert result is True
@@ -174,8 +210,12 @@ async def test_async_setup_frontend_path_registration(mock_hass):
 
 async def test_async_setup_frontend_path_missing(mock_hass):
     """Test setup still schedules frontend registration when directory is missing."""
-    mock_hass.state = "NOT_RUNNING"
-    with patch("os.path.isdir", return_value=False):
+    mock_hass.state = CoreState.not_running
+    mock_hass.async_add_executor_job = AsyncMock(return_value=False)
+    with patch(
+        "custom_components.solar_energy_controller.async_register_frontend",
+        new=AsyncMock(),
+    ):
         result = await async_setup(mock_hass, {})
 
         assert result is True

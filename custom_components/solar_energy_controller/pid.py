@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import time
-
+from dataclasses import dataclass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,27 +34,20 @@ class PID:
         self._integral = 0.0
         self._prev_pv: float | None = None
         self._prev_t: float | None = None
-        self._prev_error: float | None = None
-        self._kaw = self._compute_kaw(cfg.kp)
         if entry_id:
             _LOGGER.debug("PIDController created entry_id=%s", entry_id)
 
     def update_config(self, cfg: PIDConfig) -> None:
         self.cfg = cfg
-        self._kaw = self._compute_kaw(cfg.kp)
 
     def reset(self) -> None:
         self._integral = 0.0
         self._prev_pv = None
         self._prev_t = None
-        self._prev_error = None
 
     def apply_options(self, cfg: PIDConfig) -> None:
         """Apply new tuning without resetting accumulated state."""
         self.update_config(cfg)
-
-    def _compute_kaw(self, kp: float) -> float:
-        return 1.0 / max(kp, 0.001)
 
     def step(
         self,
@@ -93,13 +85,18 @@ class PID:
 
         if dt > 0:
             output_saturated = (u_pid < self.cfg.min_output) or (u_pid > self.cfg.max_output)
-            rate_limited = rate_limiter_enabled and rate_limit > 0 and last_output is not None and u_out != u_sat
-            
+            rate_limited = (
+                rate_limiter_enabled
+                and rate_limit > 0
+                and last_output is not None
+                and u_out != u_sat
+            )
+
             if output_saturated or rate_limited:
                 integral_update = 0.0
             else:
-                integral_update = self.cfg.ki * error * dt + self._kaw * (u_out - u_pid) * dt
-            
+                integral_update = self.cfg.ki * error * dt
+
             output_range = abs(self.cfg.max_output - self.cfg.min_output)
             if output_range > 0:
                 max_integral = output_range * 2.0
@@ -107,12 +104,9 @@ class PID:
                 self._integral = max(-max_integral, min(max_integral, new_integral))
             else:
                 self._integral += integral_update
-            # Update i_term to reflect the new integral value (for next step)
-            i = self._integral
 
         self._prev_pv = pv
         self._prev_t = now
-        self._prev_error = error
         return PIDStepResult(
             output=u_out,
             error=error,
@@ -140,4 +134,3 @@ class PID:
 
         self._prev_pv = pv
         self._prev_t = now
-        self._prev_error = error

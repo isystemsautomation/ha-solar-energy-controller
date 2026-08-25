@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from custom_components.solar_energy_controller.pid import PID, PIDConfig, PIDStepResult
 
 
@@ -17,7 +15,6 @@ def test_pid_initialization():
     assert pid._integral == 0.0
     assert pid._prev_pv is None
     assert pid._prev_t is None
-    assert pid._prev_error is None
 
 
 def test_pid_reset():
@@ -34,7 +31,6 @@ def test_pid_reset():
     assert pid._integral == 0.0
     assert pid._prev_pv is None
     assert pid._prev_t is None
-    assert pid._prev_error is None
 
 
 def test_pid_step_basic():
@@ -56,17 +52,19 @@ def test_pid_step_with_integral():
     """Test PID step with integral term."""
     cfg = PIDConfig(kp=1.0, ki=0.1, kd=0.0, min_output=0.0, max_output=100.0)
     pid = PID(cfg)
-    
-    # First step
+
+    pid._prev_t = time.monotonic() - 1.0
+
+    # First step with non-zero dt
     result1 = pid.step(pv=50.0, error=10.0, last_output=None, rate_limiter_enabled=False, rate_limit=0.0)
-    
-    # Small delay
+
     time.sleep(0.01)
-    
+
     # Second step - integral should accumulate
     result2 = pid.step(pv=50.0, error=10.0, last_output=result1.output, rate_limiter_enabled=False, rate_limit=0.0)
-    
-    assert result2.i_term > result1.i_term  # Integral should increase
+
+    assert pid._integral > 0.0
+    assert result2.output > result1.output
 
 
 def test_pid_step_with_derivative():
@@ -126,7 +124,7 @@ def test_pid_integral_windup_prevention():
     time.sleep(0.01)
     
     # Second step - still saturated, integral should not accumulate
-    result2 = pid.step(pv=0.0, error=200.0, last_output=result1.output, rate_limiter_enabled=False, rate_limit=0.0)
+    pid.step(pv=0.0, error=200.0, last_output=result1.output, rate_limiter_enabled=False, rate_limit=0.0)
     integral2 = pid._integral
     
     # Integral should not increase when saturated
@@ -190,7 +188,6 @@ def test_pid_bumpless_transfer():
     
     # Integral should be adjusted
     assert pid._prev_pv == 55.0
-    assert pid._prev_error == 5.0
 
 
 def test_pid_bumpless_transfer_no_ki():

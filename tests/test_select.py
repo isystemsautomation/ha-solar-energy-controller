@@ -18,7 +18,9 @@ from custom_components.solar_energy_controller.const import (
     RUNTIME_MODE_AUTO_SP,
     RUNTIME_MODE_MANUAL_SP,
 )
-from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
+from custom_components.solar_energy_controller.coordinator import (
+    SolarEnergyFlowCoordinator,
+)
 from custom_components.solar_energy_controller.select import (
     SolarEnergyFlowSelect,
     async_setup_entry,
@@ -56,10 +58,10 @@ def test_select_current_option(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_GRID_LIMITER_TYPE,
-        "Grid limiter type",
         [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
         DEFAULT_GRID_LIMITER_TYPE,
         None,
+        "solar_energy_controller_grid_limiter_type",
     )
     
     assert select.current_option == DEFAULT_GRID_LIMITER_TYPE
@@ -78,10 +80,10 @@ async def test_select_select_option_valid(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_GRID_LIMITER_TYPE,
-        "Grid limiter type",
         [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
         DEFAULT_GRID_LIMITER_TYPE,
         None,
+        "solar_energy_controller_grid_limiter_type",
     )
     select.hass = mock_entry.hass
     
@@ -100,10 +102,10 @@ async def test_select_select_option_invalid(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_GRID_LIMITER_TYPE,
-        "Grid limiter type",
         [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
         DEFAULT_GRID_LIMITER_TYPE,
         None,
+        "solar_energy_controller_grid_limiter_type",
     )
     
     with pytest.raises(ServiceValidationError):
@@ -116,10 +118,10 @@ async def test_select_runtime_mode_change_to_manual_sp(mock_coordinator, mock_en
         mock_coordinator,
         mock_entry,
         CONF_RUNTIME_MODE,
-        "Runtime mode",
         [RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP],
         DEFAULT_RUNTIME_MODE,
         None,
+        "solar_energy_controller_runtime_mode",
     )
     select.hass = mock_entry.hass
     mock_coordinator.get_runtime_mode.return_value = RUNTIME_MODE_AUTO_SP
@@ -138,10 +140,10 @@ async def test_select_runtime_mode_no_change(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_RUNTIME_MODE,
-        "Runtime mode",
         [RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP],
         DEFAULT_RUNTIME_MODE,
         None,
+        "solar_energy_controller_runtime_mode",
     )
     select.hass = mock_entry.hass
     mock_coordinator.get_runtime_mode.return_value = RUNTIME_MODE_MANUAL_SP
@@ -158,14 +160,14 @@ async def test_select_error_handling(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_GRID_LIMITER_TYPE,
-        "Grid limiter type",
         [GRID_LIMITER_TYPE_IMPORT, GRID_LIMITER_TYPE_EXPORT],
         DEFAULT_GRID_LIMITER_TYPE,
         None,
+        "solar_energy_controller_grid_limiter_type",
     )
     select.hass = mock_entry.hass
     
-    mock_coordinator.apply_options.side_effect = Exception("Test error")
+    mock_coordinator.apply_options.side_effect = RuntimeError("Test error")
 
     with pytest.raises(HomeAssistantError):
         await select.async_select_option(GRID_LIMITER_TYPE_EXPORT)

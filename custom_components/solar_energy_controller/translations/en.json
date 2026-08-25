@@ -53,12 +53,7 @@
           "grid_max": "Grid max (raw units)"
         },
         "data_description": {
-          "pid_mode": {
-            "options": {
-              "direct": "Positive error increases output",
-              "reverse": "Positive error decreases output"
-            }
-          }
+          "pid_mode": "Direct: positive error increases output. Reverse: positive error decreases output."
         }
       }
     },
@@ -149,6 +144,12 @@
       "solar_energy_controller_rate_limit": {
         "name": "Rate limit",
         "unit_of_measurement": "points/s"
+      },
+      "solar_energy_controller_max_output_step": {
+        "name": "Max output step"
+      },
+      "solar_energy_controller_output_epsilon": {
+        "name": "Output epsilon"
       }
     }
   },

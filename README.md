@@ -1,9 +1,11 @@
 # Solar Energy Controller
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-41BDF5.svg)](https://www.home-assistant.io/)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=isystemsautomation&repository=hm-solar-energy-controller&category=integration)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.7.0+-41BDF5.svg)](https://www.home-assistant.io/)
 [![Version](https://img.shields.io/github/v/release/isystemsautomation/hm-solar-energy-controller?display_name=tag)](https://github.com/isystemsautomation/hm-solar-energy-controller/releases)
 [![Issues](https://img.shields.io/github/issues/isystemsautomation/hm-solar-energy-controller)](https://github.com/isystemsautomation/hm-solar-energy-controller/issues)
+[![Validate](https://github.com/isystemsautomation/hm-solar-energy-controller/actions/workflows/validate.yml/badge.svg)](https://github.com/isystemsautomation/hm-solar-energy-controller/actions/workflows/validate.yml)
 
 A **PID-based control integration for Home Assistant** that regulates a numeric output entity based on a measured process value and a setpoint, with optional grid import/export limiting.
 
@@ -112,7 +114,7 @@ No separate submission to the Home Assistant brands repository is required.
 
 ### Prerequisites
 
-- Home Assistant 2023.9.0 or later
+- Home Assistant **2024.7.0** or later
 - [HACS](https://hacs.xyz/) (Home Assistant Community Store) installed and configured
 
 If you don't have HACS installed yet:
@@ -653,7 +655,7 @@ The following are known limitations of the integration. These are design decisio
 ### System Requirements
 
 - **Entity availability**: All configured entities (PV, SP, Output, Grid) must be available in Home Assistant. The controller will log warnings if entities become unavailable
-- **Home Assistant version**: Requires Home Assistant 2023.9.0 or later
+- **Home Assistant version**: Requires Home Assistant **2024.7.0** or later
 
 ---
 
