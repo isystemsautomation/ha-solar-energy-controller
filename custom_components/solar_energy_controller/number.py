@@ -23,6 +23,8 @@ from .const import (
     CONF_RUNTIME_MODE,
     CONF_MANUAL_SP_VALUE,
     CONF_MANUAL_OUT_VALUE,
+    CONF_MAX_OUTPUT_STEP,
+    CONF_OUTPUT_EPSILON,
     DEFAULT_ENABLED,
     DEFAULT_KD,
     DEFAULT_KI,
@@ -36,6 +38,8 @@ from .const import (
     DEFAULT_RUNTIME_MODE,
     DEFAULT_MANUAL_SP_VALUE,
     DEFAULT_MANUAL_OUT_VALUE,
+    DEFAULT_MAX_OUTPUT_STEP,
+    DEFAULT_OUTPUT_EPSILON,
     DOMAIN,
     RUNTIME_MODE_AUTO_SP,
     RUNTIME_MODE_HOLD,
@@ -174,6 +178,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             -20000.0,
             20000.0,
         ),
+        SolarEnergyFlowNumber(
+            coordinator,
+            entry,
+            CONF_MAX_OUTPUT_STEP,
+            "Max output step",
+            DEFAULT_MAX_OUTPUT_STEP,
+            1.0,
+            0.0,
+            20000.0,
+            EntityCategory.CONFIG,
+        ),
+        SolarEnergyFlowNumber(
+            coordinator,
+            entry,
+            CONF_OUTPUT_EPSILON,
+            "Output epsilon",
+            DEFAULT_OUTPUT_EPSILON,
+            0.1,
+            0.0,
+            20000.0,
+            EntityCategory.CONFIG,
+        ),
     ]
 
     # Attach translation keys for entities that have translations defined
@@ -248,6 +274,8 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             options.setdefault(CONF_GRID_LIMITER_DEADBAND_W, DEFAULT_GRID_LIMITER_DEADBAND_W)
             options.setdefault(CONF_PID_DEADBAND, DEFAULT_PID_DEADBAND)
             options.setdefault(CONF_RATE_LIMIT, DEFAULT_RATE_LIMIT)
+            options.setdefault(CONF_MAX_OUTPUT_STEP, DEFAULT_MAX_OUTPUT_STEP)
+            options.setdefault(CONF_OUTPUT_EPSILON, DEFAULT_OUTPUT_EPSILON)
 
             options[self._option_key] = value
 
@@ -312,12 +340,16 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
                 display_value = getattr(data, "manual_sp_display_value", None)
                 if display_value is not None:
                     return round(display_value, 1)
-                return round(data.manual_sp_value, 1)
+                raw_value = getattr(data, "manual_sp_value", None)
+                if raw_value is not None:
+                    return round(raw_value, 1)
             elif self._option_key == CONF_MANUAL_OUT_VALUE:
                 display_value = getattr(data, "manual_out_display_value", None)
                 if display_value is not None:
                     return round(display_value, 1)
-                return round(data.manual_out_value, 1)
+                raw_value = getattr(data, "manual_out_value", None)
+                if raw_value is not None:
+                    return round(raw_value, 1)
         try:
             return round(float(self._entry.options.get(self._option_key, self._default)), 1)
         except (TypeError, ValueError):
@@ -325,27 +357,6 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
 
     def _runtime_mode(self) -> str:
         return self.coordinator.get_runtime_mode()
-
-    def _mirror_value(self) -> float:
-        data = getattr(self.coordinator, "data", None)
-        if data is not None:
-            if self._option_key == CONF_MANUAL_SP_VALUE:
-                display_value = getattr(data, "manual_sp_display_value", None)
-                if display_value is not None:
-                    return round(display_value, 1)
-                return round(data.manual_sp_value, 1)
-            return round(data.manual_out_value, 1)
-        try:
-            return round(float(self._entry.options.get(self._option_key, self._default)), 1)
-        except (TypeError, ValueError):
-            return round(self._default, 1)
-
-    async def _async_snap_back(self) -> None:
-        if self._option_key == CONF_MANUAL_SP_VALUE:
-            await self.coordinator.async_snap_back_manual_sp()
-        else:
-            await self.coordinator.async_snap_back_manual_out()
-        self.async_write_ha_state()
 
     async def async_set_native_value(self, value: float) -> None:
         runtime_mode = self._runtime_mode()

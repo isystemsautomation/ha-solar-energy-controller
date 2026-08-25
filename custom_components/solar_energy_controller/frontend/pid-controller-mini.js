@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "./lit-core.min.js";
 import "./pid-controller-popup.js";
+import { normalizeRuntimeMode } from "./runtime-modes.js";
 
 class PIDControllerMini extends LitElement {
   static properties = {
@@ -614,7 +615,7 @@ class PIDControllerMini extends LitElement {
     if (state && state.attributes) {
       const attrs = state.attributes;
       data.enabled = attrs.enabled ?? false;
-      data.runtime_mode = attrs.runtime_mode || "AUTO_SP";
+      data.runtime_mode = normalizeRuntimeMode(attrs.runtime_mode);
       data.pv_value = attrs.pv_value ?? null;
       data.effective_sp = attrs.effective_sp ?? null;
       data.error = attrs.error ?? null;
@@ -701,28 +702,17 @@ class PIDControllerMini extends LitElement {
     document.head.appendChild(style);
   }
 
-  _popupScriptPromise = null;
-
   async _ensurePopupElementReady() {
     if (customElements.get("pid-controller-popup")) {
       return true;
     }
 
-    if (!this._popupScriptPromise) {
-      this._popupScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.type = "module";
-        script.src = `/solar_energy_controller/frontend/pid-controller-popup.js?v=${this._frontendVersion || "1.0.11"}`;
-        script.onload = () => resolve(customElements.get("pid-controller-popup") !== undefined);
-        script.onerror = () => reject(new Error("Failed to load pid-controller-popup.js"));
-        document.head.appendChild(script);
-      }).catch((err) => {
-        this._popupScriptPromise = null;
-        throw err;
-      });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (customElements.get("pid-controller-popup")) {
+      return true;
     }
 
-    return this._popupScriptPromise;
+    throw new Error("pid-controller-popup custom element is not registered");
   }
 
   _createPopupCard() {
@@ -774,58 +764,6 @@ class PIDControllerMini extends LitElement {
     };
     dialog.addEventListener("closed", cleanup, { once: true });
     dialog.addEventListener("close", cleanup, { once: true });
-  }
-
-  _tryHaDialog(title, popupCard) {
-    if (!customElements.get("ha-dialog")) {
-      return false;
-    }
-
-    try {
-      const dialog = document.createElement("ha-dialog");
-      dialog.open = true;
-
-      if (customElements.get("ha-dialog-header")) {
-        const header = document.createElement("ha-dialog-header");
-        header.setAttribute("slot", "heading");
-
-        const heading = document.createElement("span");
-        heading.setAttribute("slot", "title");
-        heading.textContent = title;
-        header.appendChild(heading);
-
-        if (customElements.get("ha-icon-button")) {
-          const closeButton = document.createElement("ha-icon-button");
-          closeButton.setAttribute("slot", "navigationIcon");
-          closeButton.setAttribute("label", "Close");
-          const closeIcon = document.createElement("ha-icon");
-          closeIcon.setAttribute("icon", "mdi:close");
-          closeButton.appendChild(closeIcon);
-          closeButton.addEventListener("click", () => this._closeDialogElement(dialog));
-          header.appendChild(closeButton);
-        }
-
-        dialog.appendChild(header);
-      } else {
-        dialog.heading = title;
-        dialog.hideActions = true;
-        dialog.scrimClickAction = "close";
-        dialog.escapeKeyAction = "close";
-      }
-
-      dialog.appendChild(popupCard);
-      this._attachDialogCleanup(dialog, popupCard);
-      document.body.appendChild(dialog);
-
-      if (!dialog.open && typeof dialog.show === "function") {
-        dialog.show();
-      }
-
-      return true;
-    } catch (err) {
-      console.warn("Solar Energy Controller: ha-dialog failed, using native dialog", err);
-      return false;
-    }
   }
 
   _openNativeDialog(title, popupCard) {

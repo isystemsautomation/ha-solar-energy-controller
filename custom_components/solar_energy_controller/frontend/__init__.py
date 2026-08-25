@@ -26,7 +26,7 @@ _MAX_ATTEMPTS = 30
 
 
 def get_integration_version() -> str:
-    version = "1.0.14"
+    version = "1.0.15"
     manifest_path = os.path.join(os.path.dirname(__file__), "..", "manifest.json")
     try:
         with open(manifest_path, encoding="utf-8") as manifest_file:

@@ -131,6 +131,8 @@ If you don't have HACS installed yet:
 7. Go to **Settings → Devices & Services → Add Integration**
 8. Search for **Solar Energy Controller** and follow the setup wizard
 
+> **HACS default store:** This integration is installed as a **custom repository** (step 1–2 above). Inclusion in the official HACS default catalog is a separate GitHub PR to [hacs/default](https://github.com/hacs/default); the integration itself is ready for that process.
+
 ---
 
 ## Removal
@@ -187,7 +189,7 @@ The following parameters are required during the initial setup:
 - Example: If controlling an inverter, this would be the power limit entity (e.g., `number.inverter_max_power`).
 
 **Grid Power Entity:**
-- Description: The entity that provides grid power measurement (signed import/export). Required if you plan to use the grid limiter feature.
+- Description: The entity that provides grid power measurement (signed import/export). **Required during setup** so the controller can normalize grid power and support the optional grid limiter.
 - Where to find: Go to **Settings → Devices & Services → Entities** and search for your grid power sensor. This should be a sensor that reports positive values when importing from grid and negative when exporting.
 - Supported domains: `sensor`, `number`, `input_number`
 - Example: `sensor.grid_power` where positive = importing, negative = exporting.
@@ -287,13 +289,13 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 - PV value (raw units)
 - Output (raw units)
 - Output (pre rate limit)
-- Error (percent domain)
+- Error (raw units: effective SP − PV)
 - Grid power (raw units)
-- P / I / D terms (percent domain)
+- P / I / D terms (raw output units; derived from the internal percent PID)
 - Limiter state (diagnostic)
 - Status
 
-> Note: PV/SP/Output sensors show raw values. PID calculations are performed internally in percent.
+> Note: PV/SP/Output sensors show raw values. PID calculations are performed internally in percent; Error and P/I/D sensors are exposed in raw units for wiring transparency.
 
 ---
 
@@ -311,8 +313,8 @@ All tuning and limiter parameters are available as number and switch entities.
   - Kp: Proportional gain (default: 1.0)
   - Ki: Integral gain (default: 0.1)
   - Kd: Derivative gain (default: 0.0)
-- **PID deadband** – Deadband in percent (default: 0.0)
-  - Output changes only when error exceeds this threshold
+- **PID deadband** – Deadband in raw output units (default: 0.0)
+  - Output changes only when |SP − PV| exceeds this threshold in raw units
 - **Min output** – Minimum output value in raw units (default: 0.0)
 - **Max output** – Maximum output value in raw units (default: 11000.0)
 
@@ -334,10 +336,9 @@ All tuning and limiter parameters are available as number and switch entities.
 
 ### Advanced Parameters
 
-- **Max output step** – Maximum allowed output step change (default: 0.0, disabled)
-  - Limits the maximum change per update cycle
-- **Output epsilon** – Minimum output change threshold (default: 0.0, disabled)
-  - Output only changes if the difference exceeds this value
+- **Max output step** – Maximum allowed output change per update cycle in raw units (default: 0.0 = disabled)
+- **Output epsilon** – Minimum output change threshold in raw units (default: 0.0 = disabled)
+  - Output is only written when the new value differs from the current output by more than this amount
 
 ---
 
@@ -580,7 +581,7 @@ automation:
 
 ### Cannot change Manual SP / Manual OUT values
 
-- **Symptom:** Changing `Manual SP` or `Manual OUT` results in errors or values snapping back.
+- **Symptom:** Changing `Manual SP` or `Manual OUT` is rejected or the value does not stick.
 - **Description:** Manual values can only be set when the controller is in the corresponding manual mode.
 - **Resolution:**
   1. Set **Runtime mode** to `MANUAL SP` before changing the Manual SP value, or to `MANUAL OUT` before changing the Manual OUT value.
@@ -596,9 +597,9 @@ automation:
 ### Custom card opens but click does not show the editor (Home Assistant 2026.3+)
 
 - **Symptom:** The mini card renders PV/SP/output and the chart, but tapping the card or **Open Editor** does nothing.
-- **Description:** Home Assistant 2026.3 migrated `ha-dialog` to the Web Awesome / native `<dialog>` stack. Integrations that called the legacy MDC `dialog.show()` API silently fail on newer frontends.
+- **Description:** Home Assistant 2026.3+ changed dialog handling. The card editor uses a native `<dialog>` fallback.
 - **Resolution:**
-  1. Update **Solar Energy Controller** to **v1.0.14** or later via HACS.
+  1. Update **Solar Energy Controller** to **v1.0.15** or later via HACS.
   2. **Restart Home Assistant** once — the integration registers both card scripts automatically.
   3. Hard-refresh the dashboard (Ctrl+F5). **Do not delete** Lovelace resources manually.
 
@@ -607,7 +608,7 @@ automation:
 - **Symptom:** The PID card shows **Configuration error** (red banner) or an empty panel.
 - **Cause:** The dashboard references `custom:pid-controller-mini`, but the JavaScript modules are missing from Lovelace resources (often after they were deleted manually).
 - **Resolution:**
-  1. Update to **v1.0.14+** via HACS.
+  1. Update to **v1.0.15+** via HACS.
   2. **Restart Home Assistant** — scripts are re-registered automatically (no manual URLs).
   3. Or **Settings → Devices & services → Solar Energy Controller → ⋮ → Reload** if HA is already running.
   4. Hard-refresh the dashboard (Ctrl+F5).
@@ -616,7 +617,7 @@ automation:
 
 - **Symptom:** Lovelace shows `Custom element not found: pid-controller-mini` or the mini card does not load.
 - **Description:** The frontend resources for the custom card are not registered or not served.
-- **Resolution:** Use the steps in **“Configuration error”** above. If Lovelace is not in storage mode, step 3 (manual add) is required on every update.
+- **Resolution:** Use the steps in **“Configuration error”** above. If Lovelace is in YAML mode (not storage), add the two module URLs to `ui-lovelace.yaml` under `resources:`.
 
 ---
 
