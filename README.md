@@ -598,9 +598,9 @@ automation:
 - **Symptom:** The mini card renders PV/SP/output and the chart, but tapping the card or **Open Editor** does nothing.
 - **Description:** Home Assistant 2026.3 migrated `ha-dialog` to the Web Awesome / native `<dialog>` stack. Integrations that called the legacy MDC `dialog.show()` API silently fail on newer frontends.
 - **Resolution:**
-  1. Update **Solar Energy Controller** to **v1.0.9** or later via HACS.
+  1. Update **Solar Energy Controller** to **v1.0.10** or later via HACS.
   2. Restart Home Assistant and hard-refresh the dashboard (Ctrl+F5).
-  3. If the card was added before the update, remove and re-add the Lovelace resources under **Settings → Dashboards → Resources** so the browser loads the new JavaScript modules.
+  3. In **Settings → Dashboards → Resources**, remove old `pid-controller-mini.js` / `pid-controller-popup.js` entries if present, restart HA once more so the integration re-registers them with the new version query string.
 
 ### Custom card not visible / “Custom element not found: pid-controller-mini”
 
