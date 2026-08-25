@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.17
+
+- Fix hassfest translation errors: remove quoted placeholders, select `state` slugs, sync `strings.json`/`en.json`
+- Migrate runtime mode values to slugs (`auto_sp`, `manual_sp`, `hold`, `manual_out`) with config entry v2 migration
+- Fix dead entity translations: remove `_attr_name` from sensor/number entities that use `translation_key`
+
 ## 1.0.16
 
 - HACS/default readiness: MIT LICENSE, repo topics, validate CI, sorted manifest, `iot_class`

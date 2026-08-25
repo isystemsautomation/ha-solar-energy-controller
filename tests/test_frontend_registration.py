@@ -36,7 +36,7 @@ def mock_hass(mock_lovelace_resources):
 @pytest.fixture
 def mock_integration_version():
     integration = MagicMock()
-    integration.version = "1.0.16"
+    integration.version = "1.0.17"
     with patch(
         "custom_components.solar_energy_controller.frontend.async_get_loaded_integration",
         return_value=integration,
@@ -55,7 +55,7 @@ async def test_registers_missing_modules(
     assert mock_lovelace_resources.async_create_item.await_count == 2
     first_call = mock_lovelace_resources.async_create_item.await_args_list[0].args[0]
     assert first_call["res_type"] == "module"
-    assert first_call["url"] == f"{URL_BASE}/pid-controller-mini.js?v=1.0.16"
+    assert first_call["url"] == f"{URL_BASE}/pid-controller-mini.js?v=1.0.17"
 
 
 async def test_updates_stale_module_version(

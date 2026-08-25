@@ -43,13 +43,13 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
         self,
         coordinator: SolarEnergyFlowCoordinator,
         entry: ConfigEntry,
-        name: str,
+        translation_key: str,
         unique_suffix: str,
         entity_category: EntityCategory | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{unique_suffix}"
         if entity_category is not None:
             self._attr_entity_category = entity_category
@@ -78,7 +78,7 @@ class SolarEnergyFlowEffectiveSPSensor(_BaseFlowSensor):
     _attr_icon = "mdi:target-variant"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Effective SP", "effective_sp")
+        super().__init__(coordinator, entry, "solar_energy_controller_effective_sp", "effective_sp")
 
     @property
     def available(self) -> bool:
@@ -99,7 +99,7 @@ class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
     _attr_icon = "mdi:gauge"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "PV value", "pv_value")
+        super().__init__(coordinator, entry, "solar_energy_controller_pv_value", "pv_value")
 
     @property
     def available(self) -> bool:
@@ -120,7 +120,7 @@ class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
     _attr_icon = "mdi:tune-vertical"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Output", "output")
+        super().__init__(coordinator, entry, "solar_energy_controller_output", "output")
 
     @property
     def available(self) -> bool:
@@ -141,7 +141,7 @@ class SolarEnergyFlowErrorSensor(_BaseFlowSensor):
     _attr_icon = "mdi:delta"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Error", "error")
+        super().__init__(coordinator, entry, "solar_energy_controller_error", "error")
 
     @property
     def available(self) -> bool:
@@ -163,7 +163,7 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
     _attr_icon = "mdi:information-outline"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Status", "status")
+        super().__init__(coordinator, entry, "solar_energy_controller_status", "status")
 
     @property
     def available(self) -> bool:
@@ -184,38 +184,21 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
         data = self._data
         if not data:
             return {}
-        
+
         # Get runtime options from coordinator
         options = self.coordinator._build_runtime_options()
-        
+
         # Get values from entry options
         from .const import (
-            CONF_GRID_LIMITER_ENABLED,
-            CONF_GRID_LIMITER_LIMIT_W,
-            CONF_KD,
-            CONF_KI,
-            CONF_KP,
-            CONF_MAX_OUTPUT,
-            CONF_MIN_OUTPUT,
-            CONF_PID_DEADBAND,
-            CONF_RATE_LIMIT,
-            CONF_RATE_LIMITER_ENABLED,
-            DEFAULT_GRID_LIMITER_ENABLED,
-            DEFAULT_GRID_LIMITER_LIMIT_W,
-            DEFAULT_KD,
-            DEFAULT_KI,
-            DEFAULT_KP,
-            DEFAULT_MAX_OUTPUT,
-            DEFAULT_MIN_OUTPUT,
-            DEFAULT_PID_DEADBAND,
-            DEFAULT_RATE_LIMIT,
-            DEFAULT_RATE_LIMITER_ENABLED,
-            RUNTIME_MODE_AUTO_SP,
-            RUNTIME_MODE_HOLD,
-            RUNTIME_MODE_MANUAL_OUT,
-            RUNTIME_MODE_MANUAL_SP,
+            CONF_KP, CONF_KI, CONF_KD, CONF_MIN_OUTPUT, CONF_MAX_OUTPUT,
+            CONF_PID_DEADBAND, CONF_GRID_LIMITER_ENABLED, CONF_RATE_LIMITER_ENABLED,
+            CONF_GRID_LIMITER_LIMIT_W, CONF_RATE_LIMIT,
+            DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_MIN_OUTPUT, DEFAULT_MAX_OUTPUT,
+            DEFAULT_PID_DEADBAND, DEFAULT_GRID_LIMITER_ENABLED, DEFAULT_RATE_LIMITER_ENABLED,
+            DEFAULT_GRID_LIMITER_LIMIT_W, DEFAULT_RATE_LIMIT,
+            RUNTIME_MODE_AUTO_SP, RUNTIME_MODE_MANUAL_SP, RUNTIME_MODE_HOLD, RUNTIME_MODE_MANUAL_OUT,
         )
-        
+
         return {
             "enabled": options.enabled,
             "runtime_mode": options.runtime_mode,
@@ -255,7 +238,7 @@ class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
     _attr_icon = "mdi:home-lightning-bolt-outline"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Grid power", "grid_power")
+        super().__init__(coordinator, entry, "solar_energy_controller_grid_power", "grid_power")
 
     @property
     def available(self) -> bool:
@@ -278,7 +261,9 @@ class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "P term", "p_term", EntityCategory.DIAGNOSTIC)
+        super().__init__(
+            coordinator, entry, "solar_energy_controller_p_term", "p_term", EntityCategory.DIAGNOSTIC
+        )
 
     @property
     def available(self) -> bool:
@@ -301,7 +286,9 @@ class SolarEnergyFlowITermSensor(_BaseFlowSensor):
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "I term", "i_term", EntityCategory.DIAGNOSTIC)
+        super().__init__(
+            coordinator, entry, "solar_energy_controller_i_term", "i_term", EntityCategory.DIAGNOSTIC
+        )
 
     @property
     def available(self) -> bool:
@@ -324,7 +311,9 @@ class SolarEnergyFlowDTermSensor(_BaseFlowSensor):
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "D term", "d_term", EntityCategory.DIAGNOSTIC)
+        super().__init__(
+            coordinator, entry, "solar_energy_controller_d_term", "d_term", EntityCategory.DIAGNOSTIC
+        )
 
     @property
     def available(self) -> bool:
@@ -347,7 +336,9 @@ class SolarEnergyFlowLimiterStateSensor(_BaseFlowSensor):
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Limiter state", "limiter_state", EntityCategory.DIAGNOSTIC)
+        super().__init__(
+            coordinator, entry, "solar_energy_controller_limiter_state", "limiter_state", EntityCategory.DIAGNOSTIC
+        )
 
     @property
     def available(self) -> bool:
@@ -369,7 +360,11 @@ class SolarEnergyFlowOutputPreRateLimitSensor(_BaseFlowSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(
-            coordinator, entry, "Output (pre rate limit)", "output_pre_rate_limit", EntityCategory.DIAGNOSTIC
+            coordinator,
+            entry,
+            "solar_energy_controller_output_pre_rate_limit",
+            "output_pre_rate_limit",
+            EntityCategory.DIAGNOSTIC,
         )
 
     @property

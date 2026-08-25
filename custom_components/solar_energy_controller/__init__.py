@@ -3,20 +3,16 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import (
-    ConfigEntry,
-    ConfigEntryError,
-    ConfigEntryNotReady,
-)
+from homeassistant.config_entries import ConfigEntry, ConfigEntryError, ConfigEntryNotReady
+from homeassistant.core import CoreState, HomeAssistant, Event, callback
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import CoreState, Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.components.http import StaticPathConfig
 
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, CONF_RUNTIME_MODE, CONFIG_ENTRY_VERSION, normalize_runtime_mode
 from .coordinator import SolarEnergyFlowCoordinator
 from .frontend import async_register_frontend
 
@@ -62,13 +58,30 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate config entry options to current schema."""
+    if config_entry.version >= CONFIG_ENTRY_VERSION:
+        return True
+
+    options = dict(config_entry.options)
+    if CONF_RUNTIME_MODE in options:
+        options[CONF_RUNTIME_MODE] = normalize_runtime_mode(options[CONF_RUNTIME_MODE])
+
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options=options,
+        version=CONFIG_ENTRY_VERSION,
+    )
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> bool:
     """Set up Solar Energy Controller from a config entry."""
     from .const import (
-        CONF_GRID_POWER_ENTITY,
-        CONF_OUTPUT_ENTITY,
         CONF_PROCESS_VALUE_ENTITY,
         CONF_SETPOINT_ENTITY,
+        CONF_OUTPUT_ENTITY,
+        CONF_GRID_POWER_ENTITY,
     )
 
     entity_registry = er.async_get(hass)

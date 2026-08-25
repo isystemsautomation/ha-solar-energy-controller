@@ -108,16 +108,16 @@
     "select": {
       "solar_energy_controller_runtime_mode": {
         "name": "Runtime mode",
-        "options": {
-          "AUTO SP": "AUTO SP",
-          "MANUAL SP": "MANUAL SP",
-          "HOLD": "HOLD",
-          "MANUAL OUT": "MANUAL OUT"
+        "state": {
+          "auto_sp": "AUTO SP",
+          "manual_sp": "MANUAL SP",
+          "hold": "HOLD",
+          "manual_out": "MANUAL OUT"
         }
       },
       "solar_energy_controller_grid_limiter_type": {
         "name": "Grid limiter type",
-        "options": {
+        "state": {
           "import": "Import",
           "export": "Export"
         }
@@ -161,7 +161,7 @@
       "message": "Cannot set {name} value because the controller is in {runtime_mode} mode. Please switch the Runtime mode to {required_mode} mode first."
     },
     "select_invalid_option": {
-      "message": "Invalid option '{option}' for {name}. Valid options are: {valid_options}."
+      "message": "Invalid option {option} for {name}. Valid options are: {valid_options}."
     },
     "select_failed_set_option": {
       "message": "Failed to set {name} option."

@@ -66,7 +66,7 @@ def mock_coordinator():
     coordinator.last_update_success = True
     coordinator._build_runtime_options = MagicMock(return_value=MagicMock(
         enabled=True,
-        runtime_mode="AUTO SP",
+        runtime_mode="auto_sp",
     ))
     coordinator.get_manual_out_value = MagicMock(return_value=55.0)
     coordinator.get_manual_sp_value = MagicMock(return_value=60.0)
@@ -94,7 +94,7 @@ def test_effective_sp_sensor(mock_coordinator, mock_entry):
     """Test Effective SP sensor."""
     sensor = SolarEnergyFlowEffectiveSPSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Effective SP"
+    assert sensor._attr_translation_key == "solar_energy_controller_effective_sp"
     assert sensor.available is True
     assert sensor.native_value == 60.0
     
@@ -108,7 +108,7 @@ def test_pv_value_sensor(mock_coordinator, mock_entry):
     """Test PV value sensor."""
     sensor = SolarEnergyFlowPVValueSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "PV value"
+    assert sensor._attr_translation_key == "solar_energy_controller_pv_value"
     assert sensor.available is True
     assert sensor.native_value == 50.0
     
@@ -122,7 +122,7 @@ def test_output_sensor(mock_coordinator, mock_entry):
     """Test Output sensor."""
     sensor = SolarEnergyFlowOutputSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Output"
+    assert sensor._attr_translation_key == "solar_energy_controller_output"
     assert sensor.available is True
     assert sensor.native_value == 55.0
     
@@ -136,7 +136,7 @@ def test_error_sensor(mock_coordinator, mock_entry):
     """Test Error sensor."""
     sensor = SolarEnergyFlowErrorSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Error"
+    assert sensor._attr_translation_key == "solar_energy_controller_error"
     assert sensor.available is True
     assert sensor.native_value == 10.0
     
@@ -150,7 +150,7 @@ def test_status_sensor(mock_coordinator, mock_entry):
     """Test Status sensor."""
     sensor = SolarEnergyFlowStatusSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Status"
+    assert sensor._attr_translation_key == "solar_energy_controller_status"
     assert sensor.available is True
     assert sensor.native_value == "running"
     
@@ -166,7 +166,7 @@ def test_grid_power_sensor(mock_coordinator, mock_entry):
     """Test Grid power sensor."""
     sensor = SolarEnergyFlowGridPowerSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Grid power"
+    assert sensor._attr_translation_key == "solar_energy_controller_grid_power"
     assert sensor.available is True
     assert sensor.native_value == 100.0
 
@@ -175,7 +175,7 @@ def test_p_term_sensor(mock_coordinator, mock_entry):
     """Test P term sensor."""
     sensor = SolarEnergyFlowPTermSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "P term"
+    assert sensor._attr_translation_key == "solar_energy_controller_p_term"
     assert sensor.available is True
     assert sensor.native_value == 5.0
 
@@ -184,7 +184,7 @@ def test_i_term_sensor(mock_coordinator, mock_entry):
     """Test I term sensor."""
     sensor = SolarEnergyFlowITermSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "I term"
+    assert sensor._attr_translation_key == "solar_energy_controller_i_term"
     assert sensor.available is True
     assert sensor.native_value == 3.0
 
@@ -193,7 +193,7 @@ def test_d_term_sensor(mock_coordinator, mock_entry):
     """Test D term sensor."""
     sensor = SolarEnergyFlowDTermSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "D term"
+    assert sensor._attr_translation_key == "solar_energy_controller_d_term"
     assert sensor.available is True
     assert sensor.native_value == 2.0
 
@@ -202,7 +202,7 @@ def test_limiter_state_sensor(mock_coordinator, mock_entry):
     """Test Limiter state sensor."""
     sensor = SolarEnergyFlowLimiterStateSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Limiter state"
+    assert sensor._attr_translation_key == "solar_energy_controller_limiter_state"
     assert sensor.available is True
     assert sensor.native_value == "normal"
 
@@ -211,7 +211,7 @@ def test_output_pre_rate_limit_sensor(mock_coordinator, mock_entry):
     """Test Output (pre rate limit) sensor."""
     sensor = SolarEnergyFlowOutputPreRateLimitSensor(mock_coordinator, mock_entry)
     
-    assert sensor._attr_name == "Output (pre rate limit)"
+    assert sensor._attr_translation_key == "solar_energy_controller_output_pre_rate_limit"
     assert sensor.available is True
     assert sensor.native_value == 55.0
 

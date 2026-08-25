@@ -69,6 +69,90 @@
       "invalid_grid_range": "Grid max must be greater than Grid min."
     }
   },
+  "entity": {
+    "sensor": {
+      "solar_energy_controller_effective_sp": {
+        "name": "Effective SP"
+      },
+      "solar_energy_controller_pv_value": {
+        "name": "PV value"
+      },
+      "solar_energy_controller_output": {
+        "name": "Output"
+      },
+      "solar_energy_controller_error": {
+        "name": "Error"
+      },
+      "solar_energy_controller_status": {
+        "name": "Status"
+      },
+      "solar_energy_controller_grid_power": {
+        "name": "Grid power"
+      },
+      "solar_energy_controller_p_term": {
+        "name": "P term"
+      },
+      "solar_energy_controller_i_term": {
+        "name": "I term"
+      },
+      "solar_energy_controller_d_term": {
+        "name": "D term"
+      },
+      "solar_energy_controller_limiter_state": {
+        "name": "Limiter state"
+      },
+      "solar_energy_controller_output_pre_rate_limit": {
+        "name": "Output (pre rate limit)"
+      }
+    },
+    "select": {
+      "solar_energy_controller_runtime_mode": {
+        "name": "Runtime mode",
+        "state": {
+          "auto_sp": "AUTO SP",
+          "manual_sp": "MANUAL SP",
+          "hold": "HOLD",
+          "manual_out": "MANUAL OUT"
+        }
+      },
+      "solar_energy_controller_grid_limiter_type": {
+        "name": "Grid limiter type",
+        "state": {
+          "import": "Import",
+          "export": "Export"
+        }
+      }
+    },
+    "switch": {
+      "solar_energy_controller_enabled": {
+        "name": "Enabled"
+      },
+      "solar_energy_controller_grid_limiter": {
+        "name": "Grid limiter enabled"
+      },
+      "solar_energy_controller_rate_limiter": {
+        "name": "Rate limiter"
+      }
+    },
+    "number": {
+      "solar_energy_controller_manual_sp_value": {
+        "name": "Manual SP"
+      },
+      "solar_energy_controller_manual_out_value": {
+        "name": "Manual OUT"
+      },
+      "solar_energy_controller_rate_limit": {
+        "name": "Rate limit",
+        "unit_of_measurement": "points/s"
+      },
+      "solar_energy_controller_max_output_step": {
+        "name": "Max output step"
+      },
+      "solar_energy_controller_output_epsilon": {
+        "name": "Output epsilon"
+      }
+    }
+  },
   "exceptions": {
     "number_failed_set_value": {
       "message": "Failed to set {name} value."
@@ -77,7 +161,7 @@
       "message": "Cannot set {name} value because the controller is in {runtime_mode} mode. Please switch the Runtime mode to {required_mode} mode first."
     },
     "select_invalid_option": {
-      "message": "Invalid option '{option}' for {name}. Valid options are: {valid_options}."
+      "message": "Invalid option {option} for {name}. Valid options are: {valid_options}."
     },
     "select_failed_set_option": {
       "message": "Failed to set {name} option."

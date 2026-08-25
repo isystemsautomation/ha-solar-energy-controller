@@ -4,6 +4,7 @@ import {
   isManualOutMode,
   isManualSpMode,
   normalizeRuntimeMode,
+  runtimeModeLabel,
 } from "./runtime-modes.js";
 
 class PIDControllerPopup extends LitElement {
@@ -695,7 +696,7 @@ class PIDControllerPopup extends LitElement {
 
   _formatMode(mode) {
     if (!mode) return "—";
-    return mode.replace(/_/g, " ");
+    return runtimeModeLabel(mode);
   }
 
   _findEntityId(domain, suffix) {

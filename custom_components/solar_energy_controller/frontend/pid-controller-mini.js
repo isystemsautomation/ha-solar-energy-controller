@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "./lit-core.min.js";
 import "./pid-controller-popup.js";
-import { normalizeRuntimeMode } from "./runtime-modes.js";
+import { normalizeRuntimeMode, runtimeModeLabel } from "./runtime-modes.js";
 
 class PIDControllerMini extends LitElement {
   static properties = {
@@ -636,7 +636,7 @@ class PIDControllerMini extends LitElement {
 
   _formatMode(mode) {
     if (!mode) return "—";
-    return mode.replace(/_/g, " ");
+    return runtimeModeLabel(mode);
   }
 
   _getEntityIds() {

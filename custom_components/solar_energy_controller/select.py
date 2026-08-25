@@ -15,15 +15,15 @@ from .const import (
     CONF_GRID_LIMITER_ENABLED,
     CONF_GRID_LIMITER_LIMIT_W,
     CONF_GRID_LIMITER_TYPE,
-    CONF_MANUAL_SP_VALUE,
     CONF_PID_DEADBAND,
     CONF_RUNTIME_MODE,
+    CONF_MANUAL_SP_VALUE,
     DEFAULT_ENABLED,
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_GRID_LIMITER_ENABLED,
     DEFAULT_GRID_LIMITER_LIMIT_W,
-    DEFAULT_GRID_LIMITER_TYPE,
     DEFAULT_PID_DEADBAND,
+    DEFAULT_GRID_LIMITER_TYPE,
     DEFAULT_RUNTIME_MODE,
     DOMAIN,
     GRID_LIMITER_TYPE_EXPORT,
@@ -32,6 +32,7 @@ from .const import (
     RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
+    normalize_runtime_mode,
 )
 from .coordinator import SolarEnergyFlowCoordinator
 
@@ -100,6 +101,8 @@ class SolarEnergyFlowSelect(CoordinatorEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         value = self._entry.options.get(self._option_key, self._default)
+        if self._option_key == CONF_RUNTIME_MODE:
+            value = normalize_runtime_mode(value)
         if value in self._attr_options:
             return value
         return self._default

@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import CoreState, HomeAssistant
 
 from custom_components.solar_energy_controller import (
+    async_migrate_entry,
     async_setup,
     async_setup_entry,
     async_unload_entry,
@@ -20,8 +21,12 @@ from custom_components.solar_energy_controller.const import (
     CONF_GRID_POWER_ENTITY,
     CONF_OUTPUT_ENTITY,
     CONF_PROCESS_VALUE_ENTITY,
+    CONF_RUNTIME_MODE,
     CONF_SETPOINT_ENTITY,
+    CONFIG_ENTRY_VERSION,
     PLATFORMS,
+    RUNTIME_MODE_AUTO_SP,
+    RUNTIME_MODE_MANUAL_SP,
 )
 
 
@@ -220,4 +225,19 @@ async def test_async_setup_frontend_path_missing(mock_hass):
 
         assert result is True
         mock_hass.bus.async_listen_once.assert_called_once()
+
+
+async def test_async_migrate_entry_runtime_mode_slugs(mock_hass, mock_entry):
+    """Legacy runtime mode labels are migrated to slug values."""
+    mock_entry.version = 1
+    mock_entry.options = {CONF_RUNTIME_MODE: "MANUAL SP"}
+    mock_hass.config_entries.async_update_entry = MagicMock()
+
+    result = await async_migrate_entry(mock_hass, mock_entry)
+
+    assert result is True
+    mock_hass.config_entries.async_update_entry.assert_called_once()
+    call_kwargs = mock_hass.config_entries.async_update_entry.call_args.kwargs
+    assert call_kwargs["version"] == CONFIG_ENTRY_VERSION
+    assert call_kwargs["options"][CONF_RUNTIME_MODE] == RUNTIME_MODE_MANUAL_SP
 

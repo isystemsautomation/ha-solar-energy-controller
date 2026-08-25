@@ -11,35 +11,38 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CONF_ENABLED,
-    CONF_GRID_LIMITER_DEADBAND_W,
-    CONF_GRID_LIMITER_LIMIT_W,
     CONF_KD,
     CONF_KI,
     CONF_KP,
-    CONF_MANUAL_OUT_VALUE,
-    CONF_MANUAL_SP_VALUE,
     CONF_MAX_OUTPUT,
-    CONF_MAX_OUTPUT_STEP,
     CONF_MIN_OUTPUT,
-    CONF_OUTPUT_EPSILON,
+    CONF_GRID_LIMITER_LIMIT_W,
+    CONF_GRID_LIMITER_DEADBAND_W,
     CONF_PID_DEADBAND,
     CONF_RATE_LIMIT,
     CONF_RUNTIME_MODE,
+    CONF_MANUAL_SP_VALUE,
+    CONF_MANUAL_OUT_VALUE,
+    CONF_MAX_OUTPUT_STEP,
+    CONF_OUTPUT_EPSILON,
     DEFAULT_ENABLED,
-    DEFAULT_GRID_LIMITER_DEADBAND_W,
-    DEFAULT_GRID_LIMITER_LIMIT_W,
     DEFAULT_KD,
     DEFAULT_KI,
     DEFAULT_KP,
-    DEFAULT_MANUAL_OUT_VALUE,
-    DEFAULT_MANUAL_SP_VALUE,
     DEFAULT_MAX_OUTPUT,
-    DEFAULT_MAX_OUTPUT_STEP,
     DEFAULT_MIN_OUTPUT,
-    DEFAULT_OUTPUT_EPSILON,
+    DEFAULT_GRID_LIMITER_LIMIT_W,
+    DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
     DEFAULT_RATE_LIMIT,
+    DEFAULT_RUNTIME_MODE,
+    DEFAULT_MANUAL_SP_VALUE,
+    DEFAULT_MANUAL_OUT_VALUE,
+    DEFAULT_MAX_OUTPUT_STEP,
+    DEFAULT_OUTPUT_EPSILON,
     DOMAIN,
+    RUNTIME_MODE_AUTO_SP,
+    RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
 )
@@ -154,26 +157,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             0.0,
             10000.0,
             EntityCategory.CONFIG,
+            translation_key="solar_energy_controller_rate_limit",
         ),
         SolarEnergyFlowManualNumber(
             coordinator,
             entry,
             CONF_MANUAL_SP_VALUE,
-            "Manual SP",
             DEFAULT_MANUAL_SP_VALUE,
             1.0,
             -20000.0,
             20000.0,
+            translation_key="solar_energy_controller_manual_sp_value",
         ),
         SolarEnergyFlowManualNumber(
             coordinator,
             entry,
             CONF_MANUAL_OUT_VALUE,
-            "Manual OUT",
             DEFAULT_MANUAL_OUT_VALUE,
             1.0,
             -20000.0,
             20000.0,
+            translation_key="solar_energy_controller_manual_out_value",
         ),
         SolarEnergyFlowNumber(
             coordinator,
@@ -185,6 +189,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             0.0,
             20000.0,
             EntityCategory.CONFIG,
+            translation_key="solar_energy_controller_max_output_step",
         ),
         SolarEnergyFlowNumber(
             coordinator,
@@ -196,23 +201,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SolarEnergyControllerCon
             0.0,
             20000.0,
             EntityCategory.CONFIG,
+            translation_key="solar_energy_controller_output_epsilon",
         ),
     ]
-
-    # Attach translation keys for entities that have translations defined
-    for entity in entities:
-        if isinstance(entity, SolarEnergyFlowNumber):
-            if entity._option_key == CONF_RATE_LIMIT:
-                entity._attr_translation_key = "solar_energy_controller_rate_limit"
-            elif entity._option_key == CONF_MAX_OUTPUT_STEP:
-                entity._attr_translation_key = "solar_energy_controller_max_output_step"
-            elif entity._option_key == CONF_OUTPUT_EPSILON:
-                entity._attr_translation_key = "solar_energy_controller_output_epsilon"
-        elif isinstance(entity, SolarEnergyFlowManualNumber):
-            if entity._option_key == CONF_MANUAL_SP_VALUE:
-                entity._attr_translation_key = "solar_energy_controller_manual_sp_value"
-            elif entity._option_key == CONF_MANUAL_OUT_VALUE:
-                entity._attr_translation_key = "solar_energy_controller_manual_out_value"
 
     async_add_entities(entities)
 
@@ -233,12 +224,17 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
         max_value: float | None,
         entity_category: EntityCategory | None,
         native_unit: str | None = None,
+        translation_key: str | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
         self._option_key = option_key
         self._default = default
-        self._attr_name = name
+        self._display_name = name
+        if translation_key:
+            self._attr_translation_key = translation_key
+        else:
+            self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{option_key}"
         self._attr_native_step = step
         self._attr_native_min_value = min_value
@@ -297,7 +293,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="number_failed_set_value",
-                translation_placeholders={"name": self._attr_name},
+                translation_placeholders={"name": self._display_name},
             ) from err
 
 
@@ -310,17 +306,18 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
         coordinator: SolarEnergyFlowCoordinator,
         entry: ConfigEntry,
         option_key: str,
-        name: str,
         default: float,
         step: float,
         min_value: float | None,
         max_value: float | None,
+        translation_key: str,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
         self._option_key = option_key
         self._default = default
-        self._attr_name = name
+        self._display_name = "Manual SP" if option_key == CONF_MANUAL_SP_VALUE else "Manual OUT"
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{option_key}"
         self._attr_native_step = step
         self._attr_native_min_value = min_value
@@ -402,5 +399,5 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="number_failed_set_value",
-                translation_placeholders={"name": self._attr_name},
+                translation_placeholders={"name": self._display_name},
             ) from err

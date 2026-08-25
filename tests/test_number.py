@@ -170,11 +170,11 @@ def test_manual_number_native_value(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_SP_VALUE,
-        "Manual SP",
         DEFAULT_MANUAL_SP_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_sp_value",
     )
     
     assert number.native_value == 60.0
@@ -188,11 +188,11 @@ def test_manual_number_native_value(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_SP_VALUE,
-        "Manual SP",
         DEFAULT_MANUAL_SP_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_sp_value",
     )
     assert number2.native_value == round(DEFAULT_MANUAL_SP_VALUE, 1)
 
@@ -203,11 +203,11 @@ async def test_manual_number_set_value_allowed(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_SP_VALUE,
-        "Manual SP",
         DEFAULT_MANUAL_SP_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_sp_value",
     )
     number.hass = mock_entry.hass
     mock_coordinator.get_runtime_mode.return_value = RUNTIME_MODE_MANUAL_SP
@@ -224,11 +224,11 @@ async def test_manual_number_set_value_not_allowed(mock_coordinator, mock_entry)
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_SP_VALUE,
-        "Manual SP",
         DEFAULT_MANUAL_SP_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_sp_value",
     )
     number.hass = mock_entry.hass
     number.async_write_ha_state = MagicMock()
@@ -250,11 +250,11 @@ async def test_manual_number_set_value_validation_error(mock_coordinator, mock_e
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_SP_VALUE,
-        "Manual SP",
         DEFAULT_MANUAL_SP_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_sp_value",
     )
     number.hass = mock_entry.hass
     number.async_write_ha_state = MagicMock()
@@ -271,11 +271,11 @@ async def test_manual_out_number_set_value(mock_coordinator, mock_entry):
         mock_coordinator,
         mock_entry,
         CONF_MANUAL_OUT_VALUE,
-        "Manual OUT",
         DEFAULT_MANUAL_OUT_VALUE,
         1.0,
         -20000.0,
         20000.0,
+        "solar_energy_controller_manual_out_value",
     )
     number.hass = mock_entry.hass
     mock_coordinator.get_runtime_mode.return_value = RUNTIME_MODE_MANUAL_OUT

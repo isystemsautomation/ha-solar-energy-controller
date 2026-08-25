@@ -3,90 +3,90 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Mapping, Any, Tuple
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    CONF_ENABLED,
-    CONF_GRID_LIMITER_DEADBAND_W,
-    CONF_GRID_LIMITER_ENABLED,
-    CONF_GRID_LIMITER_LIMIT_W,
-    CONF_GRID_LIMITER_TYPE,
-    CONF_GRID_MAX,
-    CONF_GRID_MIN,
-    CONF_GRID_POWER_ENTITY,
-    CONF_GRID_POWER_INVERT,
-    CONF_INVERT_PV,
-    CONF_INVERT_SP,
-    CONF_KD,
-    CONF_KI,
+    DOMAIN,
+    CONF_PROCESS_VALUE_ENTITY,
+    CONF_SETPOINT_ENTITY,
+    CONF_OUTPUT_ENTITY,
     CONF_KP,
-    CONF_MANUAL_OUT_VALUE,
-    CONF_MANUAL_SP_VALUE,
+    CONF_KI,
+    CONF_KD,
+    CONF_MIN_OUTPUT,
     CONF_MAX_OUTPUT,
     CONF_MAX_OUTPUT_STEP,
-    CONF_MIN_OUTPUT,
-    CONF_OUTPUT_ENTITY,
-    CONF_OUTPUT_EPSILON,
-    CONF_PID_DEADBAND,
+    CONF_UPDATE_INTERVAL,
+    CONF_ENABLED,
+    DEFAULT_KP,
+    DEFAULT_KI,
+    DEFAULT_KD,
+    DEFAULT_MIN_OUTPUT,
+    DEFAULT_MAX_OUTPUT,
+    DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_ENABLED,
+    CONF_INVERT_PV,
+    CONF_INVERT_SP,
     CONF_PID_MODE,
-    CONF_PROCESS_VALUE_ENTITY,
-    CONF_PV_MAX,
-    CONF_PV_MIN,
+    CONF_GRID_POWER_ENTITY,
+    CONF_GRID_POWER_INVERT,
+    CONF_GRID_LIMITER_ENABLED,
+    CONF_GRID_LIMITER_TYPE,
+    CONF_GRID_LIMITER_LIMIT_W,
+    CONF_GRID_LIMITER_DEADBAND_W,
+    CONF_PID_DEADBAND,
     CONF_RATE_LIMIT,
     CONF_RATE_LIMITER_ENABLED,
     CONF_RUNTIME_MODE,
-    CONF_SETPOINT_ENTITY,
-    CONF_SP_MAX,
+    CONF_MANUAL_OUT_VALUE,
+    CONF_MANUAL_SP_VALUE,
+    CONF_OUTPUT_EPSILON,
+    CONF_PV_MIN,
+    CONF_PV_MAX,
     CONF_SP_MIN,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_ENABLED,
-    DEFAULT_GRID_LIMITER_DEADBAND_W,
-    DEFAULT_GRID_LIMITER_ENABLED,
-    DEFAULT_GRID_LIMITER_LIMIT_W,
-    DEFAULT_GRID_LIMITER_TYPE,
-    DEFAULT_GRID_MAX,
-    DEFAULT_GRID_MIN,
-    DEFAULT_GRID_POWER_INVERT,
+    CONF_SP_MAX,
+    CONF_GRID_MIN,
+    CONF_GRID_MAX,
     DEFAULT_INVERT_PV,
     DEFAULT_INVERT_SP,
-    DEFAULT_KD,
-    DEFAULT_KI,
-    DEFAULT_KP,
-    DEFAULT_MANUAL_OUT_VALUE,
-    DEFAULT_MAX_OUTPUT,
-    DEFAULT_MAX_OUTPUT_STEP,
-    DEFAULT_MIN_OUTPUT,
-    DEFAULT_OUTPUT_EPSILON,
-    DEFAULT_PID_DEADBAND,
+    DEFAULT_GRID_POWER_INVERT,
     DEFAULT_PID_MODE,
-    DEFAULT_PV_MAX,
-    DEFAULT_PV_MIN,
+    DEFAULT_GRID_LIMITER_ENABLED,
+    DEFAULT_GRID_LIMITER_TYPE,
+    DEFAULT_GRID_LIMITER_LIMIT_W,
+    DEFAULT_GRID_LIMITER_DEADBAND_W,
+    DEFAULT_PID_DEADBAND,
     DEFAULT_RATE_LIMIT,
     DEFAULT_RATE_LIMITER_ENABLED,
     DEFAULT_RUNTIME_MODE,
-    DEFAULT_SP_MAX,
+    DEFAULT_MANUAL_OUT_VALUE,
+    DEFAULT_MAX_OUTPUT_STEP,
+    DEFAULT_OUTPUT_EPSILON,
+    DEFAULT_PV_MIN,
+    DEFAULT_PV_MAX,
     DEFAULT_SP_MIN,
-    DEFAULT_UPDATE_INTERVAL,
-    DOMAIN,
-    GRID_LIMITER_STATE_LIMITING_EXPORT,
-    GRID_LIMITER_STATE_LIMITING_IMPORT,
-    GRID_LIMITER_STATE_NORMAL,
-    GRID_LIMITER_TYPE_EXPORT,
-    GRID_LIMITER_TYPE_IMPORT,
+    DEFAULT_SP_MAX,
+    DEFAULT_GRID_MIN,
+    DEFAULT_GRID_MAX,
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
+    GRID_LIMITER_TYPE_EXPORT,
+    GRID_LIMITER_TYPE_IMPORT,
+    GRID_LIMITER_STATE_NORMAL,
+    GRID_LIMITER_STATE_LIMITING_IMPORT,
+    GRID_LIMITER_STATE_LIMITING_EXPORT,
     RUNTIME_MODE_AUTO_SP,
     RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
+    normalize_runtime_mode,
 )
 from .pid import PID, PIDConfig, PIDStepResult
 
@@ -346,7 +346,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self.hass = hass
         self.entry = entry
         self.options_cache: dict[str, Any] = dict(entry.options)
-        self._runtime_mode = entry.options.get(CONF_RUNTIME_MODE, DEFAULT_RUNTIME_MODE)
+        self._runtime_mode = normalize_runtime_mode(entry.options.get(CONF_RUNTIME_MODE))
 
         interval = _get_update_interval_seconds(entry)
         super().__init__(
@@ -452,14 +452,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         pv_min, pv_max = self._get_range_value(CONF_PV_MIN, CONF_PV_MAX, DEFAULT_PV_MIN, DEFAULT_PV_MAX)
         sp_min, sp_max = self._get_range_value(CONF_SP_MIN, CONF_SP_MAX, DEFAULT_SP_MIN, DEFAULT_SP_MAX)
         grid_min, grid_max = self._get_range_value(CONF_GRID_MIN, CONF_GRID_MAX, DEFAULT_GRID_MIN, DEFAULT_GRID_MAX)
-        runtime_mode = self._runtime_mode
-        if runtime_mode not in (
-            RUNTIME_MODE_AUTO_SP,
-            RUNTIME_MODE_MANUAL_SP,
-            RUNTIME_MODE_HOLD,
-            RUNTIME_MODE_MANUAL_OUT,
-        ):
-            runtime_mode = DEFAULT_RUNTIME_MODE
+        runtime_mode = normalize_runtime_mode(self._runtime_mode)
         if runtime_mode != self._runtime_mode:
             self._runtime_mode = runtime_mode
 
@@ -703,7 +696,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             limiter_state=new_limiter_state,
         )
 
-    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> tuple[float | None, bool]:
+    def _apply_output_fence(self, desired_output: float, options: RuntimeOptions) -> Tuple[float | None, bool]:
         if not math.isfinite(desired_output):
             _LOGGER.warning(
                 "Invalid (non-finite) desired output %s for %s; skipping write",
@@ -748,15 +741,10 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         """Return the current runtime mode from the latest data or internal state."""
         data_runtime_mode = getattr(getattr(self, "data", None), "runtime_mode", None)
         if data_runtime_mode:
-            return data_runtime_mode
-        runtime_mode = self._runtime_mode or self.entry.options.get(CONF_RUNTIME_MODE, DEFAULT_RUNTIME_MODE)
-        if runtime_mode not in (
-            RUNTIME_MODE_AUTO_SP,
-            RUNTIME_MODE_MANUAL_SP,
-            RUNTIME_MODE_HOLD,
-            RUNTIME_MODE_MANUAL_OUT,
-        ):
-            return DEFAULT_RUNTIME_MODE
+            return normalize_runtime_mode(data_runtime_mode)
+        runtime_mode = normalize_runtime_mode(
+            self._runtime_mode or self.entry.options.get(CONF_RUNTIME_MODE)
+        )
         return runtime_mode
 
     def get_manual_out_value(self) -> float:
@@ -855,7 +843,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         interval_seconds = _get_update_interval_seconds_from_options(options)
         self.update_interval = timedelta(seconds=interval_seconds)
         if CONF_RUNTIME_MODE in options:
-            self._runtime_mode = options[CONF_RUNTIME_MODE]
+            self._runtime_mode = normalize_runtime_mode(options[CONF_RUNTIME_MODE])
         if CONF_MANUAL_OUT_VALUE in options and self._runtime_mode == RUNTIME_MODE_MANUAL_OUT:
             self._manual_out_value = _coerce_float(options.get(CONF_MANUAL_OUT_VALUE), self._manual_out_value)
         self.pid.apply_options(self._build_pid_config_from_options(options))
