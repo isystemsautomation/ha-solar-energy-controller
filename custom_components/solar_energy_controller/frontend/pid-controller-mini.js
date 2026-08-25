@@ -318,6 +318,8 @@ class PIDControllerMini extends LitElement {
             data: [],
             borderColor: "#2196F3",
             backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 0,
             tension: 0.1,
             yAxisID: "y_pv_sp",
           },
@@ -326,6 +328,8 @@ class PIDControllerMini extends LitElement {
             data: [],
             borderColor: "#FF9800",
             backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 0,
             tension: 0.1,
             yAxisID: "y_pv_sp",
           },
@@ -334,6 +338,8 @@ class PIDControllerMini extends LitElement {
             data: [],
             borderColor: "#9C27B0",
             backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 0,
             tension: 0.1,
             yAxisID: "y_out",
           },
@@ -706,7 +712,7 @@ class PIDControllerMini extends LitElement {
       this._popupScriptPromise = new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.type = "module";
-        script.src = `/solar_energy_controller/frontend/pid-controller-popup.js?v=${this._frontendVersion || "1.0.10"}`;
+        script.src = `/solar_energy_controller/frontend/pid-controller-popup.js?v=${this._frontendVersion || "1.0.11"}`;
         script.onload = () => resolve(customElements.get("pid-controller-popup") !== undefined);
         script.onerror = () => reject(new Error("Failed to load pid-controller-popup.js"));
         document.head.appendChild(script);
