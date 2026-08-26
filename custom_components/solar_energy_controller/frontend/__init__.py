@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.loader import async_get_loaded_integration
 
@@ -210,5 +211,13 @@ async def async_unregister_frontend(hass: HomeAssistant) -> None:
         try:
             await resources_api.async_delete_item(item["id"])
             _LOGGER.info("Removed Lovelace resource %s", item["url"])
-        except (OSError, RuntimeError, AttributeError, TypeError, ValueError, KeyError) as err:
+        except (
+            OSError,
+            RuntimeError,
+            AttributeError,
+            TypeError,
+            ValueError,
+            KeyError,
+            HomeAssistantError,
+        ) as err:
             _LOGGER.warning("Failed to remove Lovelace resource %s: %s", item["url"], err)

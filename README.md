@@ -428,6 +428,12 @@ The Solar Energy Controller integration uses a **polling-based data update mecha
 - **Not real-time**: Due to polling, there is a delay between actual changes in sensor values and controller response (up to the update interval)
 - **Designed for slow systems**: The integration is optimized for energy systems with seconds-level dynamics, not millisecond-level real-time control
 
+### Recommended Settings
+
+- **Energy systems (solar, grid, EV charging)**: 10–30 seconds (default: 10 seconds)
+- **Faster response needed**: 5–10 seconds (increases system load)
+- **Very slow systems**: 30–60 seconds (reduces system load)
+
 ---
 
 ## Database Size
@@ -446,12 +452,6 @@ recorder:
 Replace `<your_controller_name>` with the slug Home Assistant assigned when you created the integration instance (for example `sensor.solar_pid_status` if the instance is named "Solar PID").
 
 The individual PV / SP / Output sensors remain recorded, so charts and history continue to work.
-
-### Recommended Settings
-
-- **Energy systems (solar, grid, EV charging)**: 10–30 seconds (default: 10 seconds)
-- **Faster response needed**: 5–10 seconds (increases system load)
-- **Very slow systems**: 30–60 seconds (reduces system load)
 
 ---
 
