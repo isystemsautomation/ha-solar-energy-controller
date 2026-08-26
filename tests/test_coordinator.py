@@ -229,7 +229,7 @@ async def test_coordinator_read_inputs(mock_hass, mock_entry):
     
     mock_hass.states.get = MagicMock(side_effect=mock_get)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     inputs = coordinator._read_inputs(options)
     
     assert inputs.pv == 50.0
@@ -253,7 +253,7 @@ async def test_coordinator_read_inputs_unavailable(mock_hass, mock_entry):
     
     mock_hass.states.get = MagicMock(side_effect=mock_get)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     inputs = coordinator._read_inputs(options)
     
     # PV should be None when unavailable
@@ -367,7 +367,7 @@ async def test_coordinator_maybe_write_output(mock_hass, mock_entry):
     """Test coordinator _maybe_write_output."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Mock _set_output
     with patch("custom_components.solar_energy_controller.coordinator._set_output", new_callable=AsyncMock) as mock_set:
@@ -384,7 +384,7 @@ async def test_coordinator_maybe_write_output_failed(mock_hass, mock_entry):
     """Test coordinator _maybe_write_output when write fails."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Mock _set_output to fail
     with patch("custom_components.solar_energy_controller.coordinator._set_output", new_callable=AsyncMock) as mock_set:
@@ -395,11 +395,11 @@ async def test_coordinator_maybe_write_output_failed(mock_hass, mock_entry):
         assert result.write_failed is True
 
 
-def test_coordinator_build_runtime_options(mock_hass, mock_entry):
-    """Test coordinator _build_runtime_options."""
+def test_coordinatorbuild_runtime_options(mock_hass, mock_entry):
+    """Test coordinator build_runtime_options."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     assert options.enabled == DEFAULT_ENABLED
     assert options.min_output == DEFAULT_MIN_OUTPUT
@@ -426,7 +426,7 @@ def test_coordinator_output_percent_from_raw(mock_hass, mock_entry):
     """Test coordinator _output_percent_from_raw."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Test normalization
     percent = coordinator._output_percent_from_raw(5500.0, options)
@@ -440,7 +440,7 @@ def test_coordinator_output_raw_from_percent(mock_hass, mock_entry):
     """Test coordinator _output_raw_from_percent."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Test denormalization
     raw = coordinator._output_raw_from_percent(50.0, options)
@@ -454,7 +454,7 @@ def test_coordinator_apply_output_fence(mock_hass, mock_entry):
     """Test coordinator _apply_output_fence."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Test normal value
     output, should_write = coordinator._apply_output_fence(5500.0, options)
@@ -507,7 +507,7 @@ def test_coordinator_compute_setpoint_context(mock_hass, mock_entry):
         InputValues,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     inputs = InputValues(pv=50.0, sp=60.0, grid_power=100.0)
     
     context = coordinator._compute_setpoint_context(options, inputs, RUNTIME_MODE_AUTO_SP, None)
@@ -530,7 +530,7 @@ def test_coordinator_apply_grid_limiter(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0
@@ -557,7 +557,7 @@ async def test_coordinator_maybe_write_output_no_write(mock_hass, mock_entry):
     """Test coordinator _maybe_write_output when write is not needed."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     # Test with None output
     result = await coordinator._maybe_write_output(None, None, options)
@@ -570,7 +570,7 @@ async def test_coordinator_maybe_write_output_no_entity(mock_hass, mock_entry):
     """Test coordinator _maybe_write_output when no output entity."""
     coordinator = SolarEnergyFlowCoordinator(mock_hass, mock_entry)
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     
     result = await coordinator._maybe_write_output(None, 55.0, options)
     
@@ -1137,7 +1137,7 @@ def test_grid_limiter_import_activation(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0
@@ -1179,7 +1179,7 @@ def test_grid_limiter_import_deadband_hysteresis(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0
@@ -1227,7 +1227,7 @@ def test_grid_limiter_export_activation(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_EXPORT
     options.limiter_limit_w = 1000.0
@@ -1269,7 +1269,7 @@ def test_grid_limiter_export_deadband_hysteresis(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_EXPORT
     options.limiter_limit_w = 1000.0
@@ -1316,7 +1316,7 @@ def test_grid_limiter_missing_grid_power(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = True
     options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0
@@ -1354,7 +1354,7 @@ def test_grid_limiter_disabled(mock_hass, mock_entry):
         SetpointContext,
     )
     
-    options = coordinator._build_runtime_options()
+    options = coordinator.build_runtime_options()
     options.limiter_enabled = False
     options.limiter_type = GRID_LIMITER_TYPE_IMPORT
     options.limiter_limit_w = 1000.0

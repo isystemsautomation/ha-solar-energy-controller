@@ -1,13 +1,14 @@
 {
   "domain": "solar_energy_controller",
   "name": "Solar Energy Controller",
+  "after_dependencies": ["lovelace"],
   "codeowners": ["@isystemsautomation"],
   "config_flow": true,
-  "dependencies": ["frontend", "http", "lovelace"],
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/isystemsautomation/hm-solar-energy-controller/",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/isystemsautomation/hm-solar-energy-controller/issues",
   "requirements": [],
-  "version": "1.0.21"
+  "version": "1.0.22"
 }

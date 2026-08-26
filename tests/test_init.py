@@ -13,6 +13,7 @@ from homeassistant.core import CoreState, HomeAssistant
 
 from custom_components.solar_energy_controller import (
     async_migrate_entry,
+    async_remove_entry,
     async_setup,
     async_setup_entry,
     async_unload_entry,
@@ -246,4 +247,32 @@ async def test_async_migrate_entry_runtime_mode_slugs(mock_hass, mock_entry):
     call_kwargs = mock_hass.config_entries.async_update_entry.call_args.kwargs
     assert call_kwargs["version"] == CONFIG_ENTRY_VERSION
     assert call_kwargs["options"][CONF_RUNTIME_MODE] == RUNTIME_MODE_MANUAL_SP
+
+
+async def test_async_remove_entry_skips_when_other_entries_remain(mock_hass, mock_entry):
+    other_entry = MagicMock(spec=ConfigEntry)
+    other_entry.entry_id = "other_entry"
+    mock_hass.config_entries.async_entries = MagicMock(
+        return_value=[mock_entry, other_entry]
+    )
+
+    with patch(
+        "custom_components.solar_energy_controller.async_unregister_frontend",
+        new_callable=AsyncMock,
+    ) as mock_unregister:
+        await async_remove_entry(mock_hass, mock_entry)
+
+    mock_unregister.assert_not_awaited()
+
+
+async def test_async_remove_entry_unregisters_when_last_entry(mock_hass, mock_entry):
+    mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
+
+    with patch(
+        "custom_components.solar_energy_controller.async_unregister_frontend",
+        new_callable=AsyncMock,
+    ) as mock_unregister:
+        await async_remove_entry(mock_hass, mock_entry)
+
+    mock_unregister.assert_awaited_once_with(mock_hass)
 

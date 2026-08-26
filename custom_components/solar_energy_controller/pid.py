@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import time
-from dataclasses import dataclass
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,10 +61,7 @@ class PID:
     ) -> PIDStepResult:
         """Return the latest PID step details."""
         now = time.monotonic()
-        if self._prev_t is None:
-            dt = 0.0
-        else:
-            dt = max(1e-6, now - self._prev_t)
+        dt = 0.0 if self._prev_t is None else max(1e-6, now - self._prev_t)
 
         if self._prev_pv is None or dt < 1e-4:
             d_pv = 0.0

@@ -127,7 +127,7 @@ def mock_coordinator(mock_entry):
         max_output_step=100.0,
         output_epsilon=1.0,
     )
-    coordinator._build_runtime_options = MagicMock(return_value=mock_options)
+    coordinator.build_runtime_options = MagicMock(return_value=mock_options)
     
     # Mock PID
     from custom_components.solar_energy_controller.pid import PIDConfig
@@ -214,8 +214,8 @@ async def test_diagnostics_without_data(hass: HomeAssistant, mock_entry, mock_co
 
 
 async def test_diagnostics_runtime_options_exception(hass: HomeAssistant, mock_entry, mock_coordinator) -> None:
-    """Test diagnostics when _build_runtime_options raises an exception."""
-    mock_coordinator._build_runtime_options = MagicMock(side_effect=Exception("Test error"))
+    """Test diagnostics when build_runtime_options raises an exception."""
+    mock_coordinator.build_runtime_options = MagicMock(side_effect=Exception("Test error"))
     mock_entry.runtime_data = mock_coordinator
     
     result = await async_get_config_entry_diagnostics(hass, mock_entry)

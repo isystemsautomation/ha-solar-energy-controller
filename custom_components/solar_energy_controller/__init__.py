@@ -14,7 +14,7 @@ from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS, CONF_RUNTIME_MODE, CONFIG_ENTRY_VERSION, normalize_runtime_mode
 from .coordinator import SolarEnergyFlowCoordinator
-from .frontend import async_register_frontend
+from .frontend import async_register_frontend, async_unregister_frontend
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -195,3 +195,15 @@ async def _update_listener(hass: HomeAssistant, entry: SolarEnergyControllerConf
 async def async_unload_entry(hass: HomeAssistant, entry: SolarEnergyControllerConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clean up Lovelace resources when the last entry is removed."""
+    remaining = [
+        e
+        for e in hass.config_entries.async_entries(DOMAIN)
+        if e.entry_id != entry.entry_id
+    ]
+    if remaining:
+        return
+    await async_unregister_frontend(hass)

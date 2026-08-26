@@ -9,6 +9,13 @@ import {
   runtimeModeLabel,
 } from "./runtime-modes.js";
 import { ensureHaComponents } from "./ha-components.js";
+import {
+  fetchHistory,
+  formatValue,
+  getEntityIds,
+  loadChartJS,
+  updateTraces,
+} from "./chart-utils.js";
 
 class PIDControllerPopup extends LitElement {
   static properties = {
@@ -173,27 +180,11 @@ class PIDControllerPopup extends LitElement {
   async connectedCallback() {
     super.connectedCallback();
     ensureHaComponents().then(() => this.requestUpdate());
-    await this._loadChartJS();
+    await loadChartJS(MODULE_VERSION_QUERY);
     this._startLiveUpdates();
     this._subscribeToStateChanges();
     setTimeout(() => this._updateGraph(), 300);
     this._graphInterval = setInterval(() => this._updateGraph(), 30000);
-  }
-
-  _loadChartJS() {
-    return new Promise((resolve, reject) => {
-      if (window.Chart) {
-        resolve();
-        return;
-      }
-
-      const script = document.createElement("script");
-      // Load Chart.js from the local integration static path so it works offline
-      script.src = `/solar_energy_controller/frontend/chart.umd.min.js${MODULE_VERSION_QUERY}`;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Failed to load Chart.js"));
-      document.head.appendChild(script);
-    });
   }
 
   disconnectedCallback() {
@@ -718,11 +709,7 @@ class PIDControllerPopup extends LitElement {
   }
 
   _formatValue(value) {
-    if (value === null || value === undefined) return "—";
-    if (typeof value === "number") {
-      return value.toFixed(1);
-    }
-    return String(value);
+    return formatValue(value);
   }
 
   _formatMode(mode) {
@@ -1073,16 +1060,7 @@ class PIDControllerPopup extends LitElement {
   }
 
   _getEntityIds() {
-    if (!this.config || !this.config.pid_entity) return null;
-    
-    const statusEntity = this.config.pid_entity;
-    const deviceName = statusEntity.replace(/^sensor\./, "").replace(/_status$/, "");
-    
-    return {
-      pv: `sensor.${deviceName}_pv_value`,
-      sp: `sensor.${deviceName}_effective_sp`,
-      output: `sensor.${deviceName}_output`,
-    };
+    return getEntityIds(this.hass, this.config?.pid_entity);
   }
 
   _scheduleGraphUpdate(delayMs = 800) {
@@ -1244,142 +1222,6 @@ class PIDControllerPopup extends LitElement {
     }
   }
 
-  async _fetchHistory() {
-    const entityIds = this._getEntityIds();
-    if (!entityIds || !this.hass) {
-      return null;
-    }
-
-    const pvExists = this.hass.states[entityIds.pv];
-    const spExists = this.hass.states[entityIds.sp];
-    const outputExists = this.hass.states[entityIds.output];
-    
-    if (!pvExists || !spExists || !outputExists) {
-      return null;
-    }
-
-    try {
-      const startTime = new Date(Date.now() - 3600000);
-      const entityList = `${entityIds.pv},${entityIds.sp},${entityIds.output}`;
-      const url = `history/period/${startTime.toISOString()}?filter_entity_id=${encodeURIComponent(entityList)}&minimal_response=false&significant_changes_only=false`;
-      
-      const history = await this.hass.callApi("GET", url);
-
-      if (!history || !Array.isArray(history)) {
-        return null;
-      }
-
-      return this._parseHistory(history, entityIds);
-    } catch (err) {
-      console.error("Error fetching history:", err);
-      return null;
-    }
-  }
-
-  _parseHistory(history, entityIds) {
-    const data = { pv: [], sp: [], output: [] };
-    const allTimes = new Set();
-    
-    if (Array.isArray(history)) {
-      history.forEach((entityHistory) => {
-        if (!Array.isArray(entityHistory) || entityHistory.length === 0) return;
-        
-        const firstState = entityHistory[0];
-        if (!firstState?.entity_id) return;
-        
-        const entityId = firstState.entity_id;
-        
-        entityHistory.forEach((state) => {
-          if (!state) return;
-          
-          const time = new Date(state.last_changed || state.last_updated);
-          if (isNaN(time.getTime())) return;
-          
-          allTimes.add(time.getTime());
-          
-          const value = parseFloat(state.state);
-          if (isNaN(value)) return;
-          
-          if (entityId === entityIds.pv) {
-            data.pv.push({ time: time.getTime(), value });
-          } else if (entityId === entityIds.sp) {
-            data.sp.push({ time: time.getTime(), value });
-          } else if (entityId === entityIds.output) {
-            data.output.push({ time: time.getTime(), value });
-          }
-        });
-      });
-    }
-    
-    if (allTimes.size === 0) {
-      return null;
-    }
-
-    const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
-    
-    // Interpolate data points to common time axis
-    const labels = sortedTimes.map(t => new Date(t).toISOString());
-    const pvData = this._interpolateToTimeAxis(data.pv, sortedTimes);
-    const spData = this._interpolateToTimeAxis(data.sp, sortedTimes);
-    const outputData = this._interpolateToTimeAxis(data.output, sortedTimes);
-
-    return {
-      labels,
-      datasets: [
-        { label: "PV", data: pvData },
-        { label: "SP", data: spData },
-        { label: "OUTPUT", data: outputData },
-      ],
-    };
-  }
-
-  _interpolateToTimeAxis(points, timeAxis) {
-    if (points.length === 0) {
-      return new Array(timeAxis.length).fill(null);
-    }
-
-    const result = [];
-    let pointIndex = 0;
-
-    for (const time of timeAxis) {
-      // Find the closest point or interpolate
-      while (pointIndex < points.length - 1 && points[pointIndex + 1].time < time) {
-        pointIndex++;
-      }
-
-      if (pointIndex >= points.length) {
-        result.push(points[points.length - 1]?.value ?? null);
-      } else if (points[pointIndex].time === time) {
-        result.push(points[pointIndex].value);
-      } else if (pointIndex === 0) {
-        result.push(points[0].value);
-      } else {
-        // Interpolate between two points
-        const prev = points[pointIndex - 1];
-        const next = points[pointIndex];
-        const ratio = (time - prev.time) / (next.time - prev.time);
-        result.push(prev.value + (next.value - prev.value) * ratio);
-      }
-    }
-
-    return result;
-  }
-
-  _updateTraces(points) {
-    if (!this._chart || !points) {
-      return;
-    }
-
-    this._chart.data.labels = points.labels;
-    points.datasets.forEach((dataset, index) => {
-      if (this._chart.data.datasets[index]) {
-        this._chart.data.datasets[index].data = dataset.data;
-      }
-    });
-
-    this._chart.update("none");
-  }
-
   async _updateGraph() {
     if (this._graphInFlight) {
       return;
@@ -1389,16 +1231,17 @@ class PIDControllerPopup extends LitElement {
 
     try {
       await this._ensureChart();
-      
+
       if (!this._chart) {
         this._graphInFlight = false;
         return;
       }
 
-      const points = await this._fetchHistory();
-      
+      const entityIds = getEntityIds(this.hass, this.config?.pid_entity);
+      const points = await fetchHistory(this.hass, entityIds);
+
       if (points) {
-        this._updateTraces(points);
+        updateTraces(this._chart, points);
       }
     } catch (err) {
       console.error("Error updating graph:", err);

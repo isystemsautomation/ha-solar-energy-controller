@@ -64,7 +64,7 @@ def mock_coordinator():
     type(coordinator).data = mock_data
     # CoordinatorEntity requires last_update_success
     coordinator.last_update_success = True
-    coordinator._build_runtime_options = MagicMock(return_value=MagicMock(
+    coordinator.build_runtime_options = MagicMock(return_value=MagicMock(
         enabled=True,
         runtime_mode="auto_sp",
     ))

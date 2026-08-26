@@ -445,7 +445,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             return 0.0
         return deadband_raw * 100.0 / span
 
-    def _build_runtime_options(self) -> RuntimeOptions:
+    def build_runtime_options(self) -> RuntimeOptions:
         enabled = self.entry.options.get(CONF_ENABLED, DEFAULT_ENABLED)
         min_output, max_output = _get_pid_limits_from_options(self.entry.options)
         pv_min, pv_max = self._get_range_value(CONF_PV_MIN, CONF_PV_MAX, DEFAULT_PV_MIN, DEFAULT_PV_MAX)
@@ -595,9 +595,13 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 self._manual_sp_initialized = False
 
         # Store last auto SP value when switching from AUTO SP to MANUAL SP
-        if mode_changed and prev_runtime_mode == RUNTIME_MODE_AUTO_SP and runtime_mode == RUNTIME_MODE_MANUAL_SP:
-            if inputs.sp is not None:
-                self._last_auto_sp_value = inputs.sp
+        if (
+            mode_changed
+            and prev_runtime_mode == RUNTIME_MODE_AUTO_SP
+            and runtime_mode == RUNTIME_MODE_MANUAL_SP
+            and inputs.sp is not None
+        ):
+            self._last_auto_sp_value = inputs.sp
         
         # Display logic: show current SP in AUTO SP mode, show last auto SP in MANUAL SP mode
         manual_sp_display_value: float | None = self._manual_sp_value
@@ -756,7 +760,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         self._manual_out_value = value
         if self._runtime_mode == RUNTIME_MODE_MANUAL_OUT:
             self._last_output_raw = value
-            self._last_output_pct = self._output_percent_from_raw(value, self._build_runtime_options())
+            self._last_output_pct = self._output_percent_from_raw(value, self.build_runtime_options())
 
     async def async_set_manual_sp(self, value: float) -> None:
         self._manual_sp_value = value
@@ -830,10 +834,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             CONF_GRID_POWER_INVERT,
         }
 
-        for key in wiring_keys:
-            if old.get(key) != new.get(key):
-                return True
-        return False
+        return any(old.get(key) != new.get(key) for key in wiring_keys)
     
     def apply_options(self, options: Mapping[str, Any]) -> None:
         """Apply runtime tuning without resetting PID state."""
@@ -881,9 +882,11 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             # When grid limiter is active, always use direct behavior:
             # more import (PV > SP) → negative error → output down
             # Normal PID operation: use configured PID mode.
-            if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-                if options.pid_mode == PID_MODE_REVERSE:
-                    error_raw = -error_raw
+            if (
+                limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
+                and options.pid_mode == PID_MODE_REVERSE
+            ):
+                error_raw = -error_raw
 
         if not options.enabled:
             self.pid.reset()
@@ -988,9 +991,11 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         # When grid limiter is active, always use direct behavior:
         # more import (PV > SP) → negative error → output down.
         # Only apply PID mode inversion when limiter is not active.
-        if limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL:
-            if options.pid_mode == PID_MODE_REVERSE:
-                error_pct = -error_pct
+        if (
+            limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
+            and options.pid_mode == PID_MODE_REVERSE
+        ):
+            error_pct = -error_pct
 
         if (
             limiter_result.limiter_state == GRID_LIMITER_STATE_NORMAL
@@ -1017,9 +1022,14 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
                 # Exiting limiter mode: do bumpless transfer to smooth return to normal
                 bumpless_needed = True
         
-        if not bumpless_needed and current_output_pct is not None:
-            if prev_sp_for_pid is not None and sp_for_pid is not None and sp_for_pid != prev_sp_for_pid:
-                bumpless_needed = True
+        if (
+            not bumpless_needed
+            and current_output_pct is not None
+            and prev_sp_for_pid is not None
+            and sp_for_pid is not None
+            and sp_for_pid != prev_sp_for_pid
+        ):
+            bumpless_needed = True
 
         if prev_runtime_mode == RUNTIME_MODE_MANUAL_OUT:
             current_output_pct = self._output_percent_from_raw(self._manual_out_value, options)
@@ -1083,7 +1093,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         prev_runtime_mode = self._previous_runtime_mode
         prev_manual_sp_value = self._manual_sp_value
 
-        options = self._build_runtime_options()
+        options = self.build_runtime_options()
         inputs = self._read_inputs(options)
         setpoint_context = self._compute_setpoint_context(options, inputs, prev_runtime_mode, prev_manual_sp_value)
         limiter_result = self._apply_grid_limiter(options, inputs, setpoint_context, prev_limiter_state)

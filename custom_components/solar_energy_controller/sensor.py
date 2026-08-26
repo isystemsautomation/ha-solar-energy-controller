@@ -186,7 +186,7 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
             return {}
 
         # Get runtime options from coordinator
-        options = self.coordinator._build_runtime_options()
+        options = self.coordinator.build_runtime_options()
 
         # Get values from entry options
         from .const import (

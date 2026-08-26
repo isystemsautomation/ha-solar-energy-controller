@@ -168,10 +168,7 @@ class JSModuleRegistration:
         required = {f"{URL_BASE}/{module['filename']}" for module in JSMODULES}
         if paths != required:
             return False
-        for item in existing:
-            if _url_version(item["url"]) != self._version:
-                return False
-        return True
+        return all(_url_version(item["url"]) == self._version for item in existing)
 
 
 def _schedule_retry(hass: HomeAssistant, attempt: int) -> None:
@@ -191,3 +188,27 @@ def _schedule_retry(hass: HomeAssistant, attempt: int) -> None:
 async def async_register_frontend(hass: HomeAssistant) -> None:
     """Register card JavaScript after Home Assistant is ready."""
     await JSModuleRegistration(hass).async_register()
+
+
+async def async_unregister_frontend(hass: HomeAssistant) -> None:
+    """Remove our Lovelace resources when the last config entry is gone."""
+    lovelace = _get_lovelace(hass)
+    if lovelace is None:
+        return
+
+    mode = getattr(lovelace, "mode", getattr(lovelace, "resource_mode", "yaml"))
+    if mode != "storage":
+        return
+
+    resources_api = lovelace.resources
+    ours = [
+        item
+        for item in resources_api.async_items()
+        if isinstance(item, dict) and item.get("url", "").startswith(URL_BASE)
+    ]
+    for item in ours:
+        try:
+            await resources_api.async_delete_item(item["id"])
+            _LOGGER.info("Removed Lovelace resource %s", item["url"])
+        except (OSError, RuntimeError, AttributeError, TypeError, ValueError, KeyError) as err:
+            _LOGGER.warning("Failed to remove Lovelace resource %s: %s", item["url"], err)

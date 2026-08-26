@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -47,8 +48,8 @@ async def async_get_config_entry_diagnostics(
 
     # Get runtime options
     runtime_options = None
-    try:
-        options = coordinator._build_runtime_options()
+    with contextlib.suppress(Exception):
+        options = coordinator.build_runtime_options()
         runtime_options = {
             "enabled": options.enabled,
             "min_output": options.min_output,
@@ -73,12 +74,10 @@ async def async_get_config_entry_diagnostics(
             "max_output_step": options.max_output_step,
             "output_epsilon": options.output_epsilon,
         }
-    except Exception:
-        pass
 
     # Get PID configuration
     pid_config = None
-    try:
+    with contextlib.suppress(Exception):
         pid_cfg = coordinator.pid.cfg
         pid_config = {
             "kp": pid_cfg.kp,
@@ -87,19 +86,15 @@ async def async_get_config_entry_diagnostics(
             "min_output": pid_cfg.min_output,
             "max_output": pid_cfg.max_output,
         }
-    except Exception:
-        pass
 
     # Get PID internal state
     pid_state = None
-    try:
+    with contextlib.suppress(Exception):
         pid_state = {
             "integral": coordinator.pid._integral,
             "prev_pv": coordinator.pid._prev_pv,
             "prev_t": coordinator.pid._prev_t,
         }
-    except Exception:
-        pass
 
     # Get coordinator metadata
     coordinator_info = {

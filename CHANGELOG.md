@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.22
+
+- Remove Lovelace JS resources when the last config entry is deleted (`async_remove_entry`)
+- Move `lovelace` to `after_dependencies` (optional card registration, no hard dependency)
+- Extract shared chart helpers into `chart-utils.js` (mini card + popup)
+- Drop redundant popup `hass` polling interval; sync via mini card `updated()` instead
+- Rename `coordinator.build_runtime_options()` to public API
+- README: recorder exclusion guidance for the Status sensor
+
 ## 1.0.21
 
 - Fix Runtime Mode select not switching: remove `preventDefault` on selection event
