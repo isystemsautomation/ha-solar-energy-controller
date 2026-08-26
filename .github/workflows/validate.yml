@@ -12,6 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: JavaScript tests
+        run: node --test tests/js/**/*.test.mjs
+
       - name: Verify manifest version matches latest tag (on tag builds)
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -26,6 +34,3 @@ jobs:
 
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
-
-      - name: Chart interpolation regression tests
-        run: node scripts/check_interpolation.mjs

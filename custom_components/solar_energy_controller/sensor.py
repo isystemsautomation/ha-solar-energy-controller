@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -8,7 +8,13 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import (
+    CONF_GRID_POWER_ENTITY,
+    CONF_OUTPUT_ENTITY,
+    CONF_PROCESS_VALUE_ENTITY,
+    CONF_SETPOINT_ENTITY,
+    DOMAIN,
+)
 from .coordinator import SolarEnergyFlowCoordinator
 
 type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
@@ -65,6 +71,59 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
     def _data(self):
         return getattr(self.coordinator, "data", None)
 
+    def _source_unit(self, option_key: str) -> str | None:
+        entity_id = self._entry.options.get(option_key)
+        if not entity_id:
+            return None
+        state = self.coordinator.hass.states.get(entity_id)
+        if state is None:
+            return None
+        unit = state.attributes.get("unit_of_measurement")
+        return unit if isinstance(unit, str) and unit else None
+
+    @staticmethod
+    def _power_device_class_for_unit(unit: str | None) -> SensorDeviceClass | None:
+        if unit in ("W", "kW", "mW"):
+            return SensorDeviceClass.POWER
+        return None
+
+
+class _MeasurementSensor(_BaseFlowSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        coordinator: SolarEnergyFlowCoordinator,
+        entry: ConfigEntry,
+        translation_key: str,
+        unique_suffix: str,
+        *,
+        source_option_key: str | None = None,
+        entity_category: EntityCategory | None = None,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            translation_key,
+            unique_suffix,
+            entity_category=entity_category,
+        )
+        self._source_option_key = source_option_key
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        if self._source_option_key is None:
+            return None
+        return self._source_unit(self._source_option_key)
+
+    @property
+    def device_class(self) -> SensorDeviceClass | None:
+        return self._power_device_class_for_unit(self.native_unit_of_measurement)
+
+
+class _PidTermSensor(_BaseFlowSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
@@ -74,11 +133,17 @@ class _BaseFlowSensor(CoordinatorEntity, SensorEntity):
         return data is not None
 
 
-class SolarEnergyFlowEffectiveSPSensor(_BaseFlowSensor):
+class SolarEnergyFlowEffectiveSPSensor(_MeasurementSensor):
     _attr_icon = "mdi:target-variant"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "solar_energy_controller_effective_sp", "effective_sp")
+        super().__init__(
+            coordinator,
+            entry,
+            "solar_energy_controller_effective_sp",
+            "effective_sp",
+            source_option_key=CONF_SETPOINT_ENTITY,
+        )
 
     @property
     def available(self) -> bool:
@@ -95,11 +160,17 @@ class SolarEnergyFlowEffectiveSPSensor(_BaseFlowSensor):
         return round(value, 1) if value is not None else None
 
 
-class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
+class SolarEnergyFlowPVValueSensor(_MeasurementSensor):
     _attr_icon = "mdi:gauge"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "solar_energy_controller_pv_value", "pv_value")
+        super().__init__(
+            coordinator,
+            entry,
+            "solar_energy_controller_pv_value",
+            "pv_value",
+            source_option_key=CONF_PROCESS_VALUE_ENTITY,
+        )
 
     @property
     def available(self) -> bool:
@@ -116,11 +187,17 @@ class SolarEnergyFlowPVValueSensor(_BaseFlowSensor):
         return round(value, 1) if value is not None else None
 
 
-class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
+class SolarEnergyFlowOutputSensor(_MeasurementSensor):
     _attr_icon = "mdi:tune-vertical"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "solar_energy_controller_output", "output")
+        super().__init__(
+            coordinator,
+            entry,
+            "solar_energy_controller_output",
+            "output",
+            source_option_key=CONF_OUTPUT_ENTITY,
+        )
 
     @property
     def available(self) -> bool:
@@ -137,7 +214,7 @@ class SolarEnergyFlowOutputSensor(_BaseFlowSensor):
         return round(out, 1) if out is not None else None
 
 
-class SolarEnergyFlowErrorSensor(_BaseFlowSensor):
+class SolarEnergyFlowErrorSensor(_PidTermSensor):
     _attr_icon = "mdi:delta"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
@@ -234,11 +311,17 @@ class SolarEnergyFlowStatusSensor(_BaseFlowSensor):
         }
 
 
-class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
+class SolarEnergyFlowGridPowerSensor(_MeasurementSensor):
     _attr_icon = "mdi:home-lightning-bolt-outline"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "solar_energy_controller_grid_power", "grid_power")
+        super().__init__(
+            coordinator,
+            entry,
+            "solar_energy_controller_grid_power",
+            "grid_power",
+            source_option_key=CONF_GRID_POWER_ENTITY,
+        )
 
     @property
     def available(self) -> bool:
@@ -256,7 +339,7 @@ class SolarEnergyFlowGridPowerSensor(_BaseFlowSensor):
         return round(value, 1) if value is not None else None
 
 
-class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
+class SolarEnergyFlowPTermSensor(_PidTermSensor):
     _attr_icon = "mdi:alpha-p-circle-outline"
     _attr_entity_registry_enabled_default = False
 
@@ -281,7 +364,7 @@ class SolarEnergyFlowPTermSensor(_BaseFlowSensor):
         return round(value, 1) if value is not None else None
 
 
-class SolarEnergyFlowITermSensor(_BaseFlowSensor):
+class SolarEnergyFlowITermSensor(_PidTermSensor):
     _attr_icon = "mdi:alpha-i-circle-outline"
     _attr_entity_registry_enabled_default = False
 
@@ -306,7 +389,7 @@ class SolarEnergyFlowITermSensor(_BaseFlowSensor):
         return round(value, 1) if value is not None else None
 
 
-class SolarEnergyFlowDTermSensor(_BaseFlowSensor):
+class SolarEnergyFlowDTermSensor(_PidTermSensor):
     _attr_icon = "mdi:alpha-d-circle-outline"
     _attr_entity_registry_enabled_default = False
 
@@ -354,7 +437,7 @@ class SolarEnergyFlowLimiterStateSensor(_BaseFlowSensor):
         return getattr(data, "limiter_state", None)
 
 
-class SolarEnergyFlowOutputPreRateLimitSensor(_BaseFlowSensor):
+class SolarEnergyFlowOutputPreRateLimitSensor(_MeasurementSensor):
     _attr_icon = "mdi:tune-vertical"
     _attr_entity_registry_enabled_default = False
 
@@ -364,7 +447,8 @@ class SolarEnergyFlowOutputPreRateLimitSensor(_BaseFlowSensor):
             entry,
             "solar_energy_controller_output_pre_rate_limit",
             "output_pre_rate_limit",
-            EntityCategory.DIAGNOSTIC,
+            source_option_key=CONF_OUTPUT_ENTITY,
+            entity_category=EntityCategory.DIAGNOSTIC,
         )
 
     @property

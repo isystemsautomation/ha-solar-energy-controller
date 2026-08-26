@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -80,7 +81,8 @@ _GRID_DOMAINS = {"sensor", "number", "input_number"}
 def _extract_domain(entity_id: str | None) -> str | None:
     if not entity_id or "." not in entity_id:
         return None
-    return entity_id.split(".", 1)[0]
+    domain = entity_id.split(".", 1)[0]
+    return domain if domain else None
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -228,12 +230,12 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
         self._config_entry = config_entry
 
     @staticmethod
-    def _coerce_int(value, default, min_value=1):
+    def _coerce_int(value, default, min_value=1, max_value=86400):
         try:
             int_val = int(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return default
-        return max(min_value, int_val)
+        return max(min_value, min(max_value, int_val))
 
     @staticmethod
     def _normalize_pid_mode(value: str | None) -> str:
@@ -247,6 +249,8 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
             min_f = float(min_val)
             max_f = float(max_val)
         except (TypeError, ValueError):
+            return False
+        if not math.isfinite(min_f) or not math.isfinite(max_f):
             return False
         return max_f > min_f
 

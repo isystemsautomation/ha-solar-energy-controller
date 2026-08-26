@@ -15,8 +15,10 @@ export function loadChartJS(versionQuery) {
   });
 }
 
-export function getEntityIds(hass, pidEntityId) {
-  if (!pidEntityId) return null;
+export function getEntityIds(_hass, pidEntityId) {
+  if (!pidEntityId || !pidEntityId.startsWith("sensor.")) {
+    return null;
+  }
 
   const deviceName = pidEntityId.replace(/^sensor\./, "").replace(/_status$/, "");
 
@@ -129,21 +131,20 @@ export function interpolateToTimeAxis(points, timeAxis) {
       i++;
     }
 
-    const current = points[i];
-
     if (time <= points[0].time) {
       result.push(points[0].value);
       continue;
     }
     if (i === points.length - 1) {
-      result.push(current.value);
+      result.push(points[i].value);
       continue;
     }
 
+    const current = points[i];
     const next = points[i + 1];
     const span = next.time - current.time;
     if (span <= 0) {
-      result.push(current.value);
+      result.push(next.value);
       continue;
     }
 
@@ -172,7 +173,9 @@ export function updateTraces(chart, points) {
 export function formatValue(value) {
   if (value === null || value === undefined) return "—";
   if (typeof value === "number") {
-    return value.toFixed(1);
+    if (!Number.isFinite(value)) return "—";
+    const rounded = value.toFixed(1);
+    return rounded === "-0.0" ? "0.0" : rounded;
   }
   return String(value);
 }

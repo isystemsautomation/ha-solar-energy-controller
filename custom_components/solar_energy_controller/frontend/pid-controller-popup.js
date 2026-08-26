@@ -625,6 +625,22 @@ class PIDControllerPopup extends LitElement {
     return Object.keys(this._edited).length > 0;
   }
 
+  async _notifyError(message) {
+    if (!this.hass) {
+      console.error(message);
+      return;
+    }
+    try {
+      await this.hass.callService("persistent_notification", "create", {
+        title: "Solar Energy Controller",
+        message,
+        notification_id: "solar_energy_controller_popup_error",
+      });
+    } catch (err) {
+      console.error(message, err);
+    }
+  }
+
   _getValue(key) {
     if (this._editingFields.has(key) && this._edited[key] !== undefined) {
       return this._edited[key];
@@ -684,7 +700,6 @@ class PIDControllerPopup extends LitElement {
     
     if (inputValue === "" || inputValue === "-" || inputValue === "." || inputValue === "-.") {
       this._edited[key] = null;
-      this._data[key] = null;
     } else {
       const value = parseFloat(inputValue);
       if (!isNaN(value)) {
@@ -701,6 +716,18 @@ class PIDControllerPopup extends LitElement {
   }
 
   async _onNumberBlur(key, ev) {
+    if (this._edited[key] === null) {
+      delete this._edited[key];
+      const prevValue = this._data[key];
+      if (ev?.target) {
+        ev.target.value =
+          prevValue !== null && prevValue !== undefined ? String(prevValue) : "";
+      }
+      this._data[key] = prevValue;
+      this._editingFields.delete(key);
+      this.requestUpdate();
+      return;
+    }
     if (this._edited[key] !== undefined) {
       await this._save();
     }
@@ -935,6 +962,17 @@ class PIDControllerPopup extends LitElement {
     if (!this._hasEdits()) return;
 
     const patch = { ...this._edited };
+    for (const key of Object.keys(patch)) {
+      if (patch[key] === null || patch[key] === undefined) {
+        delete patch[key];
+        delete this._edited[key];
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      this.requestUpdate();
+      return;
+    }
+
     const numberMappings = {
       kp: "kp",
       ki: "ki",
@@ -976,7 +1014,9 @@ class PIDControllerPopup extends LitElement {
       if (patch.grid_limiter_enabled !== undefined) {
         const entityId = this._findEntityId("switch", "grid_limiter_enabled");
         if (!entityId || !this.hass.states[entityId]) {
-          alert(`Grid limiter switch entity not found: ${entityId || "unknown"}`);
+          await this._notifyError(
+            `Grid limiter switch entity not found: ${entityId || "unknown"}`
+          );
           throw new Error(`Grid limiter switch entity not found`);
         }
         await this.hass.callService("switch", patch.grid_limiter_enabled ? "turn_on" : "turn_off", {
@@ -1016,8 +1056,10 @@ class PIDControllerPopup extends LitElement {
             this._savedFields.set(key, now);
             delete this._edited[key];
           } catch (err) {
-            alert(`Error saving ${key}: ${err.message || err}`);
-            throw err;
+            delete this._edited[key];
+            await this._notifyError(`Error saving ${key}: ${err.message || err}`);
+            this.requestUpdate();
+            return;
           }
         }
       }
@@ -1025,9 +1067,7 @@ class PIDControllerPopup extends LitElement {
       this._edited = {};
       this.requestUpdate();
     } catch (err) {
-      if (!err.message || !err.message.includes("Error saving")) {
-        alert(`Error saving: ${err.message || err}`);
-      }
+      await this._notifyError(`Error saving: ${err.message || err}`);
     }
   }
 

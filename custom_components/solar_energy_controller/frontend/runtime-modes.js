@@ -29,7 +29,7 @@ export function normalizeRuntimeMode(mode) {
     return RUNTIME_MODE_AUTO_SP;
   }
   const value = String(mode);
-  if (LEGACY_RUNTIME_MODES[value]) {
+  if (Object.hasOwn(LEGACY_RUNTIME_MODES, value)) {
     return LEGACY_RUNTIME_MODES[value];
   }
   if (RUNTIME_MODES.includes(value)) {
@@ -40,7 +40,10 @@ export function normalizeRuntimeMode(mode) {
 
 export function runtimeModeLabel(mode) {
   const normalized = normalizeRuntimeMode(mode);
-  return RUNTIME_MODE_LABELS[normalized] || normalized;
+  if (Object.hasOwn(RUNTIME_MODE_LABELS, normalized)) {
+    return RUNTIME_MODE_LABELS[normalized];
+  }
+  return normalized;
 }
 
 export function isManualSpMode(mode) {

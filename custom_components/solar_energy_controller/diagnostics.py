@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import math
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -16,6 +17,22 @@ type SolarEnergyControllerConfigEntry = ConfigEntry[SolarEnergyFlowCoordinator]
 # No sensitive information to redact - entity IDs are not considered sensitive
 # and there are no passwords, tokens, or coordinates in this integration
 TO_REDACT: list[str] = []
+
+
+def _safe_float(value: Any) -> Any:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _sanitize(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize(item) for item in value]
+    return _safe_float(value)
 
 
 async def async_get_config_entry_diagnostics(
@@ -85,6 +102,7 @@ async def async_get_config_entry_diagnostics(
             "kd": pid_cfg.kd,
             "min_output": pid_cfg.min_output,
             "max_output": pid_cfg.max_output,
+            "nominal_dt": pid_cfg.nominal_dt,
         }
 
     # Get PID internal state
@@ -96,25 +114,30 @@ async def async_get_config_entry_diagnostics(
             "prev_t": coordinator.pid._prev_t,
         }
 
+    last_update_success_time = getattr(coordinator, "last_update_success_time", None)
+
     # Get coordinator metadata
     coordinator_info = {
         "update_interval": str(coordinator.update_interval),
         "last_update_success": coordinator.last_update_success,
-        "last_update_time": coordinator.last_update_time.isoformat() if coordinator.last_update_time else None,
+        "last_update_success_time": (
+            last_update_success_time.isoformat() if last_update_success_time else None
+        ),
     }
 
-    return {
-        "entry": {
-            "entry_id": entry.entry_id,
-            "title": entry.title,
-            "state": entry.state.value if hasattr(entry.state, "value") else str(entry.state),
-            "data": async_redact_data(entry.data, TO_REDACT),
-            "options": async_redact_data(entry.options, TO_REDACT),
-        },
-        "coordinator": coordinator_info,
-        "current_state": current_data,
-        "runtime_options": runtime_options,
-        "pid_config": pid_config,
-        "pid_state": pid_state,
-    }
-
+    return _sanitize(
+        {
+            "entry": {
+                "entry_id": entry.entry_id,
+                "title": entry.title,
+                "state": entry.state.value if hasattr(entry.state, "value") else str(entry.state),
+                "data": async_redact_data(entry.data, TO_REDACT),
+                "options": async_redact_data(entry.options, TO_REDACT),
+            },
+            "coordinator": coordinator_info,
+            "current_state": current_data,
+            "runtime_options": runtime_options,
+            "pid_config": pid_config,
+            "pid_state": pid_state,
+        }
+    )

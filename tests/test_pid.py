@@ -1,7 +1,10 @@
 """Test the PID controller."""
 from __future__ import annotations
 
+import math
 import time
+
+import pytest
 
 from custom_components.solar_energy_controller.pid import PID, PIDConfig, PIDStepResult
 
@@ -96,7 +99,7 @@ def test_pid_output_saturation():
 
 def test_pid_rate_limiting():
     """Test PID rate limiting."""
-    cfg = PIDConfig(kp=10.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0)
+    cfg = PIDConfig(kp=10.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0, nominal_dt=0.1)
     pid = PID(cfg)
     
     # First step
@@ -110,6 +113,48 @@ def test_pid_rate_limiting():
     # Output change should be limited
     max_change = 10.0 * 0.1  # rate_limit * dt
     assert abs(result2.output - result1.output) <= max_change + 0.1  # Allow small tolerance
+
+
+def test_pid_rate_limit_applies_immediately_after_reset():
+    """First PID step after reset must respect the rate limiter."""
+    cfg = PIDConfig(kp=100.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0, nominal_dt=1.0)
+    pid = PID(cfg)
+    pid.reset()
+
+    result = pid.step(
+        pv=0.0,
+        error=100.0,
+        last_output=0.0,
+        rate_limiter_enabled=True,
+        rate_limit=1.0,
+    )
+
+    assert result.output == pytest.approx(1.0, abs=0.01)
+
+
+def test_pid_rate_limit_survives_long_pause():
+    """A long coordinator pause must not disable the rate limiter."""
+    cfg = PIDConfig(kp=100.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0, nominal_dt=1.0)
+    pid = PID(cfg)
+
+    pid.step(
+        pv=0.0,
+        error=0.0,
+        last_output=0.0,
+        rate_limiter_enabled=True,
+        rate_limit=1.0,
+    )
+    pid._prev_t = time.monotonic() - 3600.0
+
+    result = pid.step(
+        pv=0.0,
+        error=100.0,
+        last_output=0.0,
+        rate_limiter_enabled=True,
+        rate_limit=1.0,
+    )
+
+    assert result.output <= 5.01
 
 
 def test_pid_integral_windup_prevention():
@@ -191,12 +236,54 @@ def test_pid_bumpless_transfer():
 
 
 def test_pid_bumpless_transfer_no_ki():
-    """Test bumpless transfer when Ki is zero."""
-    cfg = PIDConfig(kp=1.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0)
+    """Bumpless transfer with Ki=0 must preserve the current output."""
+    cfg = PIDConfig(kp=1.0, ki=0.0, kd=0.0, min_output=0.0, max_output=100.0, nominal_dt=1.0)
     pid = PID(cfg)
-    
-    pid.bumpless_transfer(current_output=50.0, error=5.0, pv=55.0)
-    
-    # Integral should be zero when Ki is zero
-    assert pid._integral == 0.0
+
+    pid.bumpless_transfer(current_output=60.0, error=0.0, pv=50.0)
+
+    assert pid._integral == 60.0
+    result = pid.step(
+        pv=50.0,
+        error=0.0,
+        last_output=60.0,
+        rate_limiter_enabled=False,
+        rate_limit=0.0,
+    )
+    assert result.output == 60.0
+    assert pid._integral == 60.0
+
+
+def test_pid_step_nan_does_not_poison_prev_pv():
+    """Non-finite PV must not update derivative state."""
+    cfg = PIDConfig(kp=1.0, ki=0.0, kd=1.0, min_output=0.0, max_output=100.0)
+    pid = PID(cfg)
+
+    baseline = pid.step(
+        pv=50.0,
+        error=10.0,
+        last_output=50.0,
+        rate_limiter_enabled=False,
+        rate_limit=0.0,
+    )
+    assert math.isfinite(baseline.d_term)
+
+    nan_step = pid.step(
+        pv=float("nan"),
+        error=float("nan"),
+        last_output=baseline.output,
+        rate_limiter_enabled=False,
+        rate_limit=0.0,
+    )
+    assert math.isfinite(nan_step.d_term)
+
+    recovery = pid.step(
+        pv=52.0,
+        error=8.0,
+        last_output=nan_step.output,
+        rate_limiter_enabled=False,
+        rate_limit=0.0,
+    )
+    assert math.isfinite(recovery.d_term)
+    assert pid._prev_pv == 52.0
 

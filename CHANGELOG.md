@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.1.0
+
+### Changed
+- PID rate limiter uses the configured update interval on the first step after `reset()` and caps elapsed time after long pauses (HA restart, sleep)
+- Bumpless transfer keeps output steady when `Ki = 0` by preserving the integral offset
+- Coordinator inherits `TimestampDataUpdateCoordinator`; diagnostics report `last_update_success_time`
+- Integration sensors expose `state_class` and source units where available; `device_class: power` only for W/kW/mW
+
+### Fixed
+- Non-finite PV/SP/grid values (`nan`, `inf`) no longer normalize to 0%/100% and drive output to min/max
+- Diagnostics download no longer crashes on missing `last_update_time` or non-finite coordinator values
+- Popup editor no longer sends `null` to `number.set_value` when a field is cleared; save errors clear dirty state
+- Popup errors use `persistent_notification` instead of browser `alert()`
+- Config flow rejects infinite range bounds; update interval coerced safely up to 86400 s
+- Chart interpolation, history parsing, runtime mode prototype pollution, `formatValue`, `getEntityIds` (from 1.0.24 work)
+- Output no longer jumps to maximum when a sensor returns NaN
+
+### Added
+- JavaScript unit tests (`tests/js/chart-utils.test.mjs`) in CI
+
+## 1.0.24
+
+### Fixed
+- Rewrite `interpolateToTimeAxis` — first/last segment interpolation, hold after last point, duplicate timestamps
+- Sort history series before interpolation; skip invalid states on the shared time axis
+- Reject NaN/Inf sensor values in coordinator (`_state_to_float`, `_normalize_value`, `_denormalize_value`)
+- PID ignores non-finite PV/error without poisoning derivative state
+- `formatValue` shows em dash for non-finite numbers; normalize `-0.0` to `0.0`
+- `normalizeRuntimeMode` / `runtimeModeLabel` use `Object.hasOwn` (prototype pollution)
+- `getEntityIds` returns null for non-`sensor.` PID entities
+
+### Security
+- Block prototype-pollution keys (`constructor`, `__proto__`, etc.) in runtime mode normalization
+
+### Added
+- JavaScript unit tests (`tests/js/chart-utils.test.mjs`) in CI via `node --test`
+
 ## 1.0.23
 
 - Fix chart extrapolating history values far beyond real range — off-by-one in `interpolateToTimeAxis`
@@ -78,10 +115,3 @@
 
 - Reliable automatic Lovelace resource registration with retries
 - HomeMaster brand icons in `brand/`
-- Thinner chart trend lines
-
-## 1.0.9–1.0.13
-
-- Startup tolerance for unavailable upstream entities
-- Native dialog popup for HA 2026.3+
-- Lovelace resource registration fixes

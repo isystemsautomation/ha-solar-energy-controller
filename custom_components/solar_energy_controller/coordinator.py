@@ -10,7 +10,7 @@ from typing import Mapping, Any, Tuple
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import TimestampDataUpdateCoordinator
 
 from .const import (
     DOMAIN,
@@ -194,7 +194,15 @@ def _state_to_float(state, entity_id: str | None = None) -> float | None:
     if state is None:
         return None
     try:
-        return float(state.state)
+        value = float(state.state)
+        if not math.isfinite(value):
+            _LOGGER.warning(
+                "Non-finite state for %s (raw=%s); treating as unavailable",
+                entity_id or "unknown entity",
+                state.state,
+            )
+            return None
+        return value
     except (TypeError, ValueError) as err:
         _LOGGER.warning(
             "Could not convert state for %s to float (raw=%s): %s",
@@ -209,7 +217,7 @@ def _get_update_interval_seconds(entry: ConfigEntry) -> int:
     raw_interval = entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
     try:
         interval = int(raw_interval)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         _LOGGER.warning(
             "Invalid update interval '%s'; falling back to default (%s)s", raw_interval, DEFAULT_UPDATE_INTERVAL
         )
@@ -219,6 +227,10 @@ def _get_update_interval_seconds(entry: ConfigEntry) -> int:
         _LOGGER.warning("Update interval must be at least 1 second; clamping %s to 1", interval)
         return 1
 
+    if interval > 86400:
+        _LOGGER.warning("Update interval above 86400 s; clamping %s to 86400", interval)
+        return 86400
+
     return interval
 
 
@@ -226,10 +238,12 @@ def _get_update_interval_seconds_from_options(options: Mapping[str, Any]) -> int
     raw_interval = options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
     try:
         interval = int(raw_interval)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return DEFAULT_UPDATE_INTERVAL
     if interval < 1:
         return 1
+    if interval > 86400:
+        return 86400
     return interval
 
 
@@ -257,7 +271,9 @@ def _get_pid_limits_from_options(options: Mapping[str, Any]) -> tuple[float, flo
 
 
 def _normalize_value(value: float | None, minimum: float, maximum: float) -> float | None:
-    if value is None:
+    if value is None or not math.isfinite(value):
+        return None
+    if not math.isfinite(minimum) or not math.isfinite(maximum):
         return None
     span = maximum - minimum
     if span <= 0:
@@ -267,7 +283,9 @@ def _normalize_value(value: float | None, minimum: float, maximum: float) -> flo
 
 
 def _denormalize_value(percent: float | None, minimum: float, maximum: float) -> float | None:
-    if percent is None:
+    if percent is None or not math.isfinite(percent):
+        return None
+    if not math.isfinite(minimum) or not math.isfinite(maximum):
         return None
     span = maximum - minimum
     if span <= 0:
@@ -340,7 +358,7 @@ def _get_domain(entity_id: str | None) -> str | None:
     return entity_id.split(".", 1)[0]
 
 
-class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
+class SolarEnergyFlowCoordinator(TimestampDataUpdateCoordinator[FlowState]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
@@ -362,6 +380,7 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
             kd=_coerce_float(entry.options.get(CONF_KD, DEFAULT_KD), DEFAULT_KD),
             min_output=0.0,
             max_output=100.0,
+            nominal_dt=float(interval),
         )
         self.pid = PID(cfg, entry_id=entry.entry_id)
         self._limiter_state = GRID_LIMITER_STATE_NORMAL
@@ -815,12 +834,14 @@ class SolarEnergyFlowCoordinator(DataUpdateCoordinator[FlowState]):
         return base_status
 
     def _build_pid_config_from_options(self, options: Mapping[str, Any]) -> PIDConfig:
+        interval_seconds = _get_update_interval_seconds_from_options(options)
         return PIDConfig(
             kp=_coerce_float(options.get(CONF_KP, DEFAULT_KP), DEFAULT_KP),
             ki=_coerce_float(options.get(CONF_KI, DEFAULT_KI), DEFAULT_KI),
             kd=_coerce_float(options.get(CONF_KD, DEFAULT_KD), DEFAULT_KD),
             min_output=0.0,
             max_output=100.0,
+            nominal_dt=float(interval_seconds),
         )
 
     def options_require_reload(self, old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
