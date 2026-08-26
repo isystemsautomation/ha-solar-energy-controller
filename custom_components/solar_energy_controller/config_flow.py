@@ -171,7 +171,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors[missing_key] = "entity_not_found"
                     else:
                         errors["base"] = "connection_failed"
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError) as e:
                     # Log the actual exception for debugging
                     _LOGGER.exception("Error validating entities: %s", e)
                     errors["base"] = "connection_failed"
@@ -461,7 +461,7 @@ class SolarEnergyFlowOptionsFlowHandler(config_entries.OptionsFlow):
                         errors[missing_key] = "entity_not_found"
                     else:
                         errors["base"] = "connection_failed"
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError) as e:
                     # Log the actual exception for debugging
                     _LOGGER.exception("Error validating entities: %s", e)
                     errors["base"] = "connection_failed"

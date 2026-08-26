@@ -1,3 +1,5 @@
+const MODULE_VERSION_QUERY = new URL(import.meta.url).search;
+
 import { LitElement, html, css } from "./lit-core.min.js";
 import {
   RUNTIME_MODES,
@@ -170,7 +172,7 @@ class PIDControllerPopup extends LitElement {
 
       const script = document.createElement("script");
       // Load Chart.js from the local integration static path so it works offline
-      script.src = "/solar_energy_controller/frontend/chart.umd.min.js";
+      script.src = `/solar_energy_controller/frontend/chart.umd.min.js${MODULE_VERSION_QUERY}`;
       script.onload = () => resolve();
       script.onerror = () => reject(new Error("Failed to load Chart.js"));
       document.head.appendChild(script);
@@ -1193,7 +1195,11 @@ class PIDControllerPopup extends LitElement {
       const container = this.shadowRoot?.getElementById("popup-graph-container");
       if (container && !this._chart) {
         const errorMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
-        container.innerHTML = `<div style='padding: 8px; color: var(--error-color, red); font-size: 12px;'>Graph error: ${errorMsg}</div>`;
+        container.replaceChildren();
+        const errEl = document.createElement("div");
+        errEl.style.cssText = "padding:8px;color:var(--error-color,red);font-size:12px";
+        errEl.textContent = `Graph error: ${errorMsg}`;
+        container.appendChild(errEl);
       }
     } finally {
       this._graphInFlight = false;
@@ -1498,14 +1504,18 @@ class PIDControllerPopup extends LitElement {
   }
 }
 
-customElements.define("pid-controller-popup", PIDControllerPopup);
+if (!customElements.get("pid-controller-popup")) {
+  customElements.define("pid-controller-popup", PIDControllerPopup);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "pid-controller-popup",
-  name: "PID Controller Popup",
-  description: "Full editor popup for PID controller settings",
-  preview: false,
-});
+  window.customCards = window.customCards || [];
+  if (!window.customCards.some((c) => c.type === "pid-controller-popup")) {
+    window.customCards.push({
+      type: "pid-controller-popup",
+      name: "PID Controller Popup",
+      description: "Full editor popup for PID controller settings",
+      preview: false,
+    });
+  }
+}
 
 

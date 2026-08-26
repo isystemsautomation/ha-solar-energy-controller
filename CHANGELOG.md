@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.19
+
+- Fix double-load of pid-controller-popup (dynamic import with ?v= cache-busting)
+- Version chart.umd.min.js loads; guard customElements.define; mini Lit lifecycle fixes
+- Replace graph error innerHTML with textContent
+- Validate min_output < max_output on number entities (ServiceValidationError)
+- Narrow config_flow entity validation except; strengthen entity action tests
+- Remove unused duplicate images from images/
+
 ## 1.0.18
 
 - README: document runtime mode slug values (`auto_sp`, etc.) for automations

@@ -171,6 +171,9 @@
     },
     "switch_failed_update_state": {
       "message": "Failed to update {name} state."
+    },
+    "invalid_output_range": {
+      "message": "Max output ({max_output}) must be greater than min output ({min_output})."
     }
   }
 }

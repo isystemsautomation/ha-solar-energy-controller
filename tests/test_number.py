@@ -114,33 +114,35 @@ async def test_number_entity_set_value(mock_coordinator, mock_entry):
     
     mock_coordinator.apply_options.assert_called_once()
     mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    mock_coordinator.async_request_refresh.assert_called_once()
     
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_KP] == 2.0
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_KP] == 2.0
 
 
-async def test_number_entity_min_max_adjustment(mock_coordinator, mock_entry):
-    """Test number entity min/max auto-adjustment."""
+async def test_number_entity_invalid_output_range(mock_coordinator, mock_entry):
+    """Max output must stay greater than min output."""
     number = SolarEnergyFlowNumber(
         mock_coordinator,
         mock_entry,
-        CONF_MIN_OUTPUT,
-        "Min output",
-        0.0,
+        CONF_MAX_OUTPUT,
+        "Max output",
+        11000.0,
         1.0,
         -20000.0,
         20000.0,
         None,
     )
     number.hass = mock_entry.hass
-    mock_entry.options = {CONF_MAX_OUTPUT: 100.0}
-    
-    # Set min_output > max_output, should auto-adjust max
-    await number.async_set_native_value(150.0)
-    
-    call_args = mock_coordinator.apply_options.call_args[0][0]
-    assert call_args[CONF_MIN_OUTPUT] == 150.0
-    assert call_args[CONF_MAX_OUTPUT] == 150.0
+    mock_entry.options = {CONF_MIN_OUTPUT: 100.0}
+
+    with pytest.raises(ServiceValidationError):
+        await number.async_set_native_value(50.0)
+
+    mock_coordinator.apply_options.assert_not_called()
+    mock_entry.hass.config_entries.async_update_entry.assert_not_called()
 
 
 async def test_number_entity_error_handling(mock_coordinator, mock_entry):
@@ -216,6 +218,11 @@ async def test_manual_number_set_value_allowed(mock_coordinator, mock_entry):
     
     mock_coordinator.async_set_manual_sp.assert_called_once_with(70.0)
     mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    apply_args = mock_coordinator.apply_options.call_args[0][0]
+    assert apply_args[CONF_MANUAL_SP_VALUE] == 70.0
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_MANUAL_SP_VALUE] == 70.0
 
 
 async def test_manual_number_set_value_not_allowed(mock_coordinator, mock_entry):
@@ -283,6 +290,12 @@ async def test_manual_out_number_set_value(mock_coordinator, mock_entry):
     await number.async_set_native_value(80.0)
     
     mock_coordinator.async_set_manual_out.assert_called_once_with(80.0)
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    apply_args = mock_coordinator.apply_options.call_args[0][0]
+    assert apply_args[CONF_MANUAL_OUT_VALUE] == 80.0
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_MANUAL_OUT_VALUE] == 80.0
 
 
 async def test_async_setup_entry(hass: HomeAssistant, mock_entry):

@@ -75,6 +75,8 @@ async def test_enabled_switch_turn_on(mock_coordinator, mock_entry):
     # Check that enabled was set to True
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_ENABLED] is True
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_ENABLED] is True
 
 
 async def test_enabled_switch_turn_off(mock_coordinator, mock_entry):
@@ -84,8 +86,13 @@ async def test_enabled_switch_turn_off(mock_coordinator, mock_entry):
     
     await switch.async_turn_off()
     
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    mock_coordinator.async_request_refresh.assert_called_once()
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_ENABLED] is False
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_ENABLED] is False
 
 
 async def test_enabled_switch_error_handling(mock_coordinator, mock_entry):
@@ -114,8 +121,13 @@ async def test_rate_limiter_switch_turn_on(mock_coordinator, mock_entry):
     
     await switch.async_turn_on()
     
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    mock_coordinator.async_request_refresh.assert_called_once()
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_RATE_LIMITER_ENABLED] is True
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_RATE_LIMITER_ENABLED] is True
 
 
 def test_grid_limiter_switch_is_on(mock_coordinator, mock_entry):
@@ -133,8 +145,13 @@ async def test_grid_limiter_switch_turn_on(mock_coordinator, mock_entry):
     
     await switch.async_turn_on()
     
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    mock_coordinator.async_request_refresh.assert_called_once()
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_GRID_LIMITER_ENABLED] is True
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_GRID_LIMITER_ENABLED] is True
 
 
 async def test_grid_limiter_switch_error_handling(mock_coordinator, mock_entry):

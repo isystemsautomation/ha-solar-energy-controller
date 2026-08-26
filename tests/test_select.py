@@ -91,9 +91,12 @@ async def test_select_select_option_valid(mock_coordinator, mock_entry):
     
     mock_coordinator.apply_options.assert_called_once()
     mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    mock_coordinator.async_request_refresh.assert_called_once()
     
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_GRID_LIMITER_TYPE] == GRID_LIMITER_TYPE_EXPORT
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_GRID_LIMITER_TYPE] == GRID_LIMITER_TYPE_EXPORT
 
 
 async def test_select_select_option_invalid(mock_coordinator, mock_entry):
@@ -128,10 +131,13 @@ async def test_select_runtime_mode_change_to_manual_sp(mock_coordinator, mock_en
     
     await select.async_select_option(RUNTIME_MODE_MANUAL_SP)
     
-    # Should set manual SP from normal setpoint
     mock_coordinator.set_manual_sp_from_normal_setpoint.assert_called_once()
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
     call_args = mock_coordinator.apply_options.call_args[0][0]
     assert call_args[CONF_RUNTIME_MODE] == RUNTIME_MODE_MANUAL_SP
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_RUNTIME_MODE] == RUNTIME_MODE_MANUAL_SP
 
 
 async def test_select_runtime_mode_no_change(mock_coordinator, mock_entry):
@@ -150,8 +156,11 @@ async def test_select_runtime_mode_no_change(mock_coordinator, mock_entry):
     
     await select.async_select_option(RUNTIME_MODE_MANUAL_SP)
     
-    # Should not reset manual SP if already in MANUAL_SP mode
     mock_coordinator.async_reset_manual_sp.assert_not_called()
+    mock_coordinator.apply_options.assert_called_once()
+    mock_entry.hass.config_entries.async_update_entry.assert_called_once()
+    update_args = mock_entry.hass.config_entries.async_update_entry.call_args.kwargs
+    assert update_args["options"][CONF_RUNTIME_MODE] == RUNTIME_MODE_MANUAL_SP
 
 
 async def test_select_error_handling(mock_coordinator, mock_entry):

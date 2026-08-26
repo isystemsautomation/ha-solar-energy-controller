@@ -1,5 +1,6 @@
+const MODULE_VERSION_QUERY = new URL(import.meta.url).search;
+
 import { LitElement, html, css } from "./lit-core.min.js";
-import "./pid-controller-popup.js";
 import { normalizeRuntimeMode, runtimeModeLabel } from "./runtime-modes.js";
 
 class PIDControllerMini extends LitElement {
@@ -242,6 +243,7 @@ class PIDControllerMini extends LitElement {
   async firstUpdated() {
     if (this.config.show_chart) {
       await this._loadChartJS();
+      if (!this.isConnected) return;
       setTimeout(() => this._updateGraph(), 200);
       this._graphInterval = setInterval(() => this._updateGraph(), 30000);
     }
@@ -256,7 +258,7 @@ class PIDControllerMini extends LitElement {
 
       const script = document.createElement("script");
       // Load Chart.js from the local integration static path so it works offline
-      script.src = "/solar_energy_controller/frontend/chart.umd.min.js";
+      script.src = `/solar_energy_controller/frontend/chart.umd.min.js${MODULE_VERSION_QUERY}`;
       script.onload = () => resolve();
       script.onerror = () => reject(new Error("Failed to load Chart.js"));
       document.head.appendChild(script);
@@ -264,14 +266,17 @@ class PIDControllerMini extends LitElement {
   }
 
   disconnectedCallback() {
+    super.disconnectedCallback();
     if (this._graphInterval) {
       clearInterval(this._graphInterval);
+      this._graphInterval = null;
     }
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
     }
     if (this._graphUpdateTimeout) {
       clearTimeout(this._graphUpdateTimeout);
+      this._graphUpdateTimeout = null;
     }
     if (this._chart) {
       this._chart.destroy();
@@ -599,7 +604,11 @@ class PIDControllerMini extends LitElement {
       const container = this.shadowRoot?.getElementById("graph-container");
       if (container && !this._chart) {
         const errorMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
-        container.innerHTML = `<div style='padding: 8px; color: var(--error-color, red); font-size: 12px;'>Graph error: ${errorMsg}</div>`;
+        container.replaceChildren();
+        const errEl = document.createElement("div");
+        errEl.style.cssText = "padding:8px;color:var(--error-color,red);font-size:12px";
+        errEl.textContent = `Graph error: ${errorMsg}`;
+        container.appendChild(errEl);
       }
     } finally {
       this._graphInFlight = false;
@@ -707,12 +716,9 @@ class PIDControllerMini extends LitElement {
       return true;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    if (customElements.get("pid-controller-popup")) {
-      return true;
-    }
-
-    throw new Error("pid-controller-popup custom element is not registered");
+    await import(`./pid-controller-popup.js${MODULE_VERSION_QUERY}`);
+    await customElements.whenDefined("pid-controller-popup");
+    return true;
   }
 
   _createPopupCard() {
@@ -946,13 +952,17 @@ class PIDControllerMini extends LitElement {
   }
 }
 
-customElements.define("pid-controller-mini", PIDControllerMini);
+if (!customElements.get("pid-controller-mini")) {
+  customElements.define("pid-controller-mini", PIDControllerMini);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "pid-controller-mini",
-  name: "PID Controller Mini",
-  description: "Compact dashboard card for PID controller with popup editor",
-  preview: false,
-});
+  window.customCards = window.customCards || [];
+  if (!window.customCards.some((c) => c.type === "pid-controller-mini")) {
+    window.customCards.push({
+      type: "pid-controller-mini",
+      name: "PID Controller Mini",
+      description: "Compact dashboard card for PID controller with popup editor",
+      preview: false,
+    });
+  }
+}
 

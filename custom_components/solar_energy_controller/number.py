@@ -254,6 +254,29 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             return self._default
 
     async def async_set_native_value(self, value: float) -> None:
+        if self._option_key == CONF_MIN_OUTPUT:
+            min_output = float(value)
+            max_output = float(self._entry.options.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT))
+        elif self._option_key == CONF_MAX_OUTPUT:
+            min_output = float(self._entry.options.get(CONF_MIN_OUTPUT, DEFAULT_MIN_OUTPUT))
+            max_output = float(value)
+        else:
+            min_output = max_output = None
+
+        if (
+            min_output is not None
+            and max_output is not None
+            and max_output <= min_output
+        ):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_output_range",
+                translation_placeholders={
+                    "min_output": str(min_output),
+                    "max_output": str(max_output),
+                },
+            )
+
         try:
             options = dict(self._entry.options)
 
@@ -272,16 +295,6 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             options.setdefault(CONF_OUTPUT_EPSILON, DEFAULT_OUTPUT_EPSILON)
 
             options[self._option_key] = value
-
-            # Enforce predictable min/max relationship by auto-adjusting the paired value.
-            if self._option_key == CONF_MIN_OUTPUT:
-                max_val = float(options.get(CONF_MAX_OUTPUT, DEFAULT_MAX_OUTPUT))
-                if value > max_val:
-                    options[CONF_MAX_OUTPUT] = value
-            elif self._option_key == CONF_MAX_OUTPUT:
-                min_val = float(options.get(CONF_MIN_OUTPUT, DEFAULT_MIN_OUTPUT))
-                if value < min_val:
-                    options[CONF_MIN_OUTPUT] = value
 
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
