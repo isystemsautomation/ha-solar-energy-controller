@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.21
+
+- Fix Runtime Mode select not switching: remove `preventDefault` on selection event
+- Support new HA `ha-select` `.options` API (2026+) for labels and `detail.value`
+- Keep legacy `mwc-list-item` fallback for older Home Assistant frontends
+
 ## 1.0.20
 
 - Fix PID Controller Editor popup: wait for lazy-loaded HA web components before render

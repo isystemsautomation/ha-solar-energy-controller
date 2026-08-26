@@ -662,17 +662,29 @@ class PIDControllerPopup extends LitElement {
     this.requestUpdate();
   }
 
-  _onModeChanged(ev) {
+  _onModeSelected(ev) {
     ev.stopPropagation();
-    ev.preventDefault();
-    ev.stopImmediatePropagation();
-    
-    const value = ev.detail?.value || ev.target?.value || ev.target?.selected?.value;
+
+    const raw = ev.detail?.value ?? ev.target?.value;
+    const value = normalizeRuntimeMode(raw);
     if (!value) return;
-    
+
+    const current = normalizeRuntimeMode(this._getValue("runtime_mode"));
+    if (value === current) return;
+
     this._edited.runtime_mode = value;
-    this._save();
+    this._data.runtime_mode = value;
+    void this._save();
     this.requestUpdate();
+  }
+
+  _haSelectUsesOptions() {
+    if (this.__haSelectUsesOptions !== undefined) {
+      return this.__haSelectUsesOptions;
+    }
+    const ctor = customElements.get("ha-select");
+    this.__haSelectUsesOptions = Boolean(ctor?.elementProperties?.has?.("options"));
+    return this.__haSelectUsesOptions;
   }
 
   _onNumberChanged(key, ev) {
@@ -796,8 +808,28 @@ class PIDControllerPopup extends LitElement {
 
   _renderRuntimeModeControl(runtimeMode, runtimeModes) {
     const modes = runtimeModes?.length ? runtimeModes : RUNTIME_MODES;
-    const formatted = this._formatMode(runtimeMode);
+    const normalized = normalizeRuntimeMode(runtimeMode);
+    const formatted = this._formatMode(normalized);
+    const options = modes.map((mode) => ({
+      value: mode,
+      label: this._formatMode(mode),
+    }));
+
     if (customElements.get("ha-select") !== undefined) {
+      if (this._haSelectUsesOptions()) {
+        return html`
+          <div class="control-row">
+            <div class="control-label">Runtime Mode</div>
+            <ha-select
+              .value=${normalized}
+              .options=${options}
+              @selected=${this._onModeSelected}
+              @closed=${(e) => e.stopPropagation()}
+            ></ha-select>
+          </div>
+        `;
+      }
+
       return html`
         <div class="control-row">
           <div class="control-label">
@@ -805,14 +837,10 @@ class PIDControllerPopup extends LitElement {
             <span class="runtime-mode-label">${formatted}</span>
           </div>
           <ha-select
-            .value=${runtimeMode || ""}
+            .value=${normalized}
             naturalMenuWidth
             fixedMenuPosition
-            @selected=${(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              this._onModeChanged(e);
-            }}
+            @selected=${this._onModeSelected}
             @closed=${(e) => e.stopPropagation()}
           >
             ${modes.map(
@@ -831,8 +859,8 @@ class PIDControllerPopup extends LitElement {
         <div class="control-label">Runtime Mode</div>
         <select
           class="native-input"
-          .value=${runtimeMode || ""}
-          @change=${this._onModeChanged}
+          .value=${normalized}
+          @change=${this._onModeSelected}
         >
           ${modes.map(
             (mode) => html`
@@ -954,6 +982,7 @@ class PIDControllerPopup extends LitElement {
         });
         this._data.runtime_mode = patch.runtime_mode;
         this._savedFields.set("runtime_mode", now);
+        delete this._edited.runtime_mode;
         delete patch.runtime_mode;
       }
       
