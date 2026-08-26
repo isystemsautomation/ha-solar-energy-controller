@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.18
+
+- README: document runtime mode slug values (`auto_sp`, etc.) for automations
+- README: anti-windup description, diagnostic sensors note, limiter state values
+- Code hygiene: remove unused imports, fix E402, narrow `except` in number entities
+- Tests: use `MagicMock` for synchronous `async_update_entry` (no RuntimeWarning)
+
 ## 1.0.17
 
 - Fix hassfest translation errors: remove quoted placeholders, select `state` slugs, sync `strings.json`/`en.json`

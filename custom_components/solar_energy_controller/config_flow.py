@@ -6,8 +6,6 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
 
-_LOGGER = logging.getLogger(__name__)
-
 from .const import (
     CONF_ENABLED,
     CONF_GRID_LIMITER_DEADBAND_W,
@@ -70,6 +68,8 @@ from .const import (
     PID_MODE_DIRECT,
     PID_MODE_REVERSE,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 _PV_DOMAINS = {"sensor", "number", "input_number"}
 _SETPOINT_DOMAINS = {"number", "input_number"}

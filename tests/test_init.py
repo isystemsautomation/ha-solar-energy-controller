@@ -30,6 +30,12 @@ from custom_components.solar_energy_controller.const import (
 )
 
 
+def _consume_async_task(coro):
+    if hasattr(coro, "close"):
+        coro.close()
+    return MagicMock()
+
+
 @pytest.fixture
 def mock_hass():
     """Create a mock Home Assistant instance."""
@@ -43,7 +49,7 @@ def mock_hass():
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     hass.state = CoreState.running
-    hass.async_create_task = MagicMock()
+    hass.async_create_task = MagicMock(side_effect=_consume_async_task)
     hass.data = {}
     return hass
 
@@ -85,7 +91,7 @@ async def test_async_setup_entry_success(mock_hass, mock_entry):
     """Test successful async_setup_entry."""
     mock_hass.states.get = MagicMock(return_value=MagicMock(state="100"))
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
-    mock_hass.async_create_task = MagicMock()
+    mock_hass.async_create_task = MagicMock(side_effect=_consume_async_task)
     mock_entity_registry = MagicMock()
     mock_entity_registry.async_get = MagicMock(return_value=MagicMock(entity_id="sensor.pv"))
 
@@ -134,7 +140,7 @@ async def test_async_setup_entry_unavailable_entities(mock_hass, mock_entry):
     mock_state.state = "unavailable"
     mock_hass.states.get = MagicMock(return_value=mock_state)
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
-    mock_hass.async_create_task = MagicMock()
+    mock_hass.async_create_task = MagicMock(side_effect=_consume_async_task)
     if not hasattr(mock_hass, "data"):
         mock_hass.data = {}
     if not hasattr(mock_hass, "config"):
@@ -170,7 +176,7 @@ async def test_async_setup_entry_coordinator_failure(mock_hass, mock_entry):
     """Test async_setup_entry when coordinator initialization fails."""
     mock_hass.states.get = MagicMock(return_value=MagicMock(state="100"))
     mock_hass.bus.async_listen = MagicMock(return_value=MagicMock())
-    mock_hass.async_create_task = MagicMock()
+    mock_hass.async_create_task = MagicMock(side_effect=_consume_async_task)
     mock_entity_registry = MagicMock()
     mock_entity_registry.async_get = MagicMock(return_value=MagicMock(entity_id="sensor.pv"))
 
@@ -200,7 +206,7 @@ async def test_async_unload_entry(mock_hass, mock_entry):
 async def test_async_setup_frontend_path_registration(mock_hass):
     """Test that frontend static path is registered when frontend directory exists."""
     mock_hass.state = CoreState.not_running
-    mock_hass.async_create_task = MagicMock()
+    mock_hass.async_create_task = MagicMock(side_effect=_consume_async_task)
     mock_hass.async_add_executor_job = AsyncMock(return_value=True)
     mock_hass.http.async_register_static_paths = AsyncMock()
     with patch(

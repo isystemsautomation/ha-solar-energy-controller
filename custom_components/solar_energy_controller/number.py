@@ -35,14 +35,11 @@ from .const import (
     DEFAULT_GRID_LIMITER_DEADBAND_W,
     DEFAULT_PID_DEADBAND,
     DEFAULT_RATE_LIMIT,
-    DEFAULT_RUNTIME_MODE,
     DEFAULT_MANUAL_SP_VALUE,
     DEFAULT_MANUAL_OUT_VALUE,
     DEFAULT_MAX_OUTPUT_STEP,
     DEFAULT_OUTPUT_EPSILON,
     DOMAIN,
-    RUNTIME_MODE_AUTO_SP,
-    RUNTIME_MODE_HOLD,
     RUNTIME_MODE_MANUAL_OUT,
     RUNTIME_MODE_MANUAL_SP,
 )
@@ -289,7 +286,7 @@ class SolarEnergyFlowNumber(CoordinatorEntity, NumberEntity):
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
-        except Exception as err:
+        except (ValueError, TypeError, KeyError, HomeAssistantError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="number_failed_set_value",
@@ -395,7 +392,7 @@ class SolarEnergyFlowManualNumber(CoordinatorEntity, NumberEntity):
             self.coordinator.apply_options(options)
             self.hass.config_entries.async_update_entry(self._entry, options=options)
             await self.coordinator.async_request_refresh()
-        except Exception as err:
+        except (ValueError, TypeError, KeyError, HomeAssistantError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="number_failed_set_value",

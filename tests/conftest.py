@@ -8,6 +8,18 @@ import pytest
 pytest_plugins = "pytest_homeassistant_custom_component"
 
 
+async def _noop_register_frontend(_hass):
+    """No-op frontend registration for tests."""
+    return None
+
+
+def _consume_async_task(coro):
+    """Close coroutines passed to hass.async_create_task in unit tests."""
+    if hasattr(coro, "close"):
+        coro.close()
+    return MagicMock()
+
+
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Automatically enable custom integrations for all tests."""
@@ -30,7 +42,7 @@ def disable_lovelace_registration():
     """Prevent Lovelace retry timers from lingering after HA test teardown."""
     with patch(
         "custom_components.solar_energy_controller.async_register_frontend",
-        new=AsyncMock(),
+        side_effect=_noop_register_frontend,
     ):
         yield
 

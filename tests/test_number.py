@@ -70,7 +70,7 @@ def mock_entry():
     entry.options = {CONF_KP: 1.0}
     entry.hass = MagicMock()
     entry.hass.config_entries = MagicMock()
-    entry.hass.config_entries.async_update_entry = AsyncMock()
+    entry.hass.config_entries.async_update_entry = MagicMock()
     return entry
 
 
@@ -158,7 +158,7 @@ async def test_number_entity_error_handling(mock_coordinator, mock_entry):
     )
     number.hass = mock_entry.hass
     
-    mock_coordinator.apply_options.side_effect = Exception("Test error")
+    mock_coordinator.apply_options.side_effect = ValueError("Test error")
     
     with pytest.raises(HomeAssistantError):
         await number.async_set_native_value(2.0)

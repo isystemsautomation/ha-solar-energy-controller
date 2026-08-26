@@ -48,7 +48,7 @@ def mock_entry():
     entry.options = {}
     entry.hass = MagicMock()
     entry.hass.config_entries = MagicMock()
-    entry.hass.config_entries.async_update_entry = AsyncMock()
+    entry.hass.config_entries.async_update_entry = MagicMock()
     return entry
 
 

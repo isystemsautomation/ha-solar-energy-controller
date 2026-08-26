@@ -62,7 +62,7 @@ If you are unsure whether your device is supported, check if you can:
 - PID controller (Kp / Ki / Kd)
 - **Internal 0–100% normalized control**
 - **Percent-based PID tuning** (unit- and device-independent)
-- Anti-windup with tracking
+- Anti-windup (conditional integration)
 - Derivative on measurement
 - Multiple runtime modes:
   - Automatic setpoint
@@ -259,19 +259,24 @@ Runtime controls allow switching modes and manually overriding behavior.
 
 ### Runtime Modes
 
-| Mode | Description |
-|---|---|
-| **AUTO SP** | PID controls output using normalized percent PV/SP (default) |
-| **MANUAL SP** | User sets setpoint manually (raw units), PID remains active |
-| **MANUAL OUT** | User directly controls output (raw units) |
-| **HOLD** | Output frozen at last value |
+| Mode | Entity value | Description |
+|---|---|---|
+| **AUTO SP** | `auto_sp` | PID controls output using normalized percent PV/SP (default) |
+| **MANUAL SP** | `manual_sp` | User sets setpoint manually (raw units), PID remains active |
+| **MANUAL OUT** | `manual_out` | User directly controls output (raw units) |
+| **HOLD** | `hold` | Output frozen at last value |
 
 Mode transitions use **bumpless transfer** to avoid output jumps.
+
+> **Note:** In the UI these modes are displayed as AUTO SP / MANUAL SP / HOLD /
+> MANUAL OUT, but automations, templates and `select.select_option` must use the
+> slug values (`auto_sp`, `manual_sp`, `hold`, `manual_out`). Entries created
+> before v1.0.17 are migrated automatically on upgrade.
 
 ### Runtime Parameters
 
 - **Enabled** – Master enable/disable switch for the controller (default: enabled)
-- **Runtime mode** – Current operating mode (AUTO SP, MANUAL SP, MANUAL OUT, HOLD)
+- **Runtime mode** – Current operating mode. UI: AUTO SP / MANUAL SP / MANUAL OUT / HOLD; entity and automation values: `auto_sp` / `manual_sp` / `manual_out` / `hold`
 - **Manual SP value** – Manual setpoint value in raw units (only active in MANUAL SP mode)
 - **Manual OUT value** – Manual output value in raw units (only active in MANUAL OUT mode)
 
@@ -357,6 +362,11 @@ Additional diagnostic entities help understand controller behavior.
 - Limiter state
 - Output (pre rate limit)
 
+> **Note:** Both diagnostic sensors are disabled by default
+> (`entity_registry_enabled_default = False`). Enable them in
+> **Settings → Devices & Services → Solar Energy Controller → Entities**
+> if you need them for tuning.
+
 ---
 
 ## Status Sensor Values
@@ -375,6 +385,14 @@ The `Status` sensor may report:
 - `output_write_failed`
 
 These reflect internal controller state and error conditions.
+
+### Limiter State Values
+
+The `Limiter state` diagnostic sensor may report:
+
+- `normal`
+- `limiting_import`
+- `limiting_export`
 
 ---
 
@@ -436,7 +454,7 @@ automation:
     condition:
       - condition: state
         entity_id: select.charger_pid_runtime_mode
-        state: "AUTO SP"
+        state: "auto_sp"
     action:
       - service: number.set_value
         target:
@@ -510,13 +528,13 @@ automation:
     condition:
       - condition: state
         entity_id: select.charger_pid_runtime_mode
-        state: "AUTO SP"
+        state: "auto_sp"
     action:
       - service: select.select_option
         target:
           entity_id: select.charger_pid_runtime_mode
         data:
-          option: "MANUAL OUT"
+          option: "manual_out"
       - service: number.set_value
         target:
           entity_id: number.charger_pid_manual_out_value
@@ -577,16 +595,16 @@ automation:
 - **Description:** The controller may be disabled, in HOLD mode, or limited by rate/step constraints.
 - **Resolution:**
   1. Check the **Enabled** switch entity and ensure it is turned **on**.
-  2. Verify the **Runtime mode** select is set to `AUTO SP` (or the desired mode, not `HOLD`).
+  2. Verify the **Runtime mode** select is set to AUTO SP (`auto_sp`) (or the desired mode, not HOLD (`hold`)).
   3. Check **Rate limiter** and **Max output step** values; very small limits can effectively freeze the output.
   4. Confirm that the Output entity accepts the commanded values (no validation in the target integration blocks changes).
 
 ### Cannot change Manual SP / Manual OUT values
 
-- **Symptom:** Changing `Manual SP` or `Manual OUT` is rejected or the value does not stick.
+- **Symptom:** Changing `Manual SP` or `Manual OUT` is rejected.
 - **Description:** Manual values can only be set when the controller is in the corresponding manual mode.
 - **Resolution:**
-  1. Set **Runtime mode** to `MANUAL SP` before changing the Manual SP value, or to `MANUAL OUT` before changing the Manual OUT value.
+  1. Set **Runtime mode** to MANUAL SP (`manual_sp`) before changing the Manual SP value, or to MANUAL OUT (`manual_out`) before changing the Manual OUT value.
   2. If you see a service error like *“Cannot set Manual SP value: controller is in AUTO SP mode”*, switch to the correct mode and retry.
   3. Verify that no automation is continuously overwriting the same entities.
 
