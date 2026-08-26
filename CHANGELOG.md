@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.23
+
+- Fix chart extrapolating history values far beyond real range — off-by-one in `interpolateToTimeAxis`
+- Skip unavailable/unknown history states on the shared time axis; sort series before interpolation
+- Add `scripts/check_interpolation.mjs` regression tests in CI
+
 ## 1.0.22
 
 - Remove Lovelace JS resources when the last config entry is deleted (`async_remove_entry`)

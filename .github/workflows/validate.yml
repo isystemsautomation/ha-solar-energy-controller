@@ -26,3 +26,6 @@ jobs:
 
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
+
+      - name: Chart interpolation regression tests
+        run: node scripts/check_interpolation.mjs

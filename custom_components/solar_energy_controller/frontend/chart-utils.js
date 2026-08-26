@@ -77,10 +77,10 @@ export function parseHistory(history, entityIds) {
         const time = new Date(state.last_changed || state.last_updated);
         if (isNaN(time.getTime())) return;
 
-        allTimes.add(time.getTime());
-
         const value = parseFloat(state.state);
         if (isNaN(value)) return;
+
+        allTimes.add(time.getTime());
 
         if (entityId === entityIds.pv) {
           data.pv.push({ time: time.getTime(), value });
@@ -99,6 +99,9 @@ export function parseHistory(history, entityIds) {
 
   const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
   const labels = sortedTimes.map((t) => new Date(t).toISOString());
+  data.pv.sort((a, b) => a.time - b.time);
+  data.sp.sort((a, b) => a.time - b.time);
+  data.output.sort((a, b) => a.time - b.time);
   const pvData = interpolateToTimeAxis(data.pv, sortedTimes);
   const spData = interpolateToTimeAxis(data.sp, sortedTimes);
   const outputData = interpolateToTimeAxis(data.output, sortedTimes);
@@ -114,30 +117,38 @@ export function parseHistory(history, entityIds) {
 }
 
 export function interpolateToTimeAxis(points, timeAxis) {
-  if (points.length === 0) {
+  if (!points || points.length === 0) {
     return new Array(timeAxis.length).fill(null);
   }
 
   const result = [];
-  let pointIndex = 0;
+  let i = 0;
 
   for (const time of timeAxis) {
-    while (pointIndex < points.length - 1 && points[pointIndex + 1].time < time) {
-      pointIndex++;
+    while (i < points.length - 1 && points[i + 1].time <= time) {
+      i++;
     }
 
-    if (pointIndex >= points.length) {
-      result.push(points[points.length - 1]?.value ?? null);
-    } else if (points[pointIndex].time === time) {
-      result.push(points[pointIndex].value);
-    } else if (pointIndex === 0) {
+    const current = points[i];
+
+    if (time <= points[0].time) {
       result.push(points[0].value);
-    } else {
-      const prev = points[pointIndex - 1];
-      const next = points[pointIndex];
-      const ratio = (time - prev.time) / (next.time - prev.time);
-      result.push(prev.value + (next.value - prev.value) * ratio);
+      continue;
     }
+    if (i === points.length - 1) {
+      result.push(current.value);
+      continue;
+    }
+
+    const next = points[i + 1];
+    const span = next.time - current.time;
+    if (span <= 0) {
+      result.push(current.value);
+      continue;
+    }
+
+    const ratio = (time - current.time) / span;
+    result.push(current.value + (next.value - current.value) * ratio);
   }
 
   return result;
