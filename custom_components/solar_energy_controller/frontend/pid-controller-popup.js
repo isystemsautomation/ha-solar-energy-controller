@@ -8,6 +8,7 @@ import {
   normalizeRuntimeMode,
   runtimeModeLabel,
 } from "./runtime-modes.js";
+import { ensureHaComponents } from "./ha-components.js";
 
 class PIDControllerPopup extends LitElement {
   static properties = {
@@ -79,6 +80,21 @@ class PIDControllerPopup extends LitElement {
     ha-textfield,
     ha-select {
       width: 100%;
+    }
+
+    .native-input {
+      background: var(--card-background-color);
+      color: var(--primary-text-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 4px;
+      padding: 8px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .runtime-mode-label {
+      color: var(--primary-text-color);
+      font-weight: 500;
     }
 
     ha-switch {
@@ -156,6 +172,7 @@ class PIDControllerPopup extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    ensureHaComponents().then(() => this.requestUpdate());
     await this._loadChartJS();
     this._startLiveUpdates();
     this._subscribeToStateChanges();
@@ -701,6 +718,170 @@ class PIDControllerPopup extends LitElement {
     return runtimeModeLabel(mode);
   }
 
+  _haReady() {
+    return customElements.get("ha-textfield") !== undefined;
+  }
+
+  _renderNumberField(label, key, rawValue, options = {}) {
+    const { disabled = false, step = "any" } = options;
+    const value =
+      rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+    const onInput = (ev) => {
+      ev.stopPropagation();
+      this._onNumberChanged(key, ev);
+    };
+    const onBlur = (ev) => {
+      ev.stopPropagation();
+      this._onNumberBlur(key, ev);
+    };
+    if (this._haReady()) {
+      return html`
+        <div class="control-row">
+          <div class="control-label">${label}</div>
+          <ha-textfield
+            type="number"
+            .value=${value}
+            step=${step}
+            ?disabled=${disabled}
+            placeholder="—"
+            @input=${onInput}
+            @blur=${onBlur}
+          ></ha-textfield>
+        </div>
+      `;
+    }
+    return html`
+      <div class="control-row">
+        <div class="control-label">${label}</div>
+        <input
+          class="native-input"
+          type="number"
+          .value=${value}
+          step=${step}
+          ?disabled=${disabled}
+          placeholder="—"
+          @input=${onInput}
+          @blur=${onBlur}
+        />
+      </div>
+    `;
+  }
+
+  _renderSwitch(label, checked, handler, options = {}) {
+    const { disabled = false } = options;
+    if (customElements.get("ha-switch") !== undefined) {
+      return html`
+        <div class="control-row">
+          <div class="control-label">${label}</div>
+          <ha-switch
+            .checked=${checked}
+            ?disabled=${disabled}
+            @change=${handler}
+          ></ha-switch>
+        </div>
+      `;
+    }
+    return html`
+      <div class="control-row">
+        <div class="control-label">${label}</div>
+        <input
+          type="checkbox"
+          .checked=${checked}
+          ?disabled=${disabled}
+          @change=${handler}
+        />
+      </div>
+    `;
+  }
+
+  _renderRuntimeModeControl(runtimeMode, runtimeModes) {
+    const modes = runtimeModes?.length ? runtimeModes : RUNTIME_MODES;
+    const formatted = this._formatMode(runtimeMode);
+    if (customElements.get("ha-select") !== undefined) {
+      return html`
+        <div class="control-row">
+          <div class="control-label">
+            Runtime Mode
+            <span class="runtime-mode-label">${formatted}</span>
+          </div>
+          <ha-select
+            .value=${runtimeMode || ""}
+            naturalMenuWidth
+            fixedMenuPosition
+            @selected=${(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              this._onModeChanged(e);
+            }}
+            @closed=${(e) => e.stopPropagation()}
+          >
+            ${modes.map(
+              (mode) => html`
+                <mwc-list-item .value=${mode}
+                  >${this._formatMode(mode)}</mwc-list-item
+                >
+              `
+            )}
+          </ha-select>
+        </div>
+      `;
+    }
+    return html`
+      <div class="control-row">
+        <div class="control-label">Runtime Mode</div>
+        <select
+          class="native-input"
+          .value=${runtimeMode || ""}
+          @change=${this._onModeChanged}
+        >
+          ${modes.map(
+            (mode) => html`
+              <option value=${mode}>${this._formatMode(mode)}</option>
+            `
+          )}
+        </select>
+      </div>
+    `;
+  }
+
+  _renderActions() {
+    const hasEdits = this._hasEdits();
+    if (customElements.get("mwc-button") !== undefined) {
+      return html`
+        <div class="actions">
+          <mwc-button
+            outlined
+            label="Reset"
+            @click=${this._reset}
+            ?disabled=${!hasEdits}
+          ></mwc-button>
+          <mwc-button
+            raised
+            label="Save"
+            @click=${this._save}
+            ?disabled=${!hasEdits}
+          ></mwc-button>
+          <mwc-button
+            outlined
+            label="Close"
+            @click=${this._close}
+          ></mwc-button>
+        </div>
+      `;
+    }
+    return html`
+      <div class="actions">
+        <button type="button" @click=${this._reset} ?disabled=${!hasEdits}>
+          Reset
+        </button>
+        <button type="button" @click=${this._save} ?disabled=${!hasEdits}>
+          Save
+        </button>
+        <button type="button" @click=${this._close}>Close</button>
+      </div>
+    `;
+  }
+
   _findEntityId(domain, suffix) {
     const statusEntity = this.config.pid_entity;
     const deviceName = statusEntity.replace(/^sensor\./, "").replace(/_status$/, "");
@@ -1225,7 +1406,7 @@ class PIDControllerPopup extends LitElement {
     const rate_limiter_enabled = this._getValue("rate_limiter_enabled");
     const grid_limiter_limit = this._getValue("grid_limiter_limit");
     const rate_limit = this._getValue("rate_limit");
-    const runtime_modes = this._data.runtime_modes || [];
+    const runtime_modes = this._data.runtime_modes || RUNTIME_MODES;
 
     return html`
       <ha-card>
@@ -1238,199 +1419,58 @@ class PIDControllerPopup extends LitElement {
         <div class="section">
           <div class="section-title">Control</div>
           <div class="grid grid-2">
-            <div class="control-row">
-              <div class="control-label">Enabled</div>
-              <ha-switch
-                .checked=${enabled}
-                @change=${this._onEnableChanged}
-              ></ha-switch>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Runtime Mode</div>
-              <ha-select
-                .value=${runtime_mode || ""}
-                @selected=${(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  this._onModeChanged(e);
-                }}
-                @closed=${(e) => e.stopPropagation()}
-              >
-                ${runtime_modes.map(
-                  (mode) =>
-                    html`<mwc-list-item value="${mode}"
-                      >${this._formatMode(mode)}</mwc-list-item
-                    >`
-                )}
-              </ha-select>
-            </div>
+            ${this._renderSwitch("Enabled", enabled, this._onEnableChanged)}
+            ${this._renderRuntimeModeControl(runtime_mode, runtime_modes)}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">Manual Values</div>
           <div class="grid grid-2">
-            <div class="control-row">
-              <div class="control-label">Manual Output</div>
-              <ha-textfield
-                type="number"
-                .value=${this._editingFields.has("manual_out") && this._edited.manual_out !== undefined 
-                  ? String(this._edited.manual_out) 
-                  : String(manual_out ?? "")}
-                @input=${(e) => {
-                  e.stopPropagation();
-                  this._onNumberChanged("manual_out", e);
-                }}
-                @blur=${(e) => {
-                  e.stopPropagation();
-                  this._onNumberBlur("manual_out", e);
-                }}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Manual Setpoint</div>
-              <ha-textfield
-                type="number"
-                .value=${this._editingFields.has("manual_sp") && this._edited.manual_sp !== undefined 
-                  ? String(this._edited.manual_sp) 
-                  : String(manual_sp ?? "")}
-                @input=${(e) => {
-                  e.stopPropagation();
-                  this._onNumberChanged("manual_sp", e);
-                }}
-                @blur=${(e) => {
-                  e.stopPropagation();
-                  this._onNumberBlur("manual_sp", e);
-                }}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
+            ${this._renderNumberField("Manual Output", "manual_out", manual_out)}
+            ${this._renderNumberField("Manual Setpoint", "manual_sp", manual_sp)}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">PID Tuning</div>
           <div class="grid grid-2">
-            <div class="control-row">
-              <div class="control-label">Kp</div>
-              <ha-textfield
-                type="number"
-                step="0.1"
-                .value=${kp ?? ""}
-                @input=${(e) => this._onNumberChanged("kp", e)}
-                @blur=${(e) => this._onNumberBlur("kp", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Ki</div>
-              <ha-textfield
-                type="number"
-                step="0.01"
-                .value=${ki ?? ""}
-                @input=${(e) => this._onNumberChanged("ki", e)}
-                @blur=${(e) => this._onNumberBlur("ki", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Kd</div>
-              <ha-textfield
-                type="number"
-                step="0.1"
-                .value=${kd ?? ""}
-                @input=${(e) => this._onNumberChanged("kd", e)}
-                @blur=${(e) => this._onNumberBlur("kd", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Deadband</div>
-              <ha-textfield
-                type="number"
-                step="0.1"
-                .value=${deadband ?? ""}
-                @input=${(e) => this._onNumberChanged("deadband", e)}
-                @blur=${(e) => this._onNumberBlur("deadband", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
+            ${this._renderNumberField("Kp", "kp", kp, { step: "0.1" })}
+            ${this._renderNumberField("Ki", "ki", ki, { step: "0.01" })}
+            ${this._renderNumberField("Kd", "kd", kd, { step: "0.1" })}
+            ${this._renderNumberField("Deadband", "deadband", deadband, {
+              step: "0.1",
+            })}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">Output Limits</div>
           <div class="grid grid-2">
-            <div class="control-row">
-              <div class="control-label">Min Output</div>
-              <ha-textfield
-                type="number"
-                .value=${min_output ?? ""}
-                @input=${(e) => this._onNumberChanged("min_output", e)}
-                @blur=${(e) => this._onNumberBlur("min_output", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Max Output</div>
-              <ha-textfield
-                type="number"
-                .value=${max_output ?? ""}
-                @input=${(e) => this._onNumberChanged("max_output", e)}
-                @blur=${(e) => this._onNumberBlur("max_output", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
+            ${this._renderNumberField("Min Output", "min_output", min_output)}
+            ${this._renderNumberField("Max Output", "max_output", max_output)}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">Limiters</div>
           <div class="grid grid-2">
-            <div class="control-row">
-              <div class="control-label">Grid Limiter</div>
-              <ha-switch
-                .checked=${grid_limiter_enabled}
-                @change=${this._onGridLimiterChanged}
-              ></ha-switch>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Grid Limiter Limit</div>
-              <ha-textfield
-                type="number"
-                .value=${grid_limiter_limit ?? ""}
-                @input=${(e) => this._onNumberChanged("grid_limiter_limit", e)}
-                @blur=${(e) => this._onNumberBlur("grid_limiter_limit", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Rate Limiter</div>
-              <ha-switch
-                .checked=${rate_limiter_enabled}
-                @change=${this._onRateLimiterChanged}
-              ></ha-switch>
-            </div>
-
-            <div class="control-row">
-              <div class="control-label">Rate Limit</div>
-              <ha-textfield
-                type="number"
-                .value=${rate_limit ?? ""}
-                @input=${(e) => this._onNumberChanged("rate_limit", e)}
-                @blur=${(e) => this._onNumberBlur("rate_limit", e)}
-                placeholder="—"
-              ></ha-textfield>
-            </div>
+            ${this._renderSwitch(
+              "Grid Limiter",
+              grid_limiter_enabled,
+              this._onGridLimiterChanged
+            )}
+            ${this._renderNumberField(
+              "Grid Limiter Limit",
+              "grid_limiter_limit",
+              grid_limiter_limit
+            )}
+            ${this._renderSwitch(
+              "Rate Limiter",
+              rate_limiter_enabled,
+              this._onRateLimiterChanged
+            )}
+            ${this._renderNumberField("Rate Limit", "rate_limit", rate_limit)}
           </div>
         </div>
 
@@ -1480,25 +1520,7 @@ class PIDControllerPopup extends LitElement {
           </div>
         </div>
 
-        <div class="actions">
-          <mwc-button
-            outlined
-            label="Reset"
-            @click=${this._reset}
-            ?disabled=${!this._hasEdits()}
-          ></mwc-button>
-          <mwc-button
-            raised
-            label="Save"
-            @click=${this._save}
-            ?disabled=${!this._hasEdits()}
-          ></mwc-button>
-          <mwc-button
-            outlined
-            label="Close"
-            @click=${this._close}
-          ></mwc-button>
-        </div>
+        ${this._renderActions()}
       </ha-card>
     `;
   }

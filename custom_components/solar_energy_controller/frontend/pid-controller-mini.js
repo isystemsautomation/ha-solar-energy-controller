@@ -2,6 +2,7 @@ const MODULE_VERSION_QUERY = new URL(import.meta.url).search;
 
 import { LitElement, html, css } from "./lit-core.min.js";
 import { normalizeRuntimeMode, runtimeModeLabel } from "./runtime-modes.js";
+import { ensureHaComponents } from "./ha-components.js";
 
 class PIDControllerMini extends LitElement {
   static properties = {
@@ -718,6 +719,7 @@ class PIDControllerMini extends LitElement {
 
     await import(`./pid-controller-popup.js${MODULE_VERSION_QUERY}`);
     await customElements.whenDefined("pid-controller-popup");
+    await ensureHaComponents();
     return true;
   }
 

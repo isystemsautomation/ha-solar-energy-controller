@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.20
+
+- Fix PID Controller Editor popup: wait for lazy-loaded HA web components before render
+- Add `ha-components.js` loader (`loadCardHelpers` + `getConfigElement`) via relative import
+- Native `<input>` / `<select>` fallback when HA components are unavailable
+- Runtime Mode shows human-readable label (`MANUAL SP`) even before `mwc-list-item` loads
+
 ## 1.0.19
 
 - Fix double-load of pid-controller-popup (dynamic import with ?v= cache-busting)
