@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+- CI JavaScript test step could pass with zero tests when the `tests/js/**/*.test.mjs` glob did not expand under bash without `globstar` on Node 20
+
 ## 1.1.0
 
 ### Changed

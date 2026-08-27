@@ -18,6 +18,7 @@ from custom_components.solar_energy_controller import (
     async_setup_entry,
     async_unload_entry,
 )
+from custom_components.solar_energy_controller.coordinator import SolarEnergyFlowCoordinator
 from custom_components.solar_energy_controller.const import (
     CONF_GRID_POWER_ENTITY,
     CONF_OUTPUT_ENTITY,
@@ -102,7 +103,7 @@ async def test_async_setup_entry_success(mock_hass, mock_entry):
                 "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
                 return_value=MagicMock(),
             ):
-                mock_coordinator = MagicMock()
+                mock_coordinator = MagicMock(spec=SolarEnergyFlowCoordinator)
                 mock_coordinator.async_config_entry_first_refresh = AsyncMock()
                 mock_coordinator_class.return_value = mock_coordinator
 
@@ -157,7 +158,7 @@ async def test_async_setup_entry_unavailable_entities(mock_hass, mock_entry):
                 "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
                 return_value=MagicMock(),
             ):
-                mock_coordinator = MagicMock()
+                mock_coordinator = MagicMock(spec=SolarEnergyFlowCoordinator)
                 mock_coordinator.async_config_entry_first_refresh = AsyncMock()
                 mock_coordinator_class.return_value = mock_coordinator
 
@@ -187,7 +188,7 @@ async def test_async_setup_entry_coordinator_failure(mock_hass, mock_entry):
                 "custom_components.solar_energy_controller.__init__.async_track_state_change_event",
                 return_value=MagicMock(),
             ):
-                mock_coordinator = MagicMock()
+                mock_coordinator = MagicMock(spec=SolarEnergyFlowCoordinator)
                 mock_coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=Exception("Test error"))
                 mock_coordinator_class.return_value = mock_coordinator
 
