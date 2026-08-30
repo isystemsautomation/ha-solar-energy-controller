@@ -75,6 +75,26 @@ If you are unsure whether your device is supported, check if you can:
 
 ---
 
+## Custom Dashboard Card
+
+The integration registers two Lovelace modules automatically (**Settings → Dashboards → Resources**). Add the **PID Controller Mini** card to your dashboard and set `pid_entity` to your controller's `sensor.<name>_status` entity.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/DashboardMini.png" alt="PID Controller Mini card with PV, SP, output metrics and history chart" width="420">
+</p>
+
+The mini card shows status, runtime mode, PV/SP/error/output, and a **1-hour history chart**. The chart uses **two Y-axes** with units on the tick labels (for example **W** for PV/SP on the left, **A** or **%** for output on the right — taken from your entity `unit_of_measurement`). A caption under the chart lists the three source sensors (`*_pv_value`, `*_effective_sp`, `*_output`).
+
+Tap the card or **Open Editor** for the full popup:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/DashboardPopup.png" alt="PID Controller popup editor with chart, tuning fields, and limiters" width="520">
+</p>
+
+The popup editor lets you change runtime mode, PID gains, output limits, grid/rate limiters, and view P/I/D terms and grid power. After an integration update, **reload the integration** and hard-refresh the dashboard (Ctrl+F5) if the card shows **Configuration error** — some browsers cache old JavaScript modules longer than others.
+
+---
+
 ## How the Controller Works
 
 The controller internally **normalizes PV, SP, and Grid Power to a 0–100% range** using configured raw min/max values:
