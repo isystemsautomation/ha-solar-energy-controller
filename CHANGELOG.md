@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.4
+
+### Fixed
+- Chart history uses step-hold (like HA), not linear interpolation between unrelated timestamps — removes phantom slopes and axis spikes
+- Chart legend and axis titles show units; caption lists the three source sensors (`*_pv_value`, `*_effective_sp`, `*_output`)
+
 ## 1.1.3
 
 ### Fixed

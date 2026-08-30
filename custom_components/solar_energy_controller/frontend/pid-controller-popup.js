@@ -14,6 +14,8 @@ import {
   formatValue,
   getEntityIds,
   loadChartJS,
+  buildChartMeta,
+  createHistoryLineChartConfig,
   updateTraces,
 } from "./chart-utils.js";
 
@@ -174,6 +176,14 @@ class PIDControllerPopup extends LitElement {
       max-width: 100%;
     }
 
+    .graph-caption {
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: var(--secondary-text-color);
+      word-break: break-word;
+    }
+
   `;
 
   constructor() {
@@ -191,6 +201,7 @@ class PIDControllerPopup extends LitElement {
     this._chart = null;
     this._graphInFlight = false;
     this._graphUpdateTimeout = null;
+    this._chartCaption = "";
   }
 
   async connectedCallback() {
@@ -1177,122 +1188,10 @@ class PIDControllerPopup extends LitElement {
 
     // Create Chart.js instance once
     const ctx = this._canvas.getContext("2d");
-    this._chart = new window.Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "PV",
-            data: [],
-            borderColor: "#2196F3",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_pv_sp",
-          },
-          {
-            label: "SP",
-            data: [],
-            borderColor: "#FF9800",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_pv_sp",
-          },
-          {
-            label: "OUTPUT",
-            data: [],
-            borderColor: "#9C27B0",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_out",
-          },
-        ],
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          intersect: false,
-          mode: "index",
-        },
-        plugins: {
-          legend: {
-            display: true,
-            position: "top",
-            labels: {
-              usePointStyle: true,
-              padding: 10,
-              font: {
-                size: 11,
-              },
-            },
-          },
-          tooltip: {
-            enabled: true,
-          },
-        },
-        scales: {
-          x: {
-            grid: {
-              color: "var(--divider-color, #ddd)",
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              maxTicksLimit: 5,
-              callback: function (value) {
-                const label = this.getLabelForValue(value);
-                if (!label) return "";
-                const date = new Date(label);
-                return date.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-              },
-            },
-          },
-          y_pv_sp: {
-            position: "left",
-            grid: {
-              color: "var(--divider-color, #ddd)",
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              callback: function (value) {
-                return value.toFixed(0);
-              },
-            },
-          },
-          y_out: {
-            position: "right",
-            grid: {
-              drawOnChartArea: false,
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              callback: function (value) {
-                return value.toFixed(0);
-              },
-            },
-          },
-        },
-      },
-    });
+    const entityIds = this._getEntityIds();
+    const meta = buildChartMeta(this.hass, entityIds);
+    this._chartCaption = meta?.caption || "";
+    this._chart = new window.Chart(ctx, createHistoryLineChartConfig(meta));
 
     // Setup resize observer
     if (!this._resizeObserver) {
@@ -1325,7 +1224,9 @@ class PIDControllerPopup extends LitElement {
       const points = await fetchHistory(this.hass, entityIds);
 
       if (points) {
+        this._chartCaption = points.meta?.caption || this._chartCaption;
         updateTraces(this._chart, points);
+        this.requestUpdate();
       }
     } catch (err) {
       console.error("Error updating graph:", err);
@@ -1375,6 +1276,9 @@ class PIDControllerPopup extends LitElement {
             `}
 
         <div class="graph-container" id="popup-graph-container"></div>
+        ${this._chartCaption
+          ? html`<div class="graph-caption">Source: ${this._chartCaption}</div>`
+          : html``}
 
         <div class="section">
           <div class="section-title">Control</div>

@@ -53,7 +53,7 @@ export async function fetchHistory(hass, entityIds) {
       return null;
     }
 
-    return parseHistory(history, entityIds);
+    return applyChartMeta(parseHistory(history, entityIds), buildChartMeta(hass, entityIds));
   } catch (err) {
     console.error("Error fetching history:", err);
     return null;
@@ -104,18 +104,106 @@ export function parseHistory(history, entityIds) {
   data.pv.sort((a, b) => a.time - b.time);
   data.sp.sort((a, b) => a.time - b.time);
   data.output.sort((a, b) => a.time - b.time);
-  const pvData = interpolateToTimeAxis(data.pv, sortedTimes);
-  const spData = interpolateToTimeAxis(data.sp, sortedTimes);
-  const outputData = interpolateToTimeAxis(data.output, sortedTimes);
+  const pvData = alignSeriesToTimeAxis(data.pv, sortedTimes);
+  const spData = alignSeriesToTimeAxis(data.sp, sortedTimes);
+  const outputData = alignSeriesToTimeAxis(data.output, sortedTimes);
 
   return {
     labels,
+    entityIds,
     datasets: [
       { label: "PV", data: pvData },
       { label: "SP", data: spData },
       { label: "OUTPUT", data: outputData },
     ],
   };
+}
+
+export function getEntityUnit(hass, entityId) {
+  if (!hass?.states?.[entityId]) {
+    return null;
+  }
+  const unit = hass.states[entityId].attributes?.unit_of_measurement;
+  return typeof unit === "string" && unit ? unit : null;
+}
+
+export function buildChartMeta(hass, entityIds) {
+  if (!entityIds) {
+    return null;
+  }
+
+  const pvUnit = getEntityUnit(hass, entityIds.pv);
+  const spUnit = getEntityUnit(hass, entityIds.sp);
+  const outUnit = getEntityUnit(hass, entityIds.output) || "%";
+  const leftUnit = pvUnit || spUnit || "";
+
+  return {
+    entityIds,
+    pvLabel: pvUnit ? `PV (${pvUnit})` : "PV",
+    spLabel: spUnit ? `SP (${spUnit})` : "SP",
+    outputLabel: outUnit ? `Output (${outUnit})` : "Output",
+    leftAxisTitle: leftUnit ? `PV / SP, ${leftUnit}` : "PV / SP",
+    rightAxisTitle: outUnit ? `Output, ${outUnit}` : "Output",
+    caption: `${entityIds.pv} · ${entityIds.sp} · ${entityIds.output}`,
+  };
+}
+
+export function applyChartMeta(points, meta) {
+  if (!points || !meta) {
+    return points;
+  }
+
+  const labels = [meta.pvLabel, meta.spLabel, meta.outputLabel];
+  return {
+    ...points,
+    meta,
+    datasets: points.datasets.map((dataset, index) => ({
+      ...dataset,
+      label: labels[index] || dataset.label,
+    })),
+  };
+}
+
+export function updateChartAxisTitles(chart, meta) {
+  if (!chart?.options?.scales || !meta) {
+    return;
+  }
+
+  if (chart.options.scales.y_pv_sp?.title) {
+    chart.options.scales.y_pv_sp.title.text = meta.leftAxisTitle;
+  }
+  if (chart.options.scales.y_out?.title) {
+    chart.options.scales.y_out.title.text = meta.rightAxisTitle;
+  }
+  chart.update("none");
+}
+
+/**
+ * Step-hold alignment like HA history: flat until the next recorded state.
+ * No values before the first sample (null) — avoids synthetic back-fill.
+ */
+export function alignSeriesToTimeAxis(points, timeAxis) {
+  if (!points || points.length === 0) {
+    return new Array(timeAxis.length).fill(null);
+  }
+
+  const result = [];
+  let i = 0;
+
+  for (const time of timeAxis) {
+    while (i < points.length - 1 && points[i + 1].time <= time) {
+      i++;
+    }
+
+    if (time < points[0].time) {
+      result.push(null);
+      continue;
+    }
+
+    result.push(points[i].value);
+  }
+
+  return result;
 }
 
 export function interpolateToTimeAxis(points, timeAxis) {
@@ -164,10 +252,150 @@ export function updateTraces(chart, points) {
   points.datasets.forEach((dataset, index) => {
     if (chart.data.datasets[index]) {
       chart.data.datasets[index].data = dataset.data;
+      if (dataset.label) {
+        chart.data.datasets[index].label = dataset.label;
+      }
     }
   });
 
+  updateChartAxisTitles(chart, points.meta);
   chart.update("none");
+}
+
+export function createHistoryLineChartConfig(meta) {
+  const pvLabel = meta?.pvLabel || "PV";
+  const spLabel = meta?.spLabel || "SP";
+  const outputLabel = meta?.outputLabel || "Output";
+  const leftAxisTitle = meta?.leftAxisTitle || "PV / SP";
+  const rightAxisTitle = meta?.rightAxisTitle || "Output";
+
+  return {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: pvLabel,
+          data: [],
+          borderColor: "#2196F3",
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0,
+          spanGaps: false,
+          yAxisID: "y_pv_sp",
+        },
+        {
+          label: spLabel,
+          data: [],
+          borderColor: "#FF9800",
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0,
+          spanGaps: false,
+          yAxisID: "y_pv_sp",
+        },
+        {
+          label: outputLabel,
+          data: [],
+          borderColor: "#9C27B0",
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0,
+          spanGaps: false,
+          yAxisID: "y_out",
+        },
+      ],
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "index",
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: "top",
+          labels: {
+            usePointStyle: true,
+            padding: 10,
+            font: { size: 11 },
+          },
+        },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label(context) {
+              const label = context.dataset.label || "";
+              const value = context.parsed.y;
+              if (value === null || value === undefined) {
+                return `${label}: —`;
+              }
+              return `${label}: ${value}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: "var(--divider-color, #ddd)" },
+          ticks: {
+            color: "var(--secondary-text-color, #888)",
+            font: { size: 10 },
+            maxTicksLimit: 5,
+            callback(value) {
+              const label = this.getLabelForValue(value);
+              if (!label) return "";
+              const date = new Date(label);
+              return date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            },
+          },
+        },
+        y_pv_sp: {
+          position: "left",
+          title: {
+            display: true,
+            text: leftAxisTitle,
+            color: "var(--secondary-text-color, #888)",
+            font: { size: 10 },
+          },
+          grid: { color: "var(--divider-color, #ddd)" },
+          ticks: {
+            color: "var(--secondary-text-color, #888)",
+            font: { size: 10 },
+            callback(value) {
+              return value.toFixed(0);
+            },
+          },
+        },
+        y_out: {
+          position: "right",
+          title: {
+            display: true,
+            text: rightAxisTitle,
+            color: "var(--secondary-text-color, #888)",
+            font: { size: 10 },
+          },
+          grid: { drawOnChartArea: false },
+          ticks: {
+            color: "var(--secondary-text-color, #888)",
+            font: { size: 10 },
+            callback(value) {
+              return value.toFixed(0);
+            },
+          },
+        },
+      },
+    },
+  };
 }
 
 export function formatValue(value) {

@@ -2,10 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  alignSeriesToTimeAxis,
   interpolateToTimeAxis,
   parseHistory,
   formatValue,
   getEntityIds,
+  buildChartMeta,
+  applyChartMeta,
 } from "../../custom_components/solar_energy_controller/frontend/chart-utils.js";
 import {
   normalizeRuntimeMode,
@@ -15,6 +18,47 @@ import {
   RUNTIME_MODE_HOLD,
   RUNTIME_MODE_MANUAL_OUT,
 } from "../../custom_components/solar_energy_controller/frontend/runtime-modes.js";
+
+describe("alignSeriesToTimeAxis", () => {
+  it("holds flat between recorded states", () => {
+    assert.deepEqual(
+      alignSeriesToTimeAxis(
+        [
+          { time: 0, value: 0 },
+          { time: 10, value: 100 },
+        ],
+        [0, 5, 10]
+      ),
+      [0, 0, 100]
+    );
+  });
+
+  it("returns null before the first sample", () => {
+    assert.deepEqual(
+      alignSeriesToTimeAxis(
+        [
+          { time: 1000, value: 42 },
+          { time: 2000, value: 43 },
+        ],
+        [0, 500, 1000]
+      ),
+      [null, null, 42]
+    );
+  });
+
+  it("holds last value after the series ends", () => {
+    assert.deepEqual(
+      alignSeriesToTimeAxis(
+        [
+          { time: 0, value: 5 },
+          { time: 1000, value: 250 },
+        ],
+        [0, 1000, 60000]
+      ),
+      [5, 250, 250]
+    );
+  });
+});
 
 describe("interpolateToTimeAxis", () => {
   it("matches both endpoint times exactly", () => {
@@ -43,70 +87,8 @@ describe("interpolateToTimeAxis", () => {
     );
   });
 
-  it("holds last value after the series ends", () => {
-    assert.deepEqual(
-      interpolateToTimeAxis(
-        [
-          { time: 0, value: 5 },
-          { time: 1000, value: 250 },
-        ],
-        [0, 1000, 60000, 360000]
-      ),
-      [5, 250, 250, 250]
-    );
-  });
-
-  it("holds first value before the series starts", () => {
-    assert.deepEqual(
-      interpolateToTimeAxis(
-        [
-          { time: 1000, value: 42 },
-          { time: 2000, value: 43 },
-        ],
-        [0, 500, 1000]
-      ),
-      [42, 42, 42]
-    );
-  });
-
   it("returns nulls for empty points", () => {
     assert.deepEqual(interpolateToTimeAxis([], [1, 2, 3]), [null, null, null]);
-  });
-
-  it("repeats a single point", () => {
-    assert.deepEqual(
-      interpolateToTimeAxis([{ time: 5000, value: 6 }], [0, 5000, 99999]),
-      [6, 6, 6]
-    );
-  });
-
-  it("handles duplicate timestamps without NaN or Infinity", () => {
-    const out = interpolateToTimeAxis(
-      [
-        { time: 0, value: 1 },
-        { time: 0, value: 2 },
-      ],
-      [0, 1]
-    );
-    assert.ok(out.every((v) => Number.isFinite(v)));
-    assert.deepEqual(out, [1, 2]);
-  });
-
-  it("keeps sparse series within the data range", () => {
-    const axis = [];
-    for (let t = 0; t <= 3600000; t += 10000) {
-      axis.push(t);
-    }
-    const series = interpolateToTimeAxis(
-      [
-        { time: 0, value: -500 },
-        { time: 10000, value: -499 },
-      ],
-      axis
-    );
-    for (const v of series) {
-      assert.ok(v >= -500 && v <= -499, `out of range: ${v}`);
-    }
   });
 });
 
@@ -156,6 +138,44 @@ describe("parseHistory", () => {
 
   it("returns null for empty history", () => {
     assert.equal(parseHistory([], entityIds), null);
+  });
+});
+
+describe("buildChartMeta", () => {
+  it("adds units to labels and axis titles", () => {
+    const hass = {
+      states: {
+        "sensor.test_pv_value": { attributes: { unit_of_measurement: "W" } },
+        "sensor.test_effective_sp": { attributes: { unit_of_measurement: "W" } },
+        "sensor.test_output": { attributes: { unit_of_measurement: "%" } },
+      },
+    };
+    const meta = buildChartMeta(hass, {
+      pv: "sensor.test_pv_value",
+      sp: "sensor.test_effective_sp",
+      output: "sensor.test_output",
+    });
+    assert.equal(meta.pvLabel, "PV (W)");
+    assert.equal(meta.leftAxisTitle, "PV / SP, W");
+    assert.equal(meta.rightAxisTitle, "Output, %");
+  });
+
+  it("applyChartMeta renames datasets", () => {
+    const points = {
+      labels: ["t"],
+      datasets: [{ label: "PV", data: [1] }, { label: "SP", data: [2] }, { label: "OUTPUT", data: [3] }],
+    };
+    const meta = {
+      pvLabel: "PV (W)",
+      spLabel: "SP (W)",
+      outputLabel: "Output (%)",
+      leftAxisTitle: "PV / SP, W",
+      rightAxisTitle: "Output, %",
+      caption: "a · b · c",
+    };
+    const labeled = applyChartMeta(points, meta);
+    assert.equal(labeled.datasets[2].label, "Output (%)");
+    assert.equal(labeled.meta.caption, "a · b · c");
   });
 });
 

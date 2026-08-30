@@ -8,6 +8,8 @@ import {
   formatValue,
   getEntityIds,
   loadChartJS,
+  buildChartMeta,
+  createHistoryLineChartConfig,
   updateTraces,
 } from "./chart-utils.js";
 
@@ -310,122 +312,9 @@ class PIDControllerMini extends LitElement {
 
     // Create Chart.js instance once
     const ctx = this._canvas.getContext("2d");
-    this._chart = new window.Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "PV",
-            data: [],
-            borderColor: "#2196F3",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_pv_sp",
-          },
-          {
-            label: "SP",
-            data: [],
-            borderColor: "#FF9800",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_pv_sp",
-          },
-          {
-            label: "OUTPUT",
-            data: [],
-            borderColor: "#9C27B0",
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: "y_out",
-          },
-        ],
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          intersect: false,
-          mode: "index",
-        },
-        plugins: {
-          legend: {
-            display: true,
-            position: "top",
-            labels: {
-              usePointStyle: true,
-              padding: 10,
-              font: {
-                size: 11,
-              },
-            },
-          },
-          tooltip: {
-            enabled: true,
-          },
-        },
-        scales: {
-          x: {
-            grid: {
-              color: "var(--divider-color, #ddd)",
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              maxTicksLimit: 5,
-              callback: function (value) {
-                const label = this.getLabelForValue(value);
-                if (!label) return "";
-                const date = new Date(label);
-                return date.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-              },
-            },
-          },
-          y_pv_sp: {
-            position: "left",
-            grid: {
-              color: "var(--divider-color, #ddd)",
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              callback: function (value) {
-                return value.toFixed(0);
-              },
-            },
-          },
-          y_out: {
-            position: "right",
-            grid: {
-              drawOnChartArea: false,
-            },
-            ticks: {
-              color: "var(--secondary-text-color, #888)",
-              font: {
-                size: 10,
-              },
-              callback: function (value) {
-                return value.toFixed(0);
-              },
-            },
-          },
-        },
-      },
-    });
+    const entityIds = getEntityIds(this.hass, this.config?.pid_entity);
+    const meta = buildChartMeta(this.hass, entityIds);
+    this._chart = new window.Chart(ctx, createHistoryLineChartConfig(meta));
 
     // Setup resize observer
     if (!this._resizeObserver) {
