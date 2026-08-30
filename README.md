@@ -181,7 +181,7 @@ To remove the Solar Energy Controller integration:
 During setup you select the entities used by the controller and define their operating ranges for normalization.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration1.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration1.png" alt="Solar Energy Controller initial setup wizard" width="320">
 </p>
 
 ### Installation Parameters
@@ -243,7 +243,7 @@ The following parameters are required during the initial setup:
 After installation, you can configure signal interpretation and controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration2.png" width="300">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration2.png" alt="PID settings options dialog" width="320">
 </p>
 
 ### Options
@@ -274,7 +274,7 @@ After installation, you can configure signal interpretation and controller behav
 Runtime controls allow switching modes and manually overriding behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration3.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration3.png" alt="Runtime Controls entity card" width="360">
 </p>
 
 ### Runtime Modes
@@ -307,7 +307,7 @@ Mode transitions use **bumpless transfer** to avoid output jumps.
 The integration exposes detailed runtime sensors for transparency and tuning.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration4.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration4.png" alt="Live sensor entities" width="360">
 </p>
 
 ### Sensors
@@ -331,7 +331,7 @@ The integration exposes detailed runtime sensors for transparency and tuning.
 All tuning and limiter parameters are available as number and switch entities.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration5.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration5.png" alt="Configuration number and switch entities" width="360">
 </p>
 
 ### PID & Limits
@@ -374,7 +374,7 @@ All tuning and limiter parameters are available as number and switch entities.
 Additional diagnostic entities help understand controller behavior.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration6.png" width="200">
+  <img src="https://raw.githubusercontent.com/isystemsautomation/hm-solar-energy-controller/main/images/Configuration6.png" alt="Diagnostic entities" width="360">
 </p>
 
 ### Diagnostic Entities
