@@ -77,6 +77,18 @@ class PIDControllerPopup extends LitElement {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .limiter-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+
+    .limiter-row:last-child {
+      margin-bottom: 0;
+    }
+
     .control-row {
       display: flex;
       flex-direction: column;
@@ -1410,7 +1422,7 @@ class PIDControllerPopup extends LitElement {
 
         <div class="section">
           <div class="section-title">Limiters</div>
-          <div class="grid grid-3">
+          <div class="limiter-row">
             ${this._renderSwitch(
               "Grid Limiter",
               grid_limiter_enabled,
@@ -1422,6 +1434,8 @@ class PIDControllerPopup extends LitElement {
               grid_limiter_limit,
               { step: "1" }
             )}
+          </div>
+          <div class="limiter-row">
             ${this._renderSwitch(
               "Rate Limiter",
               rate_limiter_enabled,

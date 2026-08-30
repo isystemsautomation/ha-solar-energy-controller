@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3
+
+### Fixed
+- Popup Limiters section: Grid Limiter + Grid Limit on one row, Rate Limiter + Rate Limit on the next
+
 ## 1.1.2
 
 ### Fixed
