@@ -6,6 +6,7 @@ import {
   interpolateToTimeAxis,
   parseHistory,
   formatValue,
+  formatAxisTick,
   getEntityIds,
   buildChartMeta,
   applyChartMeta,
@@ -156,6 +157,8 @@ describe("buildChartMeta", () => {
       output: "sensor.test_output",
     });
     assert.equal(meta.pvLabel, "PV (W)");
+    assert.equal(meta.leftUnit, "W");
+    assert.equal(meta.rightUnit, "%");
     assert.equal(meta.leftAxisTitle, "PV / SP, W");
     assert.equal(meta.rightAxisTitle, "Output, %");
   });
@@ -176,6 +179,23 @@ describe("buildChartMeta", () => {
     const labeled = applyChartMeta(points, meta);
     assert.equal(labeled.datasets[2].label, "Output (%)");
     assert.equal(labeled.meta.caption, "a · b · c");
+  });
+});
+
+describe("formatAxisTick", () => {
+  it("appends unit to formatted values", () => {
+    assert.equal(formatAxisTick(1234, "W"), "1234 W");
+    assert.equal(formatAxisTick(12.5, "kW"), "12.5 kW");
+    assert.equal(formatAxisTick(45, "%"), "45 %");
+  });
+
+  it("returns bare number when unit is missing", () => {
+    assert.equal(formatAxisTick(10, ""), "10");
+    assert.equal(formatAxisTick(3.3, null), "3.3");
+  });
+
+  it("returns empty string for non-finite values", () => {
+    assert.equal(formatAxisTick(Number.NaN, "W"), "");
   });
 });
 

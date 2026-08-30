@@ -139,6 +139,11 @@ export function buildChartMeta(hass, entityIds) {
 
   return {
     entityIds,
+    pvUnit,
+    spUnit,
+    outUnit,
+    leftUnit,
+    rightUnit: outUnit,
     pvLabel: pvUnit ? `PV (${pvUnit})` : "PV",
     spLabel: spUnit ? `SP (${spUnit})` : "SP",
     outputLabel: outUnit ? `Output (${outUnit})` : "Output",
@@ -164,16 +169,53 @@ export function applyChartMeta(points, meta) {
   };
 }
 
+export function formatAxisTick(value, unit) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "";
+  }
+
+  const abs = Math.abs(value);
+  let formatted;
+  if (abs >= 1000) {
+    formatted = value.toFixed(0);
+  } else if (abs >= 100) {
+    formatted = value.toFixed(0);
+  } else if (abs >= 10) {
+    formatted = value.toFixed(1);
+  } else {
+    formatted = value.toFixed(1);
+  }
+
+  if (formatted.endsWith(".0")) {
+    formatted = formatted.slice(0, -2);
+  }
+
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
+export function axisTickCallback(scaleId) {
+  return function axisTick(value) {
+    const unit = this.chart?.options?.scales?.[scaleId]?.unit || "";
+    return formatAxisTick(value, unit);
+  };
+}
+
 export function updateChartAxisTitles(chart, meta) {
   if (!chart?.options?.scales || !meta) {
     return;
   }
 
-  if (chart.options.scales.y_pv_sp?.title) {
-    chart.options.scales.y_pv_sp.title.text = meta.leftAxisTitle;
+  if (chart.options.scales.y_pv_sp) {
+    if (chart.options.scales.y_pv_sp.title) {
+      chart.options.scales.y_pv_sp.title.text = meta.leftAxisTitle;
+    }
+    chart.options.scales.y_pv_sp.unit = meta.leftUnit || "";
   }
-  if (chart.options.scales.y_out?.title) {
-    chart.options.scales.y_out.title.text = meta.rightAxisTitle;
+  if (chart.options.scales.y_out) {
+    if (chart.options.scales.y_out.title) {
+      chart.options.scales.y_out.title.text = meta.rightAxisTitle;
+    }
+    chart.options.scales.y_out.unit = meta.rightUnit || "";
   }
   chart.update("none");
 }
@@ -268,6 +310,8 @@ export function createHistoryLineChartConfig(meta) {
   const outputLabel = meta?.outputLabel || "Output";
   const leftAxisTitle = meta?.leftAxisTitle || "PV / SP";
   const rightAxisTitle = meta?.rightAxisTitle || "Output";
+  const leftUnit = meta?.leftUnit || "";
+  const rightUnit = meta?.rightUnit || "";
 
   return {
     type: "line",
@@ -336,7 +380,10 @@ export function createHistoryLineChartConfig(meta) {
               if (value === null || value === undefined) {
                 return `${label}: —`;
               }
-              return `${label}: ${value}`;
+              const unitMatch = label.match(/\(([^)]+)\)$/);
+              const unit = unitMatch ? unitMatch[1] : "";
+              const name = unit ? label.replace(` (${unit})`, "") : label;
+              return `${name}: ${formatAxisTick(value, unit)}`;
             },
           },
         },
@@ -361,36 +408,38 @@ export function createHistoryLineChartConfig(meta) {
         },
         y_pv_sp: {
           position: "left",
+          unit: leftUnit,
           title: {
             display: true,
             text: leftAxisTitle,
-            color: "var(--secondary-text-color, #888)",
-            font: { size: 10 },
+            color: "var(--primary-text-color, #333)",
+            font: { size: 12, weight: "600" },
+            padding: { top: 0, bottom: 4 },
           },
           grid: { color: "var(--divider-color, #ddd)" },
           ticks: {
             color: "var(--secondary-text-color, #888)",
-            font: { size: 10 },
-            callback(value) {
-              return value.toFixed(0);
-            },
+            font: { size: 11 },
+            maxTicksLimit: 5,
+            callback: axisTickCallback("y_pv_sp"),
           },
         },
         y_out: {
           position: "right",
+          unit: rightUnit,
           title: {
             display: true,
             text: rightAxisTitle,
-            color: "var(--secondary-text-color, #888)",
-            font: { size: 10 },
+            color: "var(--primary-text-color, #333)",
+            font: { size: 12, weight: "600" },
+            padding: { top: 0, bottom: 4 },
           },
           grid: { drawOnChartArea: false },
           ticks: {
             color: "var(--secondary-text-color, #888)",
-            font: { size: 10 },
-            callback(value) {
-              return value.toFixed(0);
-            },
+            font: { size: 11 },
+            maxTicksLimit: 5,
+            callback: axisTickCallback("y_out"),
           },
         },
       },

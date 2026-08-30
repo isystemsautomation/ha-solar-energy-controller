@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.5
+
+### Changed
+- Chart Y-axis tick labels include units (e.g. `12.5 kW` left, `45 %` right); axis titles are larger and bolder
+
 ## 1.1.4
 
 ### Fixed
