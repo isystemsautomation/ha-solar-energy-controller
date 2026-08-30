@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   resolvePidEntity,
   validatePidCardConfig,
-} from "../../custom_components/solar_energy_controller/frontend/card-config.js";
+} from "../../custom_components/solar_energy_controller/frontend/runtime-modes.js";
 
 describe("validatePidCardConfig", () => {
   it("accepts pid_entity", () => {

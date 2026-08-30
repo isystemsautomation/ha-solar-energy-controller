@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.7
+
+### Fixed
+- Lovelace no longer blocks the mini card with a generic **Configuration error** when `pid_entity` is missing — the card loads and shows what to fix
+- Card config validation helpers moved into `runtime-modes.js` (one fewer module import at load time)
+
 ## 1.1.6
 
 ### Fixed

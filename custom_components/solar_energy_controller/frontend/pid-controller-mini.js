@@ -1,9 +1,8 @@
 const MODULE_VERSION_QUERY = new URL(import.meta.url).search;
 
 import { LitElement, html, css } from "./lit-core.min.js";
-import { normalizeRuntimeMode, runtimeModeLabel } from "./runtime-modes.js";
+import { normalizeRuntimeMode, runtimeModeLabel, validatePidCardConfig } from "./runtime-modes.js";
 import { ensureHaComponents } from "./ha-components.js";
-import { validatePidCardConfig } from "./card-config.js";
 import {
   fetchHistory,
   formatValue,
@@ -19,6 +18,7 @@ class PIDControllerMini extends LitElement {
     hass: { type: Object },
     config: { type: Object },
     _data: { state: true },
+    _configError: { state: true },
   };
 
   static styles = css`
@@ -190,7 +190,7 @@ class PIDControllerMini extends LitElement {
       schema: [
         {
           name: "pid_entity",
-          required: true,
+          required: false,
           selector: {
             entity: {
               domain: "sensor",
@@ -261,6 +261,13 @@ class PIDControllerMini extends LitElement {
           },
         },
       ],
+    };
+  }
+
+  static getStubConfig() {
+    return {
+      pid_entity: "sensor.solar_energy_controller_status",
+      title: "PID Controller",
     };
   }
 

@@ -9,7 +9,7 @@ import {
   runtimeModeLabel,
 } from "./runtime-modes.js";
 import { ensureHaComponents } from "./ha-components.js";
-import { validatePidCardConfig } from "./card-config.js";
+import { validatePidCardConfig } from "./runtime-modes.js";
 import {
   fetchHistory,
   formatValue,
