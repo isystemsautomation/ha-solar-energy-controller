@@ -512,8 +512,8 @@ class PIDControllerMini extends LitElement {
         border: none;
         padding: 0;
         margin: auto;
-        width: min(920px, 95vw);
-        max-height: 90vh;
+        width: min(680px, 92vw);
+        max-height: 85vh;
         overflow: auto;
         background: var(--card-background-color, #1c1c1c);
         color: var(--primary-text-color, #fff);
@@ -528,14 +528,14 @@ class PIDControllerMini extends LitElement {
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 16px 16px 0;
+        padding: 12px 12px 0;
         position: sticky;
         top: 0;
         z-index: 1;
         background: var(--card-background-color, #1c1c1c);
       }
       .pid-controller-native-dialog-title {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 500;
       }
       .pid-controller-native-dialog-close {

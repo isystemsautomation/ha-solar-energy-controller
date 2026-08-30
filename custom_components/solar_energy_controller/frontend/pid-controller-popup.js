@@ -32,12 +32,12 @@ class PIDControllerPopup extends LitElement {
     }
 
     ha-card {
-      padding: 16px;
+      padding: 12px;
     }
 
     .header {
-      margin-bottom: 24px;
-      padding-bottom: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--divider-color);
       display: flex;
       justify-content: flex-start;
@@ -45,38 +45,42 @@ class PIDControllerPopup extends LitElement {
     }
 
     .title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 500;
       color: var(--primary-text-color);
     }
 
     .section {
-      margin-bottom: 24px;
+      margin-bottom: 14px;
     }
 
     .section-title {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 500;
       color: var(--primary-text-color);
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
     }
 
     .grid-2 {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .control-row {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
     }
 
     .control-label {
@@ -110,9 +114,9 @@ class PIDControllerPopup extends LitElement {
 
     .sensor-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
     }
 
     .sensor-item {
@@ -135,9 +139,9 @@ class PIDControllerPopup extends LitElement {
     .actions {
       display: flex;
       justify-content: flex-end;
-      gap: 12px;
-      margin-top: 24px;
-      padding-top: 16px;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid var(--divider-color);
     }
 
@@ -146,10 +150,10 @@ class PIDControllerPopup extends LitElement {
     }
 
     .graph-container {
-      margin-bottom: 24px;
-      padding-bottom: 16px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
       border-bottom: 1px solid var(--divider-color);
-      min-height: 200px;
+      min-height: 140px;
     }
 
     .graph-container canvas {
@@ -739,6 +743,30 @@ class PIDControllerPopup extends LitElement {
     return formatValue(value);
   }
 
+  _inDialog() {
+    return Boolean(this.closest("dialog") || this.closest("ha-dialog"));
+  }
+
+  _formatFieldNumber(value, step = "any") {
+    if (value === null || value === undefined) {
+      return "";
+    }
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return String(value);
+    }
+    if (step === "0.01") {
+      return String(Math.round(value * 100) / 100);
+    }
+    if (step === "0.1") {
+      const rounded = value.toFixed(1);
+      return rounded === "-0.0" ? "0.0" : rounded;
+    }
+    if (step === "1") {
+      return String(Math.round(value));
+    }
+    return this._formatValue(value);
+  }
+
   _formatMode(mode) {
     if (!mode) return "—";
     return runtimeModeLabel(mode);
@@ -750,8 +778,12 @@ class PIDControllerPopup extends LitElement {
 
   _renderNumberField(label, key, rawValue, options = {}) {
     const { disabled = false, step = "any" } = options;
-    const value =
-      rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+    const isEditing = this._editingFields.has(key);
+    const value = isEditing
+      ? rawValue !== null && rawValue !== undefined
+        ? String(rawValue)
+        : ""
+      : this._formatFieldNumber(rawValue, step);
     const onInput = (ev) => {
       ev.stopPropagation();
       this._onNumberChanged(key, ev);
@@ -1126,7 +1158,7 @@ class PIDControllerPopup extends LitElement {
     if (!this._canvas) {
       this._canvas = document.createElement("canvas");
       this._canvas.style.width = "100%";
-      this._canvas.style.height = "200px";
+      this._canvas.style.height = "140px";
       this._canvas.style.display = "block";
       container.appendChild(this._canvas);
     }
@@ -1322,9 +1354,13 @@ class PIDControllerPopup extends LitElement {
 
     return html`
       <ha-card>
-        <div class="header">
-          <div class="title">PID Controller Editor</div>
-        </div>
+        ${this._inDialog()
+          ? html``
+          : html`
+              <div class="header">
+                <div class="title">PID Controller Editor</div>
+              </div>
+            `}
 
         <div class="graph-container" id="popup-graph-container"></div>
 
@@ -1339,14 +1375,18 @@ class PIDControllerPopup extends LitElement {
         <div class="section">
           <div class="section-title">Manual Values</div>
           <div class="grid grid-2">
-            ${this._renderNumberField("Manual Output", "manual_out", manual_out)}
-            ${this._renderNumberField("Manual Setpoint", "manual_sp", manual_sp)}
+            ${this._renderNumberField("Manual Output", "manual_out", manual_out, {
+              step: "0.1",
+            })}
+            ${this._renderNumberField("Manual Setpoint", "manual_sp", manual_sp, {
+              step: "0.1",
+            })}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">PID Tuning</div>
-          <div class="grid grid-2">
+          <div class="grid grid-3">
             ${this._renderNumberField("Kp", "kp", kp, { step: "0.1" })}
             ${this._renderNumberField("Ki", "ki", ki, { step: "0.01" })}
             ${this._renderNumberField("Kd", "kd", kd, { step: "0.1" })}
@@ -1359,30 +1399,37 @@ class PIDControllerPopup extends LitElement {
         <div class="section">
           <div class="section-title">Output Limits</div>
           <div class="grid grid-2">
-            ${this._renderNumberField("Min Output", "min_output", min_output)}
-            ${this._renderNumberField("Max Output", "max_output", max_output)}
+            ${this._renderNumberField("Min Output", "min_output", min_output, {
+              step: "0.1",
+            })}
+            ${this._renderNumberField("Max Output", "max_output", max_output, {
+              step: "0.1",
+            })}
           </div>
         </div>
 
         <div class="section">
           <div class="section-title">Limiters</div>
-          <div class="grid grid-2">
+          <div class="grid grid-3">
             ${this._renderSwitch(
               "Grid Limiter",
               grid_limiter_enabled,
               this._onGridLimiterChanged
             )}
             ${this._renderNumberField(
-              "Grid Limiter Limit",
+              "Grid Limit",
               "grid_limiter_limit",
-              grid_limiter_limit
+              grid_limiter_limit,
+              { step: "1" }
             )}
             ${this._renderSwitch(
               "Rate Limiter",
               rate_limiter_enabled,
               this._onRateLimiterChanged
             )}
-            ${this._renderNumberField("Rate Limit", "rate_limit", rate_limit)}
+            ${this._renderNumberField("Rate Limit", "rate_limit", rate_limit, {
+              step: "0.1",
+            })}
           </div>
         </div>
 

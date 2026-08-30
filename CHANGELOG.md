@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2
+
+### Fixed
+- Popup editor: number fields show rounded values (e.g. Manual Output `9.0` instead of full float from HA)
+- Popup editor: smaller dialog (680px), tighter layout, no duplicate title when opened from the mini card
+
 ## 1.1.1
 
 ### Fixed
