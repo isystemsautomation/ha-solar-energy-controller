@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.8
+
+### Changed
+- Lovelace loads **bundled** card scripts (`*.bundled.js`) — one file per card, fewer stale partial caches (Opera/Firefox)
+- Integration removes legacy unbundled resource URLs on reload
+
 ## 1.1.7
 
 ### Fixed

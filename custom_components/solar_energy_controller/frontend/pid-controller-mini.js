@@ -491,7 +491,7 @@ class PIDControllerMini extends LitElement {
       return true;
     }
 
-    await import(`./pid-controller-popup.js${MODULE_VERSION_QUERY}`);
+    await import(`/solar_energy_controller/frontend/pid-controller-popup.bundled.js${MODULE_VERSION_QUERY}`);
     await customElements.whenDefined("pid-controller-popup");
     await ensureHaComponents();
     return true;

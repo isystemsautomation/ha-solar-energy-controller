@@ -56,7 +56,7 @@ async def test_registers_missing_modules(
     assert mock_lovelace_resources.async_create_item.await_count == 2
     first_call = mock_lovelace_resources.async_create_item.await_args_list[0].args[0]
     assert first_call["res_type"] == "module"
-    assert first_call["url"] == f"{URL_BASE}/pid-controller-mini.js?v=1.0.17"
+    assert first_call["url"] == f"{URL_BASE}/pid-controller-mini.bundled.js?v=1.0.17"
 
 
 async def test_updates_stale_module_version(
@@ -65,11 +65,11 @@ async def test_updates_stale_module_version(
     mock_lovelace_resources.async_items.return_value = [
         {
             "id": "abc",
-            "url": f"{URL_BASE}/pid-controller-mini.js?v=1.0.0",
+            "url": f"{URL_BASE}/pid-controller-mini.bundled.js?v=1.0.0",
         },
         {
             "id": "def",
-            "url": f"{URL_BASE}/pid-controller-popup.js?v=1.0.0",
+            "url": f"{URL_BASE}/pid-controller-popup.bundled.js?v=1.0.0",
         },
     ]
 
@@ -79,6 +79,32 @@ async def test_updates_stale_module_version(
     assert result is True
     mock_lovelace_resources.async_create_item.assert_not_called()
     assert mock_lovelace_resources.async_update_item.await_count == 2
+
+
+async def test_removes_legacy_module_resources(
+    mock_hass, mock_lovelace_resources, mock_integration_version
+):
+    mock_lovelace_resources.async_items.return_value = [
+        {
+            "id": "legacy-mini",
+            "url": f"{URL_BASE}/pid-controller-mini.js?v=1.0.17",
+        },
+        {
+            "id": "legacy-popup",
+            "url": f"{URL_BASE}/pid-controller-popup.js?v=1.0.17",
+        },
+    ]
+    mock_lovelace_resources.async_delete_item = AsyncMock()
+
+    registrar = JSModuleRegistration(mock_hass)
+    result = await registrar.async_register()
+
+    assert result is True
+    assert mock_lovelace_resources.async_create_item.await_count == 2
+    deleted_ids = {
+        call.args[0] for call in mock_lovelace_resources.async_delete_item.await_args_list
+    }
+    assert deleted_ids == {"legacy-mini", "legacy-popup"}
 
 
 async def test_unregister_removes_only_our_resources(mock_hass, mock_lovelace_resources):

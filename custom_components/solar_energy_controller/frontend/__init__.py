@@ -17,8 +17,12 @@ _LOGGER = logging.getLogger(__name__)
 
 URL_BASE = f"/{DOMAIN}/frontend"
 JSMODULES = (
-    {"name": "PID Controller Mini", "filename": "pid-controller-mini.js"},
-    {"name": "PID Controller Popup", "filename": "pid-controller-popup.js"},
+    {"name": "PID Controller Mini", "filename": "pid-controller-mini.bundled.js"},
+    {"name": "PID Controller Popup", "filename": "pid-controller-popup.bundled.js"},
+)
+LEGACY_JS_FILENAMES = (
+    "pid-controller-mini.js",
+    "pid-controller-popup.js",
 )
 
 _REGISTER_LOCK = asyncio.Lock()
@@ -138,6 +142,8 @@ class JSModuleRegistration:
                         "Failed to update Lovelace resource %s: %s", target_url, err
                     )
 
+        await self._async_remove_legacy_resources(resources_api, existing)
+
         if registered or updated:
             _LOGGER.info(
                 "Solar Energy Controller Lovelace resources ready "
@@ -165,11 +171,39 @@ class JSModuleRegistration:
         return False
 
     def _resources_complete(self, existing: list[dict[str, Any]]) -> bool:
-        paths = {_url_path(item["url"]) for item in existing}
         required = {f"{URL_BASE}/{module['filename']}" for module in JSMODULES}
-        if paths != required:
-            return False
-        return all(_url_version(item["url"]) == self._version for item in existing)
+        by_path = {_url_path(item["url"]): item for item in existing if isinstance(item, dict)}
+        for path in required:
+            item = by_path.get(path)
+            if item is None or _url_version(item["url"]) != self._version:
+                return False
+        return True
+
+    async def _async_remove_legacy_resources(
+        self, resources_api: Any, existing: list[dict[str, Any]]
+    ) -> None:
+        for item in existing:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url", "")
+            if not url.startswith(URL_BASE):
+                continue
+            basename = _url_path(url).rsplit("/", 1)[-1]
+            if basename not in LEGACY_JS_FILENAMES:
+                continue
+            try:
+                await resources_api.async_delete_item(item["id"])
+                _LOGGER.info("Removed legacy Lovelace resource %s", url)
+            except (
+                OSError,
+                RuntimeError,
+                AttributeError,
+                TypeError,
+                ValueError,
+                KeyError,
+                HomeAssistantError,
+            ) as err:
+                _LOGGER.warning("Failed to remove legacy Lovelace resource %s: %s", url, err)
 
 
 def _schedule_retry(hass: HomeAssistant, attempt: int) -> None:

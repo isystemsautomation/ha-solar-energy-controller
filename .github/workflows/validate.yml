@@ -24,6 +24,7 @@ jobs:
       - name: JavaScript tests
         run: |
           set -euo pipefail
+          bash tools/bundle-frontend.sh
           files=(tests/js/*.test.mjs)
           if [ ! -e "${files[0]}" ]; then
             echo "::error::No JS test files matched tests/js/*.test.mjs"
