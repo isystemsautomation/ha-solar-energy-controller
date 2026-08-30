@@ -144,16 +144,22 @@ If you don't have HACS installed yet:
 
 ### Installation Steps
 
-1. In HACS, go to **Integrations → ⋮ → Custom repositories**
-2. Add this repository URL: `https://github.com/isystemsautomation/hm-solar-energy-controller` and select **Integration** as the category
-3. Click **Add** and wait for the repository to be added
-4. Search for **Solar Energy Controller** in HACS
-5. Click **Download** to install the integration
-6. Restart Home Assistant
-7. Go to **Settings → Devices & Services → Add Integration**
-8. Search for **Solar Energy Controller** and follow the setup wizard
+**Default store (after [hacs/default#10476](https://github.com/hacs/default/pull/10476) is merged):**
 
-> **HACS default store:** This integration is installed as a **custom repository** (step 1–2 above). Inclusion in the official HACS default catalog is a separate GitHub PR to [hacs/default](https://github.com/hacs/default); the integration itself is ready for that process.
+1. In HACS, go to **Integrations**
+2. Search for **Solar Energy Controller**
+3. Click **Download** to install the integration
+4. Restart Home Assistant
+5. Go to **Settings → Devices & Services → Add Integration**
+6. Search for **Solar Energy Controller** and follow the setup wizard
+
+**Until the default-store PR is merged**, add the repository once as a custom integration:
+
+1. In HACS, go to **Integrations → ⋮ → Custom repositories**
+2. Add `https://github.com/isystemsautomation/hm-solar-energy-controller` with category **Integration**
+3. Search for **Solar Energy Controller** in HACS, **Download**, restart Home Assistant, then add the integration under **Settings → Devices & Services**
+
+> **HACS default submission:** [PR #10476](https://github.com/hacs/default/pull/10476) is open. Review in the default backlog can take weeks or months; the custom-repository path above works today.
 
 ---
 
