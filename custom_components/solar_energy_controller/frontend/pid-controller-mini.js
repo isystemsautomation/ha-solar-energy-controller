@@ -3,6 +3,7 @@ const MODULE_VERSION_QUERY = new URL(import.meta.url).search;
 import { LitElement, html, css } from "./lit-core.min.js";
 import { normalizeRuntimeMode, runtimeModeLabel } from "./runtime-modes.js";
 import { ensureHaComponents } from "./ha-components.js";
+import { validatePidCardConfig } from "./card-config.js";
 import {
   fetchHistory,
   formatValue,
@@ -130,11 +131,30 @@ class PIDControllerMini extends LitElement {
       outline: 2px solid var(--primary-color);
       outline-offset: 2px;
     }
+
+    .config-error {
+      padding: 16px;
+      color: var(--error-color, #db4437);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .config-error-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .config-error-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
   `;
 
   constructor() {
     super();
     this._data = {};
+    this._configError = null;
     this._canvas = null;
     this._chart = null;
     this._graphInFlight = false;
@@ -143,9 +163,14 @@ class PIDControllerMini extends LitElement {
   }
 
   setConfig(config) {
-    if (!config.pid_entity) {
-      throw new Error("pid_entity is required");
+    const validation = validatePidCardConfig(config);
+    if (!validation.ok) {
+      this._configError = validation.error;
+      this.config = null;
+      return;
     }
+
+    this._configError = null;
     this.config = {
       title: "PID Controller",
       show_status: true,
@@ -156,6 +181,7 @@ class PIDControllerMini extends LitElement {
       show_output: true,
       show_chart: true,
       ...config,
+      pid_entity: validation.pid_entity,
     };
   }
 
@@ -243,6 +269,9 @@ class PIDControllerMini extends LitElement {
   }
 
   updated(changedProperties) {
+    if (!this.config || this._configError) {
+      return;
+    }
     if (changedProperties.has("hass") || changedProperties.has("config")) {
       this._updateData();
       if (this.config.show_chart) {
@@ -255,11 +284,16 @@ class PIDControllerMini extends LitElement {
   }
 
   async firstUpdated() {
-    if (this.config.show_chart) {
+    if (!this.config?.show_chart) {
+      return;
+    }
+    try {
       await loadChartJS(MODULE_VERSION_QUERY);
       if (!this.isConnected) return;
       setTimeout(() => this._updateGraph(), 200);
       this._graphInterval = setInterval(() => this._updateGraph(), 30000);
+    } catch (err) {
+      console.error("Solar Energy Controller: chart setup failed", err);
     }
   }
 
@@ -314,7 +348,12 @@ class PIDControllerMini extends LitElement {
     const ctx = this._canvas.getContext("2d");
     const entityIds = getEntityIds(this.hass, this.config?.pid_entity);
     const meta = buildChartMeta(this.hass, entityIds);
-    this._chart = new window.Chart(ctx, createHistoryLineChartConfig(meta));
+    try {
+      this._chart = new window.Chart(ctx, createHistoryLineChartConfig(meta));
+    } catch (err) {
+      console.error("Solar Energy Controller: Chart.js init failed", err);
+      return;
+    }
 
     // Setup resize observer
     if (!this._resizeObserver) {
@@ -588,6 +627,22 @@ class PIDControllerMini extends LitElement {
   }
 
   render() {
+    if (this._configError) {
+      return html`
+        <ha-card>
+          <div class="config-error">
+            <div class="config-error-title">PID Controller Mini</div>
+            ${this._configError}
+            <div class="config-error-hint">
+              Edit the card and set pid_entity to your Solar Energy Controller status sensor
+              (sensor.&lt;name&gt;_status). If the card worked before an update, reload the
+              integration and hard-refresh the dashboard (Ctrl+F5).
+            </div>
+          </div>
+        </ha-card>
+      `;
+    }
+
     if (!this.hass || !this.config) {
       return html``;
     }

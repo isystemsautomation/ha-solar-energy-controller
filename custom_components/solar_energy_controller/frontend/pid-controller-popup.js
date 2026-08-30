@@ -9,6 +9,7 @@ import {
   runtimeModeLabel,
 } from "./runtime-modes.js";
 import { ensureHaComponents } from "./ha-components.js";
+import { validatePidCardConfig } from "./card-config.js";
 import {
   fetchHistory,
   formatValue,
@@ -184,6 +185,13 @@ class PIDControllerPopup extends LitElement {
       word-break: break-word;
     }
 
+    .config-error {
+      padding: 16px;
+      color: var(--error-color, #db4437);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
   `;
 
   constructor() {
@@ -202,6 +210,7 @@ class PIDControllerPopup extends LitElement {
     this._graphInFlight = false;
     this._graphUpdateTimeout = null;
     this._chartCaption = "";
+    this._configError = null;
   }
 
   async connectedCallback() {
@@ -404,10 +413,15 @@ class PIDControllerPopup extends LitElement {
 
 
   setConfig(config) {
-    if (!config.pid_entity) {
-      throw new Error("pid_entity is required");
+    const validation = validatePidCardConfig(config);
+    if (!validation.ok) {
+      this._configError = validation.error;
+      this.config = null;
+      return;
     }
-    this.config = config;
+
+    this._configError = null;
+    this.config = { ...config, pid_entity: validation.pid_entity };
   }
 
   getCardSize() {
@@ -1245,6 +1259,14 @@ class PIDControllerPopup extends LitElement {
   }
 
   render() {
+    if (this._configError) {
+      return html`
+        <ha-card>
+          <div class="config-error">${this._configError}</div>
+        </ha-card>
+      `;
+    }
+
     if (!this.hass || !this.config) {
       return html``;
     }

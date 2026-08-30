@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.6
+
+### Fixed
+- PID cards no longer show a generic Lovelace **Configuration error** when `pid_entity` is missing — the card explains what to fix
+- Chart axis title font weight uses a numeric value for Chart.js compatibility
+- Chart/graph setup errors are caught so a failed graph does not break the whole card
+
 ## 1.1.5
 
 ### Changed
